@@ -1,9 +1,9 @@
 {-# Language OverloadedStrings #-}
-import Shellish
+import Shelly
 
 main :: IO ()
 main =
-  shellish $ do
+  shelly $ do
     res <- run "test/drain.sh" []
     echo "haskell done"
     echo res

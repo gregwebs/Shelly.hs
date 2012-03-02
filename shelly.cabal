@@ -1,0 +1,47 @@
+Name:       shelly
+
+Version:     0.3.0
+Synopsis:    shell-like (systems) programming in Haskell
+
+Description: Shelly is a package provides a single module for convenient
+             systems programming in Haskell, similar in spirit to POSIX
+             shells.
+             .
+               * Shelly is aimed at getting things done rather than
+                 being a demonstration of elegance.
+             .
+               * Shelly maintains its own environment, making it thread-safe.
+             .
+             These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
+             If you frequently want a different data type than Text from running a system command, you may want to use HSH.
+             .
+             Shelly is a fork of Shellish that features low memory usage and fixes a handle draining bug.
+
+Homepage:            http://github.com/gregwebs/shelly
+License:             BSD3
+License-file:        LICENSE
+Author:              Petr Rockai, Greg Weber
+Maintainer:          Greg Weber <greg@gregweber.info>
+Category:            Development
+Build-type:          Simple
+Cabal-version:       >=1.6
+
+-- Extra-source-files:
+
+Library
+  -- Modules exported by the library.
+  Exposed-modules:     Shelly
+
+  Build-depends: mtl, process, filepath, bytestring, text, base >= 4 && < 5, time, directory,
+                 unix-compat
+
+  ghc-options: -Werror -Wall
+
+-- demonstarated that command output in Shellish was not shown until after the command finished
+-- not necessary anymore
+-- Executable drain
+--  main-is: test/drain.hs
+
+source-repository head
+  type:     darcs
+  location: http://repos.mornfall.net/shelly

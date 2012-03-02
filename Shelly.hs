@@ -6,10 +6,10 @@
 -- this module is (unlike standard Haskell filesystem functionality)
 -- thread-safe: each ShIO maintains its own environment and its own working
 -- directory.
-module Shellish
+module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shellish, sub, silently, verbosely
+         ShIO, shelly, sub, silently, verbosely
 
          -- * Modifying and querying environment.
          , setenv, getenv, cd, chdir, pwd
@@ -284,8 +284,8 @@ sub a = do
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running ShIO.
-shellish :: MonadIO m => ShIO a -> m a
-shellish a = do
+shelly :: MonadIO m => ShIO a -> m a
+shelly a = do
   env <- liftIO $ getEnvironment
   dir <- liftIO $ getCurrentDirectory
   let def   = St { sCode = 0
