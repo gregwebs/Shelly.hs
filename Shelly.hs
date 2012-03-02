@@ -59,6 +59,7 @@ import qualified Data.Text.IO as STIO
 import System.Process( runInteractiveProcess, waitForProcess, ProcessHandle )
 
 import qualified Data.Text.Lazy as LT
+import Data.Text.Lazy (Text)
 import Data.Text.Lazy.Builder (Builder, fromText, singleton, fromLazyText, toLazyText)
 import Data.Monoid (mappend)
 
@@ -91,7 +92,7 @@ data St = St { sCode :: Int
              , sStderr :: LT.Text
              , sDirectory :: FilePath
              , sVerbose :: Bool
-             , sRun :: String -> [String] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+             , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
              , sEnvironment :: [(String, String)] }
 
 type ShIO a = ReaderT (IORef St) IO a
@@ -108,10 +109,13 @@ modify f = ask >>= liftIO . flip modifyIORef f
 gets :: (St -> a) -> ShIO a
 gets f = f <$> get
 
-runInteractiveProcess' :: FilePath -> [String] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
 runInteractiveProcess' cmd args = do
   st <- get
-  liftIO $ runInteractiveProcess cmd args (Just $ sDirectory st) (Just $ sEnvironment st)
+  liftIO $ runInteractiveProcess cmd
+    (map LT.unpack args)
+    (Just $ sDirectory st)
+    (Just $ sEnvironment st)
 
 -- | A helper to catch any exception (same as
 -- @... `catch` \(e :: SomeException) -> ...@).
@@ -159,12 +163,12 @@ mv a b = do a' <- path a
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
-ls :: FilePath -> ShIO [String]
+ls :: FilePath -> ShIO [FilePath]
 ls dir = do dir' <- path dir
             liftIO $ filter (`notElem` [".", ".."]) <$> getDirectoryContents dir'
 
 -- | List directory recursively (like the POSIX utility "find").
-find :: FilePath -> ShIO [String]
+find :: FilePath -> ShIO [FilePath]
 find dir = do bits <- ls dir
               subDir <- forM bits $ \x -> do
                 ex <- test_d $ dir </> x
@@ -174,15 +178,15 @@ find dir = do bits <- ls dir
               return $ map (dir </>) bits ++ concat subDir
 
 -- | Obtain the current (ShIO) working directory.
-pwd :: ShIO String
+pwd :: ShIO FilePath
 pwd = gets sDirectory
 
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: LT.Text -> ShIO ()
-echo = liftIO . TIO.putStrLn
-echo_n = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
-echo_err = liftIO . TIO.hPutStrLn stderr
+echo       = liftIO . TIO.putStrLn
+echo_n     = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
+echo_err   = liftIO . TIO.hPutStrLn stderr
 echo_n_err = liftIO . (>> hFlush stderr) . TIO.hPutStr stderr
 
 -- | Create a new directory (fails if the directory exists).
@@ -197,7 +201,7 @@ mkdir_p = path >=> liftIO . createDirectoryIfMissing True
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
 -- environment.
-which :: String -> ShIO (Maybe FilePath)
+which :: FilePath -> ShIO (Maybe FilePath)
 which = liftIO . findExecutable
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
@@ -307,7 +311,7 @@ instance Exception RunFailed
 
 
 -- | An infix shorthand for "run". Write @\"command\" # [ \"argument\" ... ]@.
-(#) :: String -> [String] -> ShIO LT.Text
+(#) :: FilePath -> [Text] -> ShIO LT.Text
 cmd # args = run cmd args
 
 -- | Execute an external command. Takes the command name (no shell allowed,
@@ -321,7 +325,7 @@ cmd # args = run cmd args
 -- All of the stdout output will be loaded into memory
 -- You can avoid this but still consume the result by using "run'",
 -- or if you need to process the output than "runFoldLines"
-run :: String -> [String] -> ShIO LT.Text
+run :: FilePath -> [Text] -> ShIO LT.Text
 run cmd args = fmap toLazyText $ runFoldLines (fromText "") foldBuilder  cmd args
 
 foldBuilder :: (Builder, LT.Text) -> Builder
@@ -330,23 +334,23 @@ foldBuilder = (\(b, line) -> b `mappend` fromLazyText line `mappend` singleton '
 
 -- | bind some arguments to run for re-use
 -- Example: @monit = command "monit" ["-c", ".monitrc"]@
-command :: String -> [String] -> [String] -> ShIO LT.Text
+command :: FilePath -> [Text] -> [Text] -> ShIO LT.Text
 command com args more_args = run com (args ++ more_args)
 
 -- | bind some arguments to run' for re-use
 -- Example: @monit = command' "monit" ["-c", ".monitrc"]@
-command' :: String -> [String] -> [String] -> ShIO ()
+command' :: FilePath -> [Text] -> [Text] -> ShIO ()
 command' com args more_args = run' com (args ++ more_args)
 
 -- the same as "run", but return () instead of the stdout content
-run' :: String -> [String] -> ShIO ()
+run' :: FilePath -> [Text] -> ShIO ()
 run' cmd args = runFoldLines () (\(_, _) -> ()) cmd args
 
 liftIO' :: IO a -> ShIO ()
 liftIO' action = liftIO action >> return ()
 -- same as 'run', but fold over stdout as it is read to avoid keeping it in memory
 -- stderr is still placed in memory (this could be changed in the future)
-runFoldLines :: a -> FoldCallback a -> String -> [String] -> ShIO a
+runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
 runFoldLines start cb cmd args = do
     st <- get
     (_,outH,errH,procH) <- (sRun st) cmd args
