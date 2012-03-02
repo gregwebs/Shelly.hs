@@ -15,13 +15,13 @@ module Shelly
          , setenv, getenv, cd, chdir, pwd
 
          -- * Printing & stuff.
-         , echo, echo_n, echo_err, echo_n_err
+         , echo, echo_n, echo_err, echo_n_err, inspect
 
          -- * Querying filesystem.
          , ls, test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , dirname
+         , dirname, path
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -188,6 +188,10 @@ echo       = liftIO . TIO.putStrLn
 echo_n     = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
 echo_err   = liftIO . TIO.hPutStrLn stderr
 echo_n_err = liftIO . (>> hFlush stderr) . TIO.hPutStr stderr
+
+-- | a print lifted into ShIO
+inspect :: (Show s) => s -> ShIO ()
+inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
