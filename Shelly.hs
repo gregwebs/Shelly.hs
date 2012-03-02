@@ -21,7 +21,7 @@ module Shelly
          , ls, test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , dirname, path
+         , dirname, path, fullPath
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -134,7 +134,7 @@ catch_sh a h = do ref <- ask
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> ShIO ()
-cd dir = do dir' <- path dir
+cd dir = do dir' <- fullPath dir
             modify $ \st -> st { sDirectory = dir' }
 
 -- | "cd", execute a ShIO action in the new directory and then pop back to the original directory
@@ -146,9 +146,14 @@ chdir dir action = do
   cd d
   return r
 
+-- | makes a normalized absolute path
 path :: FilePath -> ShIO FilePath
-path p | isRelative p = (</> p) <$> gets sDirectory
-       | otherwise = return p
+path = fmap normalise . fullPath
+
+-- | makes an absolute path. @path@ will also normalize
+fullPath :: FilePath -> ShIO FilePath
+fullPath p | isRelative p = (</> p) <$> gets sDirectory
+           | otherwise = return p
 
 -- | look for unix directory separator '/', don't check for escaping
 dirname :: FilePath -> FilePath
@@ -157,14 +162,14 @@ dirname = reverse . dropWhile (/= '/') . reverse
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
 mv :: FilePath -> FilePath -> ShIO ()
-mv a b = do a' <- path a
-            b' <- path b
+mv a b = do a' <- fullPath a
+            b' <- fullPath b
             liftIO $ renameFile a' b'
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls dir = do dir' <- path dir
+ls dir = do dir' <- fullPath dir
             liftIO $ filter (`notElem` [".", ".."]) <$> getDirectoryContents dir'
 
 -- | List directory recursively (like the POSIX utility "find").
@@ -195,12 +200,12 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = path >=> liftIO . createDirectory
+mkdir = fullPath >=> liftIO . createDirectory
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = path >=> liftIO . createDirectoryIfMissing True
+mkdir_p = fullPath >=> liftIO . createDirectoryIfMissing True
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
@@ -211,7 +216,7 @@ which = liftIO . findExecutable
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
 -- "canonicalizePath" in System.FilePath.
 canonic :: FilePath -> ShIO FilePath
-canonic = path >=> liftIO . canonicalizePath
+canonic = fullPath >=> liftIO . canonicalizePath
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
@@ -220,7 +225,7 @@ whenM c a = do res <- c
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
-test_e f = do f' <- path f
+test_e f = do f' <- fullPath f
               liftIO $ do
                 dir <- doesDirectoryExist f'
                 file <- doesFileExist f'
@@ -228,15 +233,15 @@ test_e f = do f' <- path f
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> ShIO Bool
-test_f = path >=> liftIO . doesFileExist
+test_f = fullPath >=> liftIO . doesFileExist
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> ShIO Bool
-test_d = path >=> liftIO . doesDirectoryExist
+test_d = fullPath >=> liftIO . doesDirectoryExist
 
 -- | Does a path point to a symlink?
 test_s :: FilePath -> ShIO Bool
-test_s = path >=> liftIO . \f -> do
+test_s = fullPath >=> liftIO . \f -> do
   stat <- getSymbolicLinkStatus f
   return $ isSymbolicLink stat
 
@@ -244,7 +249,7 @@ test_s = path >=> liftIO . \f -> do
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
 rm_rf :: FilePath -> ShIO ()
-rm_rf f = path f >>= \f' -> do
+rm_rf f = fullPath f >>= \f' -> do
   whenM (test_d f) $ do
     _<- find f' >>= mapM (\file -> liftIO' $ fixPermissions file `catchany` \_ -> return ())
     liftIO' $ removeDirectoryRecursive f'
@@ -257,7 +262,7 @@ rm_rf f = path f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = path f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile f'
+rm_f f = fullPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile f'
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -429,8 +434,8 @@ cp_r from to = do
 -- original file name is used, in that directory.
 cp :: FilePath -> FilePath -> ShIO ()
 cp from to = do
-  from' <- path from
-  to' <- path to
+  from' <- fullPath from
+  to' <- fullPath to
   to_dir <- test_d to
   liftIO $ copyFile from' (if to_dir then to' </> takeFileName from else to')
 
@@ -471,14 +476,14 @@ withTmpDir act = do
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> LT.Text -> ShIO ()
-writefile f bits = path f >>= \f' -> liftIO (TIO.writeFile f' bits)
+writefile f bits = fullPath f >>= \f' -> liftIO (TIO.writeFile f' bits)
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> LT.Text -> ShIO ()
-appendfile f bits = path f >>= \f' -> liftIO (TIO.appendFile f' bits)
+appendfile f bits = fullPath f >>= \f' -> liftIO (TIO.appendFile f' bits)
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO LT.Text
-readfile = path >=> liftIO . fmap LT.fromStrict . STIO.readFile
+readfile = fullPath >=> liftIO . fmap LT.fromStrict . STIO.readFile
