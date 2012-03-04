@@ -30,7 +30,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, (#), run', command, command', lastStderr
+         , run, (#), run_, command, command_, lastStderr
 
          -- * Utilities.
          , (</>), (<.>), (<$>), (<$$>), grep, whenM, canonic
@@ -280,8 +280,8 @@ test_s = fullPath >=> liftIO . \f -> do
 rm_rf :: FilePath -> ShIO ()
 rm_rf f = fullPath f >>= \f' -> do
   whenM (test_d f) $ do
-    _<- find f' >>= mapM (\file -> liftIO' $ fixPermissions (unpack file) `catchany` \_ -> return ())
-    liftIO' $ removeDirectoryRecursive (unpack f')
+    _<- find f' >>= mapM (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
+    liftIO_ $ removeDirectoryRecursive (unpack f')
   whenM (test_f f) $ rm_f f'
   where fixPermissions file =
           do permissions <- liftIO $ getPermissions file
@@ -375,18 +375,19 @@ foldBuilder = (\(b, line) -> b `mappend` fromLazyText line `mappend` singleton '
 command :: FilePath -> [Text] -> [Text] -> ShIO LT.Text
 command com args more_args = run com (args ++ more_args)
 
--- | bind some arguments to run' for re-use
+-- | bind some arguments to "run_" for re-use
 -- Example: @monit = command' "monit" ["-c", ".monitrc"]@
-command' :: FilePath -> [Text] -> [Text] -> ShIO ()
-command' com args more_args = run' com (args ++ more_args)
+command_ :: FilePath -> [Text] -> [Text] -> ShIO ()
+command_ com args more_args = run_ com (args ++ more_args)
 
 -- the same as "run", but return () instead of the stdout content
-run' :: FilePath -> [Text] -> ShIO ()
-run' cmd args = runFoldLines () (\(_, _) -> ()) cmd args
+run_ :: FilePath -> [Text] -> ShIO ()
+run_ cmd args = runFoldLines () (\(_, _) -> ()) cmd args
 
-liftIO' :: IO a -> ShIO ()
-liftIO' action = liftIO action >> return ()
--- same as 'run', but fold over stdout as it is read to avoid keeping it in memory
+liftIO_ :: IO a -> ShIO ()
+liftIO_ action = liftIO action >> return ()
+
+-- same as "run", but fold over stdout as it is read to avoid keeping it in memory
 -- stderr is still placed in memory (this could be changed in the future)
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
 runFoldLines start cb cmd args = do
@@ -397,11 +398,11 @@ runFoldLines start cb cmd args = do
     outV <- liftIO newEmptyMVar
     if sVerbose st
       then do
-        liftIO' $ forkIO $ printGetContent errH stderr >>= putMVar errV
-        liftIO' $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
+        liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
+        liftIO_ $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
       else do
-        liftIO' $ forkIO $ getContent errH >>= putMVar errV
-        liftIO' $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
+        liftIO_ $ forkIO $ getContent errH >>= putMVar errV
+        liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
 
     errs <- liftIO $ takeMVar errV
     outs <- liftIO $ takeMVar outV

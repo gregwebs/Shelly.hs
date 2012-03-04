@@ -14,3 +14,16 @@ Shelly uses Text instead of String, features low memory usage, and fixes a handl
 Note that Shelly uses Text *everywhere*, except for the environment variable settings.
 This includes exporting a FilePath that is Text.
 Using Text *everywhere* is for convenience so you don't have to convert between strings.
+
+# Usage
+
+~~~~~ {.haskell}
+    import Shelly
+    import Prelude hiding (FilePath)
+
+
+    monit = command_ "monit" ["-c", ".monitrc"]
+
+    main = shelly $ verbosely $ do
+      monit ["reload"]
+~~~~~
