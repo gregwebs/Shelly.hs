@@ -6,8 +6,11 @@ shells.
  being a demonstration of elegance.
 * Shelly maintains its own environment, making it thread-safe.
 
-These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
-If you frequently want a different data type than Text from running a system command, you may want to use HSH.
+These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output, but this requires type annotations.
+If you frequently want a different data type than Text when running a system command, you may want to use HSH.
 
 Shelly is a fork of Shellish for efficiency.
-It uses Text instead of String, features low memory usage, and fixes a handle draining bug.
+Shelly uses Text instead of String, features low memory usage, and fixes a handle draining bug.
+Note that Shelly uses Text *everywhere*, except for the environment variable settings.
+This includes exporting a FilePath that is Text.
+Using Text *everywhere* is for convenience so you don't have to convert between strings.

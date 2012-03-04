@@ -8,8 +8,10 @@
 -- directory.
 module Shelly
        (
+         -- * A Text version of FilePath, and convenience functions
+         FilePath, liftStringIO, asString
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely
+         , ShIO, shelly, sub, silently, verbosely
 
          -- * Modifying and querying environment.
          , setenv, getenv, cd, chdir, pwd
@@ -21,7 +23,7 @@ module Shelly
          , ls, test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , dirname, path, fullPath
+         , dirname, dirnameStr, path, fullPath
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -36,17 +38,18 @@ module Shelly
          , RunFailed(..)
          ) where
 
-import Prelude hiding ( catch, readFile )
+import Prelude hiding ( catch, readFile, FilePath )
 import Data.List( isInfixOf )
 import Data.Char( isAlphaNum )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
-import System.IO hiding ( readFile )
+import System.IO hiding ( readFile, FilePath )
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import System.Directory
 import System.Exit
-import System.FilePath
+import System.FilePath hiding (FilePath, (</>), (<.>))
+import qualified System.FilePath
 import System.Environment
 import Control.Applicative
 import Control.Exception hiding (handle)
@@ -62,6 +65,12 @@ import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
 import Data.Text.Lazy.Builder (Builder, fromText, singleton, fromLazyText, toLazyText)
 import Data.Monoid (mappend)
+
+type FilePath = Text
+
+(</>), (<.>) :: FilePath -> FilePath -> FilePath
+(</>) d = asString (unpack d System.FilePath.</>)
+(<.>) f = asString (unpack f System.FilePath.<.>)
 
 printGetContent :: Handle -> Handle -> IO LT.Text
 printGetContent rH wH =
@@ -112,9 +121,9 @@ gets f = f <$> get
 runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
 runInteractiveProcess' cmd args = do
   st <- get
-  liftIO $ runInteractiveProcess cmd
-    (map LT.unpack args)
-    (Just $ sDirectory st)
+  liftIO $ runInteractiveProcess (unpack cmd)
+    (map unpack args)
+    (Just $ unpack $ sDirectory st)
     (Just $ sEnvironment st)
 
 -- | A helper to catch any exception (same as
@@ -148,29 +157,48 @@ chdir dir action = do
 
 -- | makes a normalized absolute path
 path :: FilePath -> ShIO FilePath
-path = fmap normalise . fullPath
+path = fullPath >=> return . asString normalise
 
 -- | makes an absolute path. @path@ will also normalize
 fullPath :: FilePath -> ShIO FilePath
-fullPath p | isRelative p = (</> p) <$> gets sDirectory
+fullPath p | isRelative (unpack p) = (</> p) <$> gets sDirectory
            | otherwise = return p
+  
+-- | apply a String IO operations to a Text FilePath
+liftStringIO :: (String -> IO String) -> FilePath -> ShIO FilePath
+liftStringIO f = liftIO . f . unpack >=> return . pack
+
+-- | @asString f = pack . f . unpack@
+asString :: (String -> String) -> FilePath -> FilePath
+asString f = pack . f . unpack
+
+unpack :: FilePath -> String
+unpack = LT.unpack
+
+pack :: String -> FilePath
+pack = LT.pack
 
 -- | look for unix directory separator '/', don't check for escaping
 dirname :: FilePath -> FilePath
-dirname = reverse . dropWhile (/= '/') . reverse
+dirname = asString dirnameStr
+
+-- | String version of 'dirname'
+dirnameStr :: String -> String
+dirnameStr = reverse . dropWhile (/= '/') . reverse
 
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
 mv :: FilePath -> FilePath -> ShIO ()
 mv a b = do a' <- fullPath a
             b' <- fullPath b
-            liftIO $ renameFile a' b'
+            liftIO $ renameFile (unpack a') (unpack b')
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
 ls dir = do dir' <- fullPath dir
-            liftIO $ filter (`notElem` [".", ".."]) <$> getDirectoryContents dir'
+            contents <- liftIO $ getDirectoryContents (unpack dir')
+            return [pack c | c <- contents, c `notElem` [".", ".."] ]
 
 -- | List directory recursively (like the POSIX utility "find").
 find :: FilePath -> ShIO [FilePath]
@@ -200,23 +228,24 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = fullPath >=> liftIO . createDirectory
+mkdir = fullPath >=> liftIO . createDirectory . unpack
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = fullPath >=> liftIO . createDirectoryIfMissing True
+mkdir_p = fullPath >=> liftIO . createDirectoryIfMissing True . unpack
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
 -- environment.
 which :: FilePath -> ShIO (Maybe FilePath)
-which = liftIO . findExecutable
+which =
+  liftIO . findExecutable . unpack >=> return . fmap pack 
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
 -- "canonicalizePath" in System.FilePath.
 canonic :: FilePath -> ShIO FilePath
-canonic = fullPath >=> liftIO . canonicalizePath
+canonic = fullPath >=> liftStringIO canonicalizePath
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
@@ -225,24 +254,24 @@ whenM c a = do res <- c
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
-test_e f = do f' <- fullPath f
+test_e f = do fs <- fmap unpack $ fullPath f
               liftIO $ do
-                dir <- doesDirectoryExist f'
-                file <- doesFileExist f'
+                dir <- doesDirectoryExist fs
+                file <- doesFileExist fs
                 return $ file || dir
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> ShIO Bool
-test_f = fullPath >=> liftIO . doesFileExist
+test_f = fullPath >=> liftIO . doesFileExist . unpack
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> ShIO Bool
-test_d = fullPath >=> liftIO . doesDirectoryExist
+test_d = fullPath >=> liftIO . doesDirectoryExist . unpack
 
 -- | Does a path point to a symlink?
 test_s :: FilePath -> ShIO Bool
 test_s = fullPath >=> liftIO . \f -> do
-  stat <- getSymbolicLinkStatus f
+  stat <- getSymbolicLinkStatus (unpack f)
   return $ isSymbolicLink stat
 
 -- | A swiss army cannon for removing things. Actually this goes farther than a
@@ -251,8 +280,8 @@ test_s = fullPath >=> liftIO . \f -> do
 rm_rf :: FilePath -> ShIO ()
 rm_rf f = fullPath f >>= \f' -> do
   whenM (test_d f) $ do
-    _<- find f' >>= mapM (\file -> liftIO' $ fixPermissions file `catchany` \_ -> return ())
-    liftIO' $ removeDirectoryRecursive f'
+    _<- find f' >>= mapM (\file -> liftIO' $ fixPermissions (unpack file) `catchany` \_ -> return ())
+    liftIO' $ removeDirectoryRecursive (unpack f')
   whenM (test_f f) $ rm_f f'
   where fixPermissions file =
           do permissions <- liftIO $ getPermissions file
@@ -262,7 +291,7 @@ rm_rf f = fullPath f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = fullPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile f'
+rm_f f = fullPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile (unpack f')
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -306,7 +335,7 @@ shelly a = do
                  , sVerbose = True
                  , sRun = runInteractiveProcess'
                  , sEnvironment = env
-                 , sDirectory = dir }
+                 , sDirectory = pack dir }
   stref <- liftIO $ newIORef def
   liftIO $ runReaderT a stref
 
@@ -314,7 +343,7 @@ data RunFailed = RunFailed String Int LT.Text deriving (Typeable)
 
 instance Show RunFailed where
   show (RunFailed cmd code errs) =
-    "error running " ++ cmd ++ ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
+    "error running " ++ cmd ++ ": exit status " ++ show code ++ ":\n" ++ unpack errs
 
 instance Exception RunFailed
 
@@ -335,7 +364,7 @@ cmd # args = run cmd args
 -- You can avoid this but still consume the result by using "run'",
 -- or if you need to process the output than "runFoldLines"
 run :: FilePath -> [Text] -> ShIO LT.Text
-run cmd args = fmap toLazyText $ runFoldLines (fromText "") foldBuilder  cmd args
+run cmd args = fmap toLazyText $ runFoldLines (fromText "") foldBuilder cmd args
 
 foldBuilder :: (Builder, LT.Text) -> Builder
 foldBuilder = (\(b, line) -> b `mappend` fromLazyText line `mappend` singleton '\n')
@@ -385,7 +414,7 @@ runFoldLines start cb cmd args = do
         return ()
       ExitFailure n -> do
         modify $ \x -> x { sCode = n }
-        throw $ RunFailed (cmd ++ " " ++ show args) n errs
+        throw $ RunFailed (unpack cmd ++ " " ++ show args) n errs
     return $ outs
 
 -- | The output of last external command. See "run".
@@ -437,7 +466,7 @@ cp from to = do
   from' <- fullPath from
   to' <- fullPath to
   to_dir <- test_d to
-  liftIO $ copyFile from' (if to_dir then to' </> takeFileName from else to')
+  liftIO $ copyFile (unpack from') $ unpack (if to_dir then to' </> asString takeFileName from else to')
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
@@ -466,7 +495,8 @@ withTmpDir :: (FilePath -> ShIO a) -> ShIO a
 withTmpDir act = do
   dir <- liftIO $ getTemporaryDirectory
   tid <- liftIO $ myThreadId
-  (p, handle) <- liftIO $ openTempFile dir ("tmp"++filter isAlphaNum (show tid))
+  (pS, handle) <- liftIO $ openTempFile dir ("tmp"++filter isAlphaNum (show tid))
+  let p = pack pS
   liftIO $ hClose handle -- required on windows
   rm_f p
   mkdir p
@@ -476,14 +506,15 @@ withTmpDir act = do
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> LT.Text -> ShIO ()
-writefile f bits = fullPath f >>= \f' -> liftIO (TIO.writeFile f' bits)
+writefile f bits = fullPath f >>= \f' -> liftIO (TIO.writeFile (unpack f') bits)
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> LT.Text -> ShIO ()
-appendfile f bits = fullPath f >>= \f' -> liftIO (TIO.appendFile f' bits)
+appendfile f bits = fullPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits)
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO LT.Text
-readfile = fullPath >=> liftIO . fmap LT.fromStrict . STIO.readFile
+readfile =
+  fullPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . LT.unpack
