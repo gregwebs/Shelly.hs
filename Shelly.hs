@@ -23,7 +23,7 @@ module Shelly
          , ls, test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , dirname, dirnameStr, path, fullPath
+         , dirname, dirnameStr, path, absPath
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -143,7 +143,7 @@ catch_sh a h = do ref <- ask
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> ShIO ()
-cd dir = do dir' <- fullPath dir
+cd dir = do dir' <- absPath dir
             modify $ \st -> st { sDirectory = dir' }
 
 -- | "cd", execute a ShIO action in the new directory and then pop back to the original directory
@@ -157,11 +157,11 @@ chdir dir action = do
 
 -- | makes a normalized absolute path
 path :: FilePath -> ShIO FilePath
-path = fullPath >=> return . asString normalise
+path = absPath >=> return . asString normalise
 
 -- | makes an absolute path. @path@ will also normalize
-fullPath :: FilePath -> ShIO FilePath
-fullPath p | isRelative (unpack p) = (</> p) <$> gets sDirectory
+absPath :: FilePath -> ShIO FilePath
+absPath p | isRelative (unpack p) = (</> p) <$> gets sDirectory
            | otherwise = return p
   
 -- | apply a String IO operations to a Text FilePath
@@ -189,14 +189,14 @@ dirnameStr = reverse . dropWhile (/= '/') . reverse
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
 mv :: FilePath -> FilePath -> ShIO ()
-mv a b = do a' <- fullPath a
-            b' <- fullPath b
+mv a b = do a' <- absPath a
+            b' <- absPath b
             liftIO $ renameFile (unpack a') (unpack b')
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls dir = do dir' <- fullPath dir
+ls dir = do dir' <- absPath dir
             contents <- liftIO $ getDirectoryContents (unpack dir')
             return [pack c | c <- contents, c `notElem` [".", ".."] ]
 
@@ -228,12 +228,12 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = fullPath >=> liftIO . createDirectory . unpack
+mkdir = absPath >=> liftIO . createDirectory . unpack
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = fullPath >=> liftIO . createDirectoryIfMissing True . unpack
+mkdir_p = absPath >=> liftIO . createDirectoryIfMissing True . unpack
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
@@ -245,7 +245,7 @@ which =
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
 -- "canonicalizePath" in System.FilePath.
 canonic :: FilePath -> ShIO FilePath
-canonic = fullPath >=> liftStringIO canonicalizePath
+canonic = absPath >=> liftStringIO canonicalizePath
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
@@ -254,7 +254,7 @@ whenM c a = do res <- c
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
-test_e f = do fs <- fmap unpack $ fullPath f
+test_e f = do fs <- fmap unpack $ absPath f
               liftIO $ do
                 dir <- doesDirectoryExist fs
                 file <- doesFileExist fs
@@ -262,15 +262,15 @@ test_e f = do fs <- fmap unpack $ fullPath f
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> ShIO Bool
-test_f = fullPath >=> liftIO . doesFileExist . unpack
+test_f = absPath >=> liftIO . doesFileExist . unpack
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> ShIO Bool
-test_d = fullPath >=> liftIO . doesDirectoryExist . unpack
+test_d = absPath >=> liftIO . doesDirectoryExist . unpack
 
 -- | Does a path point to a symlink?
 test_s :: FilePath -> ShIO Bool
-test_s = fullPath >=> liftIO . \f -> do
+test_s = absPath >=> liftIO . \f -> do
   stat <- getSymbolicLinkStatus (unpack f)
   return $ isSymbolicLink stat
 
@@ -278,7 +278,7 @@ test_s = fullPath >=> liftIO . \f -> do
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
 rm_rf :: FilePath -> ShIO ()
-rm_rf f = fullPath f >>= \f' -> do
+rm_rf f = absPath f >>= \f' -> do
   whenM (test_d f) $ do
     _<- find f' >>= mapM (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
     liftIO_ $ removeDirectoryRecursive (unpack f')
@@ -291,7 +291,7 @@ rm_rf f = fullPath f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = fullPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile (unpack f')
+rm_f f = absPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile (unpack f')
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -464,8 +464,8 @@ cp_r from to = do
 -- original file name is used, in that directory.
 cp :: FilePath -> FilePath -> ShIO ()
 cp from to = do
-  from' <- fullPath from
-  to' <- fullPath to
+  from' <- absPath from
+  to' <- absPath to
   to_dir <- test_d to
   liftIO $ copyFile (unpack from') $ unpack (if to_dir then to' </> asString takeFileName from else to')
 
@@ -507,15 +507,15 @@ withTmpDir act = do
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> LT.Text -> ShIO ()
-writefile f bits = fullPath f >>= \f' -> liftIO (TIO.writeFile (unpack f') bits)
+writefile f bits = absPath f >>= \f' -> liftIO (TIO.writeFile (unpack f') bits)
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> LT.Text -> ShIO ()
-appendfile f bits = fullPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits)
+appendfile f bits = absPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits)
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO LT.Text
 readfile =
-  fullPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . LT.unpack
+  absPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . LT.unpack
