@@ -1,23 +1,24 @@
-Shelly is a package provides a single module for convenient
-systems programming in Haskell, similar in spirit to POSIX
-shells.
+Shelly provides a single module for convenient systems programming in Haskell.
 
-* Shelly is aimed at getting things done rather than
- being a demonstration of elegance.
+* Shelly is aimed at getting things done rather than being a demonstration of elegance.
 * Shelly maintains its own environment, making it thread-safe.
 
 These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output, but this requires type annotations.
 If you frequently want a different data type than Text when running a system command, you may want to use HSH.
 
-Shelly is a fork of Shellish for efficiency.
-Shelly uses Text instead of String, features low memory usage, and fixes a handle draining bug.
-Note that Shelly uses Text *everywhere*, except for the environment variable settings.
-This includes exporting a FilePath that is Text.
-Using Text *everywhere* is for convenience so you don't have to convert between strings.
+Shelly is a fork of Shellish for efficiency and correctness.
+
+* low memory usage through 2 mechanisms
+  * providing `run_` and other underscore variants that don't return stdout
+  * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
+  * this also simplifies the implementation and fixes a handle draining bug in the old version
+* uses system-filepath for all its operations, including uses FilePath as the command argument.
+* Text everywhere instead of String, except for the environment variable settings. Note this is a Lazy Text. I am open to changing it to strict, but it plays well with the runFoldLines text builder implementation.
 
 # Usage
 
 ~~~~~ {.haskell}
+{-# LANGUAGE OverloadedStrings -#}
     import Shelly
     import Prelude hiding (FilePath)
 
@@ -26,4 +27,5 @@ Using Text *everywhere* is for convenience so you don't have to convert between 
 
     main = shelly $ verbosely $ do
       monit ["reload"]
+      echo "monit reloaded"
 ~~~~~

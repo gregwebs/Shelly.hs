@@ -32,7 +32,7 @@ Library
   -- Modules exported by the library.
   Exposed-modules:     Shelly
 
-  Build-depends: mtl, process, filepath, bytestring, text, base >= 4 && < 5, time, directory,
+  Build-depends: mtl, process, system-filepath, bytestring, text, base >= 4 && < 5, time, directory,
                  unix-compat
 
   ghc-options: -Werror -Wall

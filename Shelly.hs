@@ -8,8 +8,8 @@
 -- directory.
 module Shelly
        (
-         -- * A Text version of FilePath, and convenience functions
-         FilePath, liftStringIO, asString
+         -- convenience functions
+         liftStringIO, asString
          -- * Entering ShIO.
          , ShIO, shelly, sub, silently, verbosely
 
@@ -20,10 +20,10 @@ module Shelly
          , echo, echo_n, echo_err, echo_n_err, inspect
 
          -- * Querying filesystem.
-         , ls, test_e, test_f, test_d, test_s, which, find
+         , ls, ls', test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , dirname, dirnameStr, path, absPath
+         , path, absPath
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -33,9 +33,14 @@ module Shelly
          , run, (#), run_, command, command_, lastStderr
 
          -- * Utilities.
-         , (</>), (<.>), (<$>), (<$$>), grep, whenM, canonic
+         , (<$>), (<$$>), grep, whenM, canonic
          , catch_sh, liftIO, MemTime(..), time, catchany
          , RunFailed(..)
+         -- * mappend (<>) Text with a FilePath
+         , (|<>), (<>|)
+         -- * convert between Text and FilePath
+         , toTextUnsafe, toTextWarn, fromText
+         -- * re-export system-filepath
          ) where
 
 import Prelude hiding ( catch, readFile, FilePath )
@@ -48,8 +53,6 @@ import System.IO hiding ( readFile, FilePath )
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import System.Directory
 import System.Exit
-import System.FilePath hiding (FilePath, (</>), (<.>))
-import qualified System.FilePath
 import System.Environment
 import Control.Applicative
 import Control.Exception hiding (handle)
@@ -63,21 +66,45 @@ import System.Process( runInteractiveProcess, waitForProcess, ProcessHandle )
 
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
-import Data.Text.Lazy.Builder (Builder, fromText, singleton, fromLazyText, toLazyText)
+import qualified Data.Text.Lazy.Builder as B
 import Data.Monoid (mappend)
 
-type FilePath = Text
+import Filesystem.Path.CurrentOS hiding (concat, fromText)
+import qualified Filesystem.Path.CurrentOS as FP
 
-(</>), (<.>) :: FilePath -> FilePath -> FilePath
-(</>) d = asString (unpack d System.FilePath.</>)
-(<.>) f = asString (unpack f System.FilePath.<.>)
+infixr 5 <>| 
+infixr 5 |<> 
+-- | mappend a Text & FilePath. Warning: uses toTextUnsafe
+(<>|) :: Text -> FilePath -> Text
+(<>|) t fp = t `mappend` toTextUnsafe fp
+  
+-- | mappend a FilePath & Text. Warning: uses toTextUnsafe
+(|<>) :: FilePath -> Text -> Text
+(|<>) fp t = toTextUnsafe fp `mappend` t
+
+-- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
+toTextUnsafe :: FilePath -> Text
+toTextUnsafe fp = LT.fromStrict $ case toText fp of
+                                    Left  f -> f
+                                    Right f -> f
+
+toTextWarn :: FilePath -> ShIO Text
+toTextWarn efile = fmap lazy $ case toText efile of
+    Left f -> encodeError f >> return f
+    Right f -> return f
+  where
+    encodeError f = echo ("Invalid encoding for file: " `mappend` lazy f)
+    lazy f = (LT.fromStrict f)
+
+fromText :: Text -> FilePath
+fromText = FP.fromText . LT.toStrict
 
 printGetContent :: Handle -> Handle -> IO LT.Text
 printGetContent rH wH =
-    fmap toLazyText $ printFoldHandleLines (fromText "") foldBuilder rH wH
+    fmap B.toLazyText $ printFoldHandleLines (B.fromText "") foldBuilder rH wH
 
 getContent :: Handle -> IO LT.Text
-getContent h = fmap toLazyText $ foldHandleLines (fromText "") foldBuilder h
+getContent h = fmap B.toLazyText $ foldHandleLines (B.fromText "") foldBuilder h
 
 type FoldCallback a = ((a, LT.Text) -> a)
 
@@ -122,7 +149,7 @@ runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, Pr
 runInteractiveProcess' cmd args = do
   st <- get
   liftIO $ runInteractiveProcess (unpack cmd)
-    (map unpack args)
+    (map LT.unpack args)
     (Just $ unpack $ sDirectory st)
     (Just $ sEnvironment st)
 
@@ -155,14 +182,14 @@ chdir dir action = do
   cd d
   return r
 
--- | makes a normalized absolute path
+-- | makes an absolute path. TODO: normalize
 path :: FilePath -> ShIO FilePath
-path = absPath >=> return . asString normalise
+path = absPath -- >=> return . asString normalise
 
 -- | makes an absolute path. @path@ will also normalize
 absPath :: FilePath -> ShIO FilePath
-absPath p | isRelative (unpack p) = (</> p) <$> gets sDirectory
-           | otherwise = return p
+absPath p | relative p = (</> p) <$> gets sDirectory
+          | otherwise = return p
   
 -- | apply a String IO operations to a Text FilePath
 liftStringIO :: (String -> IO String) -> FilePath -> ShIO FilePath
@@ -173,18 +200,10 @@ asString :: (String -> String) -> FilePath -> FilePath
 asString f = pack . f . unpack
 
 unpack :: FilePath -> String
-unpack = LT.unpack
+unpack = encodeString
 
 pack :: String -> FilePath
-pack = LT.pack
-
--- | look for unix directory separator '/', don't check for escaping
-dirname :: FilePath -> FilePath
-dirname = asString dirnameStr
-
--- | String version of 'dirname'
-dirnameStr :: String -> String
-dirnameStr = reverse . dropWhile (/= '/') . reverse
+pack = decodeString
 
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
@@ -192,6 +211,12 @@ mv :: FilePath -> FilePath -> ShIO ()
 mv a b = do a' <- absPath a
             b' <- absPath b
             liftIO $ renameFile (unpack a') (unpack b')
+
+-- | Get back [Text] instead of [FilePath]
+ls' :: FilePath -> ShIO [Text]
+ls' fp = do
+    efiles <- ls fp
+    mapM toTextWarn efiles
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
@@ -343,7 +368,7 @@ data RunFailed = RunFailed String Int LT.Text deriving (Typeable)
 
 instance Show RunFailed where
   show (RunFailed cmd code errs) =
-    "error running " ++ cmd ++ ": exit status " ++ show code ++ ":\n" ++ unpack errs
+    "error running " ++ cmd ++ ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
 
 instance Exception RunFailed
 
@@ -364,10 +389,10 @@ cmd # args = run cmd args
 -- You can avoid this but still consume the result by using "run'",
 -- or if you need to process the output than "runFoldLines"
 run :: FilePath -> [Text] -> ShIO LT.Text
-run cmd args = fmap toLazyText $ runFoldLines (fromText "") foldBuilder cmd args
+run cmd args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder cmd args
 
-foldBuilder :: (Builder, LT.Text) -> Builder
-foldBuilder = (\(b, line) -> b `mappend` fromLazyText line `mappend` singleton '\n')
+foldBuilder :: (B.Builder, LT.Text) -> B.Builder
+foldBuilder = (\(b, line) -> b `mappend` B.fromLazyText line `mappend` B.singleton '\n')
 
 
 -- | bind some arguments to run for re-use
@@ -467,7 +492,7 @@ cp from to = do
   from' <- absPath from
   to' <- absPath to
   to_dir <- test_d to
-  liftIO $ copyFile (unpack from') $ unpack (if to_dir then to' </> asString takeFileName from else to')
+  liftIO $ copyFile (unpack from') $ unpack (if to_dir then to' </> filename from else to')
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
@@ -518,4 +543,4 @@ appendfile f bits = absPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO LT.Text
 readfile =
-  absPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . LT.unpack
+  absPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . unpack
