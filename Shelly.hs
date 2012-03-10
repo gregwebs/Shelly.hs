@@ -50,8 +50,6 @@ import Data.Typeable
 import Data.IORef
 import Data.Maybe
 import System.IO hiding ( readFile, FilePath )
-import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import System.Directory
 import System.Exit
 import System.Environment
 import Control.Applicative
@@ -70,7 +68,11 @@ import qualified Data.Text.Lazy.Builder as B
 import Data.Monoid (mappend)
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText)
+import Filesystem
 import qualified Filesystem.Path.CurrentOS as FP
+
+import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
 
 infixr 5 <>| 
 infixr 5 |<> 
@@ -182,9 +184,10 @@ chdir dir action = do
   cd d
   return r
 
--- | makes an absolute path. TODO: normalize
+-- | makes an absolute path. Same as canonic.
+-- TODO: use normalise from system-filepath
 path :: FilePath -> ShIO FilePath
-path = absPath -- >=> return . asString normalise
+path = canonic
 
 -- | makes an absolute path. @path@ will also normalize
 absPath :: FilePath -> ShIO FilePath
@@ -210,7 +213,7 @@ pack = decodeString
 mv :: FilePath -> FilePath -> ShIO ()
 mv a b = do a' <- absPath a
             b' <- absPath b
-            liftIO $ renameFile (unpack a') (unpack b')
+            liftIO $ rename a' b'
 
 -- | Get back [Text] instead of [FilePath]
 ls' :: FilePath -> ShIO [Text]
@@ -221,9 +224,7 @@ ls' fp = do
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls dir = do dir' <- absPath dir
-            contents <- liftIO $ getDirectoryContents (unpack dir')
-            return [pack c | c <- contents, c `notElem` [".", ".."] ]
+ls = absPath >=> liftIO . listDirectory
 
 -- | List directory recursively (like the POSIX utility "find").
 find :: FilePath -> ShIO [FilePath]
@@ -253,12 +254,12 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = absPath >=> liftIO . createDirectory . unpack
+mkdir = absPath >=> liftIO . createDirectory False
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = absPath >=> liftIO . createDirectoryIfMissing True . unpack
+mkdir_p = absPath >=> liftIO . createTree
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
@@ -268,9 +269,9 @@ which =
   liftIO . findExecutable . unpack >=> return . fmap pack 
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
--- "canonicalizePath" in System.FilePath.
+-- "canonicalizePath" in FileSystem.
 canonic :: FilePath -> ShIO FilePath
-canonic = absPath >=> liftStringIO canonicalizePath
+canonic = absPath >=> liftIO . canonicalizePath
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
@@ -279,19 +280,19 @@ whenM c a = do res <- c
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
-test_e f = do fs <- fmap unpack $ absPath f
-              liftIO $ do
-                dir <- doesDirectoryExist fs
-                file <- doesFileExist fs
-                return $ file || dir
+test_e f = do
+  fs <- absPath f
+  liftIO $ do
+    file <- isFile fs
+    if file then return True else isDirectory fs
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> ShIO Bool
-test_f = absPath >=> liftIO . doesFileExist . unpack
+test_f = absPath >=> liftIO . isFile
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> ShIO Bool
-test_d = absPath >=> liftIO . doesDirectoryExist . unpack
+test_d = absPath >=> liftIO . isDirectory
 
 -- | Does a path point to a symlink?
 test_s :: FilePath -> ShIO Bool
@@ -306,7 +307,7 @@ rm_rf :: FilePath -> ShIO ()
 rm_rf f = absPath f >>= \f' -> do
   whenM (test_d f) $ do
     _<- find f' >>= mapM (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
-    liftIO_ $ removeDirectoryRecursive (unpack f')
+    liftIO_ $ removeTree f'
   whenM (test_f f) $ rm_f f'
   where fixPermissions file =
           do permissions <- liftIO $ getPermissions file
@@ -316,7 +317,7 @@ rm_rf f = absPath f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = absPath f >>= \f' -> whenM (test_e f) $ liftIO $ removeFile (unpack f')
+rm_f f = whenM (test_e f) $ absPath f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -354,13 +355,13 @@ sub a = do
 shelly :: MonadIO m => ShIO a -> m a
 shelly a = do
   env <- liftIO $ getEnvironment
-  dir <- liftIO $ getCurrentDirectory
+  dir <- liftIO $ getWorkingDirectory
   let def   = St { sCode = 0
                  , sStderr = LT.empty
                  , sVerbose = True
                  , sRun = runInteractiveProcess'
                  , sEnvironment = env
-                 , sDirectory = pack dir }
+                 , sDirectory = dir }
   stref <- liftIO $ newIORef def
   liftIO $ runReaderT a stref
 
@@ -492,7 +493,7 @@ cp from to = do
   from' <- absPath from
   to' <- absPath to
   to_dir <- test_d to
-  liftIO $ copyFile (unpack from') $ unpack (if to_dir then to' </> filename from else to')
+  liftIO $ copyFile from' $ if to_dir then to' </> filename from else to'
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
