@@ -8,12 +8,12 @@ If you frequently want a different data type than Text when running a system com
 
 Shelly is a fork of Shellish for efficiency and correctness.
 
+* Text everywhere instead of String, except for the environment variable settings.
+* uses system-filepath and system-fileio for all its operations, including uses FilePath as the command argument.
 * low memory usage through 2 mechanisms
   * providing `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
   * this also simplifies the implementation and fixes a handle draining bug in the old version
-* uses system-filepath for all its operations, including uses FilePath as the command argument.
-* Text everywhere instead of String, except for the environment variable settings. Note this is a Lazy Text. I am open to changing it to strict, but it plays well with the runFoldLines text builder implementation.
 
 # Usage
 
@@ -21,7 +21,6 @@ Shelly is a fork of Shellish for efficiency and correctness.
 {-# LANGUAGE OverloadedStrings -#}
     import Shelly
     import Prelude hiding (FilePath)
-
 
     monit = command_ "monit" ["-c", ".monitrc"]
 

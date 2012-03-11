@@ -13,9 +13,9 @@ Description: Shelly is a package provides a single module for convenient
                * Shelly maintains its own environment, making it thread-safe.
              .
              These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
-             If you frequently want a different data type than Text from running a system command, you may want to use HSH.
+             If you want a data type other than Text as the result running a system command, you may want to use HSH.
              .
-             Shelly is a fork of Shellish that features low memory usage and fixes a handle draining bug.
+             Shelly is a fork of Shellish that features low memory usage, text, system-filepath, and fixes a handle draining bug.
 
 Homepage:            http://github.com/gregwebs/shelly
 License:             BSD3

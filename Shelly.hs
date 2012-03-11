@@ -8,10 +8,8 @@
 -- directory.
 module Shelly
        (
-         -- convenience functions
-         liftStringIO, asString
          -- * Entering ShIO.
-         , ShIO, shelly, sub, silently, verbosely
+         ShIO, shelly, sub, silently, verbosely
 
          -- * Modifying and querying environment.
          , setenv, getenv, cd, chdir, pwd
@@ -195,12 +193,14 @@ absPath p | relative p = (</> p) <$> gets sDirectory
           | otherwise = return p
   
 -- | apply a String IO operations to a Text FilePath
+{-
 liftStringIO :: (String -> IO String) -> FilePath -> ShIO FilePath
 liftStringIO f = liftIO . f . unpack >=> return . pack
 
 -- | @asString f = pack . f . unpack@
 asString :: (String -> String) -> FilePath -> FilePath
 asString f = pack . f . unpack
+-}
 
 unpack :: FilePath -> String
 unpack = encodeString
@@ -520,8 +520,8 @@ f <$$> v = fmap f . v
 -- computation. The directory is nuked afterwards.
 withTmpDir :: (FilePath -> ShIO a) -> ShIO a
 withTmpDir act = do
-  dir <- liftIO $ getTemporaryDirectory
-  tid <- liftIO $ myThreadId
+  dir <- liftIO getTemporaryDirectory
+  tid <- liftIO myThreadId
   (pS, handle) <- liftIO $ openTempFile dir ("tmp"++filter isAlphaNum (show tid))
   let p = pack pS
   liftIO $ hClose handle -- required on windows
