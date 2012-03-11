@@ -224,7 +224,7 @@ ls' fp = do
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls = absPath >=> liftIO . listDirectory
+ls = path >=> liftIO . listDirectory
 
 -- | List directory recursively (like the POSIX utility "find").
 find :: FilePath -> ShIO [FilePath]
