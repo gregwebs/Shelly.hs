@@ -35,12 +35,15 @@ module Shelly
 
          -- * Utilities.
          , (<$>), (<$$>), grep, whenM, canonic
-         , catch_sh, liftIO, MemTime(..), time, catchany
+         , catchany, catch_sh, catchany_sh
+         , MemTime(..), time
          , RunFailed(..)
          -- * mappend (<>) Text with a FilePath
          , (|<>), (<>|)
          -- * convert between Text and FilePath
          , toTextUnsafe, toTextWarn, fromText
+         -- * Re-export for your con
+         , liftIO, when
          ) where
 
 import Prelude hiding ( catch, readFile, FilePath )
@@ -164,6 +167,10 @@ catchany = catch
 catch_sh :: (Exception e) => ShIO a -> (e -> ShIO a) -> ShIO a
 catch_sh a h = do ref <- ask
                   liftIO $ catch (runReaderT a ref) (\e -> runReaderT (h e) ref)
+
+-- | Catch an exception in the ShIO monad.
+catchany_sh :: ShIO a -> (SomeException -> ShIO a) -> ShIO a
+catchany_sh = catch_sh
 
 -- | Change current working directory of ShIO. This does *not* change the
 -- working directory of the process we are running it. Instead, ShIO keeps
