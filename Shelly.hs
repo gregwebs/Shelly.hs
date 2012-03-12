@@ -321,14 +321,22 @@ rm_f f = whenM (test_e f) $ absPath f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
-setenv :: String -> String -> ShIO ()
-setenv k v = modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
-  where wibble env = (k, v) : filter ((/=k).fst) env
+setenv :: Text -> Text -> ShIO ()
+setenv k v =
+  let (kStr, vStr) = (LT.unpack k, LT.unpack v)
+      wibble env = (kStr, vStr) : filter ((/=kStr).fst) env
+   in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
-getenv :: String -> ShIO String
-getenv k = fromMaybe "" <$> lookup k <$> gets sEnvironment
+getenv :: Text -> ShIO Text
+getenv k = getenv_def k ""
+
+-- | Fetch the current value of an environment variable. Both empty and
+-- non-existent variables give the default value as a result
+getenv_def :: Text -> Text -> ShIO Text
+getenv_def k d = gets sEnvironment >>=
+  return . (LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k))
 
 -- | Create a sub-ShIO in which external command outputs are not echoed. See "sub".
 silently :: ShIO a -> ShIO a
@@ -365,11 +373,13 @@ shelly a = do
   stref <- liftIO $ newIORef def
   liftIO $ runReaderT a stref
 
-data RunFailed = RunFailed String Int LT.Text deriving (Typeable)
+data RunFailed = RunFailed FilePath [Text] Int LT.Text deriving (Typeable)
 
 instance Show RunFailed where
-  show (RunFailed cmd code errs) =
-    "error running " ++ cmd ++ ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
+  show (RunFailed cmd args code errs) =
+    "error running " ++
+      unpack cmd ++ " " ++ show args ++
+      ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
 
 instance Exception RunFailed
 
@@ -441,7 +451,7 @@ runFoldLines start cb cmd args = do
         return ()
       ExitFailure n -> do
         modify $ \x -> x { sCode = n }
-        throw $ RunFailed (unpack cmd ++ " " ++ show args) n errs
+        throw $ RunFailed cmd args n errs
     return $ outs
 
 -- | The output of last external command. See "run".

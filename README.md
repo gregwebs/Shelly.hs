@@ -8,7 +8,7 @@ If you frequently want a different data type than Text when running a system com
 
 Shelly is a fork of Shellish for efficiency and correctness.
 
-* Text everywhere instead of String, except for the environment variable settings.
+* Text everywhere instead of String
 * uses system-filepath and system-fileio for all its operations, including uses FilePath as the command argument.
 * low memory usage through 2 mechanisms
   * providing `run_` and other underscore variants that don't return stdout
