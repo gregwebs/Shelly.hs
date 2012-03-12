@@ -12,9 +12,9 @@ module Shelly
          ShIO, shelly, sub, silently, verbosely
 
          -- * Modifying and querying environment.
-         , setenv, getenv, cd, chdir, pwd
+         , setenv, getenv, getenv_def, cd, chdir, pwd
 
-         -- * Printing & stuff.
+         -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect
 
          -- * Querying filesystem.
@@ -30,6 +30,9 @@ module Shelly
          -- * Running external commands.
          , run, (#), run_, command, command_, lastStderr
 
+         -- * exiting the program
+         , exit, errorExit
+
          -- * Utilities.
          , (<$>), (<$$>), grep, whenM, canonic
          , catch_sh, liftIO, MemTime(..), time, catchany
@@ -38,7 +41,6 @@ module Shelly
          , (|<>), (<>|)
          -- * convert between Text and FilePath
          , toTextUnsafe, toTextWarn, fromText
-         -- * re-export system-filepath
          ) where
 
 import Prelude hiding ( catch, readFile, FilePath )
@@ -247,6 +249,13 @@ echo       = liftIO . TIO.putStrLn
 echo_n     = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
 echo_err   = liftIO . TIO.hPutStrLn stderr
 echo_n_err = liftIO . (>> hFlush stderr) . TIO.hPutStr stderr
+
+exit :: Int -> ShIO ()
+exit 0 = liftIO $ exitWith ExitSuccess
+exit n = liftIO $ exitWith $ ExitFailure n
+
+errorExit :: Text -> ShIO ()
+errorExit msg = echo msg >> exit 1
 
 -- | a print lifted into ShIO
 inspect :: (Show s) => s -> ShIO ()
