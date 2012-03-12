@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.3.0
+Version:     0.3.0.1
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly is a package provides a single module for convenient
@@ -12,15 +12,16 @@ Description: Shelly is a package provides a single module for convenient
              .
                * Shelly maintains its own environment, making it thread-safe.
              .
-             These are in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
-             If you want a data type other than Text as the result running a system command, you may want to use HSH.
+               * Shelly is modern. It uses Text and system-filepath/system-fileio
              .
-             Shelly is a fork of Shellish that features low memory usage, text, system-filepath, and fixes a handle draining bug.
+             These are all in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
+             .
+             Shelly is a fork of Shellish that features low memory usage, bug fixes, and modernization
 
-Homepage:            http://github.com/gregwebs/shelly
+Homepage:            https://github.com/yesodweb/Shelly.hs
 License:             BSD3
 License-file:        LICENSE
-Author:              Petr Rockai, Greg Weber
+Author:              Greg Weber, Petr Rockai
 Maintainer:          Greg Weber <greg@gregweber.info>
 Category:            Development
 Build-type:          Simple
