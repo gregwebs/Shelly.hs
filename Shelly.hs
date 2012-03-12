@@ -9,7 +9,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely
+         ShIO, shelly, sub, silently, verbosely, print_commands
 
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, cd, chdir, pwd
@@ -133,6 +133,7 @@ data St = St { sCode :: Int
              , sStderr :: LT.Text
              , sDirectory :: FilePath
              , sVerbose :: Bool
+             , sPrintCommands :: Bool -- * print out command
              , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
              , sEnvironment :: [(String, String)] }
 
@@ -362,6 +363,10 @@ silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
 
+-- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
+print_commands :: ShIO a -> ShIO a
+print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
+
 -- | Enter a sub-ShIO. The new ShIO inherits the environment and working
 -- directory from the current one, but the sub-ShIO cannot affect the current
 -- one. Exceptions are propagated normally.
@@ -383,6 +388,7 @@ shelly a = do
   let def   = St { sCode = 0
                  , sStderr = LT.empty
                  , sVerbose = True
+                 , sPrintCommands = False
                  , sRun = runInteractiveProcess'
                  , sEnvironment = env
                  , sDirectory = dir }
@@ -444,6 +450,9 @@ liftIO_ action = liftIO action >> return ()
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
 runFoldLines start cb cmd args = do
     st <- get
+    when (sPrintCommands st) $ do
+      c <- toTextWarn cmd
+      echo $ LT.intercalate " " (c:args)
     (_,outH,errH,procH) <- (sRun st) cmd args
 
     errV <- liftIO newEmptyMVar
