@@ -2,7 +2,7 @@
              MultiParamTypeClasses, FlexibleInstances #-}
 
 -- | A module for shell-like / perl-like programming in Haskell. The stuff in
--- here is not pretty, but it does get job done. The functionality provided by
+-- here is not always pretty, but it gets the job done. The functionality provided by
 -- this module is (unlike standard Haskell filesystem functionality)
 -- thread-safe: each ShIO maintains its own environment and its own working
 -- directory.
