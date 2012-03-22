@@ -144,7 +144,7 @@ data St = St { sCode :: Int
              , sStderr :: LT.Text
              , sDirectory :: FilePath
              , sVerbose :: Bool
-             , sPrintCommands :: Bool -- * print out command
+             , sPrintCommands :: Bool -- ^ print out command
              , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
              , sEnvironment :: [(String, String)] }
 
