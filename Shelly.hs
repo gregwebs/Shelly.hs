@@ -38,8 +38,8 @@ module Shelly
          , catchany, catch_sh, catchany_sh
          , MemTime(..), time
          , RunFailed(..)
-         -- * mappend (<>) and (</>) Text with a FilePath
-         , (|<>), (<>|), (|</>), (</>|)
+         -- * mappend (<>) Text with a FilePath
+         , (|<>), (<>|)
          -- * convert between Text and FilePath
          , toTextUnsafe, toTextWarn, fromText
          -- * Re-export for your con
@@ -79,8 +79,6 @@ import System.Directory ( setPermissions, getPermissions, Permissions(..), getTe
 
 infixr 5 <>| 
 infixr 5 |<> 
-infixr 5 </>|
-infixr 5 |</>
 
 -- | mappend a Text & FilePath. Warning: uses toTextUnsafe
 (<>|) :: Text -> FilePath -> Text
@@ -89,14 +87,6 @@ infixr 5 |</>
 -- | mappend a FilePath & Text. Warning: uses toTextUnsafe
 (|<>) :: FilePath -> Text -> Text
 (|<>) fp t = toTextUnsafe fp `mappend` t
-
--- | </> a Text & FilePath. Warning: uses toTextUnsafe
-(</>|) :: Text -> FilePath -> Text
-(</>|) t fp = t `mappend` toTextUnsafe fp
-
--- | </> a FilePath & Text. Warning: uses toTextUnsafe
-(|</>) :: FilePath -> Text -> Text
-(|</>) fp t = toTextUnsafe fp `mappend` t
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextUnsafe :: FilePath -> Text
