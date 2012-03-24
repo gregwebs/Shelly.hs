@@ -9,7 +9,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, print_commands
+         , ShIO, shelly, sub, silently, verbosely, print_commands
 
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, cd, chdir, pwd
@@ -28,7 +28,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, (#), run_, command, command_, lastStderr
+         , run, ( # ), run_, command, command_, lastStderr
 
          -- * exiting the program
          , exit, errorExit
@@ -100,26 +100,26 @@ toTextWarn efile = fmap lazy $ case toText efile of
     Right f -> return f
   where
     encodeError f = echo ("Invalid encoding for file: " `mappend` lazy f)
-    lazy f = (LT.fromStrict f)
+    lazy = LT.fromStrict
 
 fromText :: Text -> FilePath
 fromText = FP.fromText . LT.toStrict
 
-printGetContent :: Handle -> Handle -> IO LT.Text
+printGetContent :: Handle -> Handle -> IO Text
 printGetContent rH wH =
     fmap B.toLazyText $ printFoldHandleLines (B.fromText "") foldBuilder rH wH
 
-getContent :: Handle -> IO LT.Text
+getContent :: Handle -> IO Text
 getContent h = fmap B.toLazyText $ foldHandleLines (B.fromText "") foldBuilder h
 
-type FoldCallback a = ((a, LT.Text) -> a)
+type FoldCallback a = ((a, Text) -> a)
 
 printFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
 printFoldHandleLines start foldLine readHandle writeHandle = go start
   where
     go acc = do
       line <- TIO.hGetLine readHandle
-      TIO.hPutStrLn writeHandle line >> (go $ foldLine (acc, line))
+      TIO.hPutStrLn writeHandle line >> go (foldLine (acc, line))
      `catchany` \_ -> return acc
 
 foldHandleLines :: a -> FoldCallback a -> Handle -> IO a
@@ -130,26 +130,33 @@ foldHandleLines start foldLine readHandle = go start
       go $ foldLine (acc, line)
      `catchany` \_ -> return acc
 
-data St = St { sCode :: Int
-             , sStderr :: LT.Text
-             , sDirectory :: FilePath
-             , sVerbose :: Bool
-             , sPrintCommands :: Bool -- ^ print out command
-             , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
-             , sEnvironment :: [(String, String)] }
+data State = State   { sCode :: Int
+                     , sStderr :: Text
+                     , sDirectory :: FilePath
+                     , sVerbose :: Bool
+                     , sPrintCommands :: Bool -- ^ print out command
+                     , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+                     , sEnvironment :: [(String, String)] }
 
-type ShIO a = ReaderT (IORef St) IO a
+type ShIO a = ReaderT (IORef State) IO a
 
-get :: ShIO St
-get = ask >>= liftIO . readIORef
+get :: ShIO State
+get = do
+  stateVar <- ask 
+  liftIO (readIORef stateVar)
 
-put :: St -> ShIO ()
-put v = ask >>= liftIO . flip writeIORef v
+put :: State -> ShIO ()
+put state = do
+  stateVar <- ask 
+  liftIO (writeIORef stateVar state)
 
-modify :: (St -> St) -> ShIO ()
-modify f = ask >>= liftIO . flip modifyIORef f
+modify :: (State -> State) -> ShIO ()
+modify f = do
+  state <- ask 
+  liftIO (modifyIORef state f)
 
-gets :: (St -> a) -> ShIO a
+
+gets :: (State -> a) -> ShIO a
 gets f = f <$> get
 
 runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
@@ -253,7 +260,7 @@ pwd = gets sDirectory
 
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
-echo, echo_n, echo_err, echo_n_err :: LT.Text -> ShIO ()
+echo, echo_n, echo_err, echo_n_err :: Text -> ShIO ()
 echo       = liftIO . TIO.putStrLn
 echo_n     = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
 echo_err   = liftIO . TIO.hPutStrLn stderr
@@ -261,7 +268,7 @@ echo_n_err = liftIO . (>> hFlush stderr) . TIO.hPutStr stderr
 
 exit :: Int -> ShIO ()
 exit 0 = liftIO $ exitWith ExitSuccess
-exit n = liftIO $ exitWith $ ExitFailure n
+exit n = liftIO $ exitWith (ExitFailure n)
 
 errorExit :: Text -> ShIO ()
 errorExit msg = echo msg >> exit 1
@@ -354,7 +361,7 @@ getenv k = getenv_def k ""
 -- non-existent variables give the default value as a result
 getenv_def :: Text -> Text -> ShIO Text
 getenv_def k d = gets sEnvironment >>=
-  return . (LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k))
+  return . LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k)
 
 -- | Create a sub-ShIO in which external command outputs are not echoed. See "sub".
 silently :: ShIO a -> ShIO a
@@ -368,9 +375,9 @@ verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
 print_commands :: ShIO a -> ShIO a
 print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
 
--- | Enter a sub-ShIO. The new ShIO inherits the environment and working
--- directory from the current one, but the sub-ShIO cannot affect the current
--- one. Exceptions are propagated normally.
+-- | Enter a sub-ShIO that inherits the environment and working directory
+-- from the current ShIO, but cannot affect the current one.
+ --Exceptions are propagated normally.
 sub :: ShIO a -> ShIO a
 sub a = do
   st <- get
@@ -384,19 +391,19 @@ sub a = do
 -- running ShIO.
 shelly :: MonadIO m => ShIO a -> m a
 shelly a = do
-  env <- liftIO $ getEnvironment
-  dir <- liftIO $ getWorkingDirectory
-  let def   = St { sCode = 0
-                 , sStderr = LT.empty
-                 , sVerbose = True
-                 , sPrintCommands = False
-                 , sRun = runInteractiveProcess'
-                 , sEnvironment = env
-                 , sDirectory = dir }
+  env <- liftIO getEnvironment
+  dir <- liftIO getWorkingDirectory
+  let def  = State { sCode = 0
+                   , sStderr = LT.empty
+                   , sVerbose = True
+                   , sPrintCommands = False
+                   , sRun = runInteractiveProcess'
+                   , sEnvironment = env
+                   , sDirectory = dir }
   stref <- liftIO $ newIORef def
   liftIO $ runReaderT a stref
 
-data RunFailed = RunFailed FilePath [Text] Int LT.Text deriving (Typeable)
+data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
 instance Show RunFailed where
   show (RunFailed cmd args code errs) =
@@ -408,7 +415,7 @@ instance Exception RunFailed
 
 
 -- | An infix shorthand for "run". Write @\"command\" # [ \"argument\" ... ]@.
-(#) :: FilePath -> [Text] -> ShIO LT.Text
+( # ) :: FilePath -> [Text] -> ShIO Text
 cmd # args = run cmd args
 
 -- | Execute an external command. Takes the command name (no shell allowed,
@@ -422,16 +429,16 @@ cmd # args = run cmd args
 -- All of the stdout output will be loaded into memory
 -- You can avoid this but still consume the result by using "run'",
 -- or if you need to process the output than "runFoldLines"
-run :: FilePath -> [Text] -> ShIO LT.Text
+run :: FilePath -> [Text] -> ShIO Text
 run cmd args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder cmd args
 
-foldBuilder :: (B.Builder, LT.Text) -> B.Builder
-foldBuilder = (\(b, line) -> b `mappend` B.fromLazyText line `mappend` B.singleton '\n')
+foldBuilder :: (B.Builder, Text) -> B.Builder
+foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\n'
 
 
 -- | bind some arguments to run for re-use
 -- Example: @monit = command "monit" ["-c", ".monitrc"]@
-command :: FilePath -> [Text] -> [Text] -> ShIO LT.Text
+command :: FilePath -> [Text] -> [Text] -> ShIO Text
 command com args more_args = run com (args ++ more_args)
 
 -- | bind some arguments to "run_" for re-use
@@ -441,7 +448,7 @@ command_ com args more_args = run_ com (args ++ more_args)
 
 -- the same as "run", but return () instead of the stdout content
 run_ :: FilePath -> [Text] -> ShIO ()
-run_ cmd args = runFoldLines () (\(_, _) -> ()) cmd args
+run_ = runFoldLines () (\(_, _) -> ())
 
 liftIO_ :: IO a -> ShIO ()
 liftIO_ action = liftIO action >> return ()
@@ -450,15 +457,15 @@ liftIO_ action = liftIO action >> return ()
 -- stderr is still placed in memory (this could be changed in the future)
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
 runFoldLines start cb cmd args = do
-    st <- get
-    when (sPrintCommands st) $ do
+    state <- get
+    when (sPrintCommands state) $ do
       c <- toTextWarn cmd
       echo $ LT.intercalate " " (c:args)
-    (_,outH,errH,procH) <- (sRun st) cmd args
+    (_,outH,errH,procH) <- sRun state cmd args
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
-    if sVerbose st
+    if sVerbose state
       then do
         liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
         liftIO_ $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
@@ -469,19 +476,21 @@ runFoldLines start cb cmd args = do
     errs <- liftIO $ takeMVar errV
     outs <- liftIO $ takeMVar outV
     ex <- liftIO $ waitForProcess procH
-    modify $ \x -> x { sStderr = errs }
 
+
+    let code = case ex of
+                 ExitSuccess -> 0
+                 ExitFailure n -> n
+    put $ state {
+       sStderr = errs
+     , sCode = code
+    }
     case ex of
-      ExitSuccess -> do
-        modify $ \x -> x { sCode = 0 }
-        return ()
-      ExitFailure n -> do
-        modify $ \x -> x { sCode = n }
-        throw $ RunFailed cmd args n errs
-    return $ outs
+      ExitSuccess   -> return outs
+      ExitFailure n -> throw $ RunFailed cmd args n errs
 
 -- | The output of last external command. See "run".
-lastStderr :: ShIO LT.Text
+lastStderr :: ShIO Text
 lastStderr = gets sStderr
 
 data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
@@ -546,7 +555,7 @@ instance (Eq a) => PredicateLike [a] [a] where
 -- predicates just like with "filter" are supported too:
 -- @grep (\"fun\" `isPrefixOf`) [...]@.
 grep :: (PredicateLike pattern hay) => pattern -> [hay] -> [hay]
-grep p l = filter (match p) l
+grep p = filter (match p)
 
 -- | A functor-lifting function composition.
 (<$$>) :: (Functor m) => (b -> c) -> (a -> m b) -> a -> m c
@@ -568,16 +577,16 @@ withTmpDir act = do
   return a
 
 -- | Write a Lazy Text to a file.
-writefile :: FilePath -> LT.Text -> ShIO ()
+writefile :: FilePath -> Text -> ShIO ()
 writefile f bits = absPath f >>= \f' -> liftIO (TIO.writeFile (unpack f') bits)
 
 -- | Append a Lazy Text to a file.
-appendfile :: FilePath -> LT.Text -> ShIO ()
+appendfile :: FilePath -> Text -> ShIO ()
 appendfile f bits = absPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits)
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
-readfile :: FilePath -> ShIO LT.Text
+readfile :: FilePath -> ShIO Text
 readfile =
   absPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . unpack
