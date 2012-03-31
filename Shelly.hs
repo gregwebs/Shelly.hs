@@ -9,7 +9,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         , ShIO, shelly, sub, silently, verbosely, print_commands
+         ShIO, shelly, sub, silently, verbosely, print_commands
 
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, cd, chdir, pwd
@@ -437,14 +437,24 @@ foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\
 
 
 -- | bind some arguments to run for re-use
--- Example: @monit = command "monit" ["-c", ".monitrc"]@
+-- Example: @monit = command "monit" ["-c", "monitrc"]@
 command :: FilePath -> [Text] -> [Text] -> ShIO Text
 command com args more_args = run com (args ++ more_args)
 
 -- | bind some arguments to "run_" for re-use
--- Example: @monit = command' "monit" ["-c", ".monitrc"]@
+-- Example: @monit_ = command_ "monit" ["-c", "monitrc"]@
 command_ :: FilePath -> [Text] -> [Text] -> ShIO ()
 command_ com args more_args = run_ com (args ++ more_args)
+
+-- | bind some arguments to run for re-use, and expect 1 argument
+-- Example: @git = command1 "git" []; git "pull" ["origin", "master"]@
+command1 :: FilePath -> [Text] -> Text -> [Text] -> ShIO Text
+command1 com args one_arg more_args = run com ([one_arg] ++ args ++ more_args)
+
+-- | bind some arguments to run for re-use, and expect 1 argument
+-- Example: @git_ = command1_ "git" []; git+ "pull" ["origin", "master"]@
+command1_ :: FilePath -> [Text] -> Text -> [Text] -> ShIO ()
+command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 
 -- the same as "run", but return () instead of the stdout content
 run_ :: FilePath -> [Text] -> ShIO ()
