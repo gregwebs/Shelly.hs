@@ -28,10 +28,10 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, command, command_, lastStderr
+         , run, ( # ), run_, command, command_, command1, command1_, lastStderr
 
          -- * exiting the program
-         , exit, errorExit
+         , exit, errorExit, terror
 
          -- * Utilities.
          , (<$>), (<$$>), grep, whenM, canonic
@@ -272,6 +272,10 @@ exit n = liftIO $ exitWith (ExitFailure n)
 
 errorExit :: Text -> ShIO ()
 errorExit msg = echo msg >> exit 1
+
+-- | fail that takes a Text
+terror :: Text -> ShIO a
+terror = fail . LT.unpack
 
 -- | a print lifted into ShIO
 inspect :: (Show s) => s -> ShIO ()
