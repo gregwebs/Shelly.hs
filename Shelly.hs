@@ -28,7 +28,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, runStdin, command, command_, command1, command1_, lastStderr
+         , run, ( # ), run_, runStdin, runStdin_, command, command_, command1, command1_, lastStderr
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -467,6 +467,10 @@ command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 -- the same as "run", but return () instead of the stdout content
 run_ :: FilePath -> [Text] -> ShIO ()
 run_ = runFoldLines () (\(_, _) -> ())
+
+-- the same as "runStdin", but return () instead of the stdout content
+runStdin_ :: FilePath -> [Text] -> Text -> ShIO ()
+runStdin_ cmd args input = runFoldLines' () (\(_, _) -> ()) cmd args (Just input)
 
 liftIO_ :: IO a -> ShIO ()
 liftIO_ action = liftIO action >> return ()
