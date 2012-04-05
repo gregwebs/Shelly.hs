@@ -21,7 +21,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, print_commands
+         ShIO, shelly, sub, silently, verbosely, jobs, print_commands
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
@@ -46,6 +46,9 @@ module Shelly
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
          , readfile, writefile, appendfile, withTmpDir
+
+         -- * Running external commands asynchronously.
+         , background, getBgResult, BackGroundResult
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -238,6 +241,7 @@ data State = State   { sCode :: Int
                      , sStderr :: Text
                      , sDirectory :: FilePath
                      , sVerbose :: Bool
+                     , sJobsSem :: QSem
                      , sPrintCommands :: Bool -- ^ print out command
                      , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
                      , sEnvironment :: [(String, String)] }
@@ -501,6 +505,43 @@ silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
 
+-- | Create a sub-ShIO which has limits the max number of background tasks.
+-- See "sub".  By default the limit is `maxBound :: Int` but can be adjusted
+-- by customizing the jobs state.  Note that this limit is per `ShIO` instance,
+-- two parallel executions inside the `ShIO` monad will effectively double
+-- this limit.
+jobs :: Int -> ShIO a -> ShIO a
+jobs mx a = do
+  sem <- liftIO $ newQSem mx
+  sub $ modify (\x -> x { sJobsSem = sem }) >> a
+
+-- | Type returned by tasks run asynchronously in the background.
+newtype BackGroundResult a = BGResult (MVar a)
+
+-- | Returns the result from a backgrounded task.  Blocks until
+-- the task completes.
+getBgResult :: BackGroundResult a -> IO a
+getBgResult (BGResult mvar) = do
+  takeMVar mvar
+
+-- | Run the `ShIO` task asynchronously in the background, returns
+-- the `BackGroundResult a` immediately, see "getBgResult".
+-- The subtask will inherit the current ShIO context, including
+-- current task count.  This means that if the asynchronous task
+-- also calls background the max jobs limit must be sufficient for
+-- the parent and all children.
+background :: ShIO a -> ShIO (BackGroundResult a)
+background proc = do
+  state <- get
+  mvar <- liftIO newEmptyMVar
+  _ <- liftIO $ forkIO $ do
+    waitQSem (sJobsSem state)
+    result <- shelly $ (put state >> proc)
+    signalQSem (sJobsSem state)
+    liftIO $ putMVar mvar result
+  return $ BGResult mvar
+
+
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 print_commands :: ShIO a -> ShIO a
 print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
@@ -523,10 +564,12 @@ shelly :: MonadIO m => ShIO a -> m a
 shelly a = do
   env <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
+  sem <- liftIO $ newQSem maxBound
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = LT.empty
                    , sVerbose = True
+                   , sJobsSem = sem
                    , sPrintCommands = False
                    , sRun = runInteractiveProcess'
                    , sEnvironment = env
