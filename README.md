@@ -18,13 +18,13 @@ Shelly is a fork of Shellish for efficiency and correctness.
 # Usage
 
 ~~~~~ {.haskell}
-{-# LANGUAGE OverloadedStrings -#}
-    import Shelly
-    import Prelude hiding (FilePath)
+{-# LANGUAGE OverloadedStrings #-}
+import Shelly
+import Prelude hiding (FilePath)
 
-    monit = command_ "monit" ["-c", ".monitrc"]
+monit = command_ "monit" ["-c", ".monitrc"]
 
-    main = shelly $ verbosely $ do
-      monit ["reload"]
-      echo "monit reloaded"
+main = shelly $ verbosely $ do
+  monit ["reload"]
+  echo "monit reloaded"
 ~~~~~
