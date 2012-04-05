@@ -9,7 +9,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, print_commands
+         ShIO, shelly, sub, silently, verbosely, jobs, print_commands
 
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, cd, chdir, pwd
@@ -29,6 +29,8 @@ module Shelly
 
          -- * Running external commands.
          , run, ( # ), run_, command, command_, command1, command1_, lastStderr
+         -- * Running external commands asynchronously.
+         , background
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -43,7 +45,7 @@ module Shelly
          -- * convert between Text and FilePath
          , toTextUnsafe, toTextWarn, fromText
          -- * Re-export for your con
-         , liftIO, when
+         , liftIO, when, getPromise
          ) where
 
 import Prelude hiding ( catch, readFile, FilePath )
@@ -59,6 +61,7 @@ import Control.Applicative
 import Control.Exception hiding (handle)
 import Control.Monad.Reader
 import Control.Concurrent
+import qualified Control.Concurrent.Future as F
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.Lazy.IO as TIO
@@ -134,6 +137,7 @@ data State = State   { sCode :: Int
                      , sStderr :: Text
                      , sDirectory :: FilePath
                      , sVerbose :: Bool
+                     , sJobsSem :: QSem
                      , sPrintCommands :: Bool -- ^ print out command
                      , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
                      , sEnvironment :: [(String, String)] }
@@ -375,6 +379,37 @@ silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
 
+-- | Create a sub-ShIO which has limits the max number of background tasks.
+-- See "sub".  By default the limit is `maxBound :: Int` but can be adjusted
+-- by customizing the jobs state.  Note that this limit is per `ShIO` instance,
+-- two parallel executions inside the `ShIO` monad will effectively double
+-- this limit.
+jobs :: Int -> ShIO a -> ShIO a
+jobs mx a = do
+  sem <- liftIO $ newQSem mx
+  sub $ modify (\x -> x { sJobsSem = sem }) >> a
+
+-- | Run the `ShIO` task asynchronously in the background, returns
+-- a Promise immediately, see "getPromise" and "Control.Concurrent.Future".
+-- The subtask will inherit the current ShIO context, including
+-- current task count.  This means that if the asynchronous task
+-- also calls background the max jobs limit must be sufficient for
+-- the parent and all children.
+background :: ShIO a -> ShIO (F.Promise a)
+background proc = do
+  state <- get
+  promise <- liftIO $ F.forkPromise $ do
+    waitQSem (sJobsSem state)
+    result <- shelly $ put state >> proc
+    signalQSem (sJobsSem state)
+    return result
+  return promise
+
+-- | Reexport Control.Concurrent.Future.get with a different (non clashing)
+-- name for convenience.
+getPromise :: F.Promise a -> IO a
+getPromise = F.get
+
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 print_commands :: ShIO a -> ShIO a
 print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
@@ -397,9 +432,11 @@ shelly :: MonadIO m => ShIO a -> m a
 shelly a = do
   env <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
+  sem <- liftIO $ newQSem maxBound
   let def  = State { sCode = 0
                    , sStderr = LT.empty
                    , sVerbose = True
+                   , sJobsSem = sem
                    , sPrintCommands = False
                    , sRun = runInteractiveProcess'
                    , sEnvironment = env
