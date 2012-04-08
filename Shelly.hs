@@ -28,7 +28,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, runStdin, command, command_, command1, command1_, lastStderr
+         , run, ( # ), run_, command, command_, command1, command1_, lastStderr
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -436,10 +436,6 @@ cmd # args = run cmd args
 run :: FilePath -> [Text] -> ShIO Text
 run cmd args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder cmd args
 
--- | Like run but writes the provided text to the processes' standard input.
-runStdin :: FilePath -> [Text] -> Text -> ShIO Text
-runStdin cmd args input = fmap B.toLazyText $ runFoldLines' (B.fromText "") foldBuilder cmd args (Just input)
-
 foldBuilder :: (B.Builder, Text) -> B.Builder
 foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\n'
 
@@ -474,15 +470,12 @@ liftIO_ action = liftIO action >> return ()
 -- same as "run", but fold over stdout as it is read to avoid keeping it in memory
 -- stderr is still placed in memory (this could be changed in the future)
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
-runFoldLines start cb cmd args = runFoldLines' start cb cmd args Nothing
-
-runFoldLines' :: a -> FoldCallback a -> FilePath -> [Text] -> Maybe Text -> ShIO a
-runFoldLines' start cb cmd args mstdin = do
+runFoldLines start cb cmd args = do
     state <- get
     when (sPrintCommands state) $ do
       c <- toTextWarn cmd
       echo $ LT.intercalate " " (c:args)
-    (inH,outH,errH,procH) <- sRun state cmd args
+    (_,outH,errH,procH) <- sRun state cmd args
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
@@ -494,10 +487,6 @@ runFoldLines' start cb cmd args mstdin = do
         liftIO_ $ forkIO $ getContent errH >>= putMVar errV
         liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
 
-    -- If input was provided write it to the input handle.
-    case mstdin of
-      Just input -> liftIO $ TIO.hPutStr inH input
-      Nothing -> return ()
     errs <- liftIO $ takeMVar errV
     outs <- liftIO $ takeMVar outV
     ex <- liftIO $ waitForProcess procH
