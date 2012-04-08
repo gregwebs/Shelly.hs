@@ -38,6 +38,14 @@ Library
 
   ghc-options: -Wall
 
+test-suite test
+    type:           exitcode-stdio-1.0
+    main-is:        main.hs
+    hs-source-dirs: ., test
+
+    build-depends:   base >= 4 && < 5
+                   -- , hspec
+
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore
 -- Executable drain

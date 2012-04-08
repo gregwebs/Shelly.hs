@@ -28,7 +28,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, command, command_, command1, command1_, lastStderr
+         , run, ( # ), run_, command, command_, command1, command1_, lastStderr, setStdin
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -131,6 +131,7 @@ foldHandleLines start foldLine readHandle = go start
      `catchany` \_ -> return acc
 
 data State = State   { sCode :: Int
+                     , sStdin :: Maybe Text -- ^ stdin for the command to be run
                      , sStderr :: Text
                      , sDirectory :: FilePath
                      , sVerbose :: Bool
@@ -398,6 +399,7 @@ shelly a = do
   env <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
+                   , sStdin = Nothing
                    , sStderr = LT.empty
                    , sVerbose = True
                    , sPrintCommands = False
@@ -475,7 +477,7 @@ runFoldLines start cb cmd args = do
     when (sPrintCommands state) $ do
       c <- toTextWarn cmd
       echo $ LT.intercalate " " (c:args)
-    (_,outH,errH,procH) <- sRun state cmd args
+    (inH,outH,errH,procH) <- sRun state cmd args
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
@@ -487,6 +489,13 @@ runFoldLines start cb cmd args = do
         liftIO_ $ forkIO $ getContent errH >>= putMVar errV
         liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
 
+    -- If input was provided write it to the input handle.
+    case sStdin state of
+      Just input ->
+        liftIO $ TIO.hPutStr inH input >> hClose inH
+        -- stdin is cleared from state below
+      Nothing -> return ()
+
     errs <- liftIO $ takeMVar errV
     outs <- liftIO $ takeMVar outV
     ex <- liftIO $ waitForProcess procH
@@ -496,7 +505,8 @@ runFoldLines start cb cmd args = do
                  ExitSuccess -> 0
                  ExitFailure n -> n
     put $ state {
-       sStderr = errs
+       sStdin = Nothing
+     , sStderr = errs
      , sCode = code
     }
     case ex of
@@ -506,6 +516,10 @@ runFoldLines start cb cmd args = do
 -- | The output of last external command. See "run".
 lastStderr :: ShIO Text
 lastStderr = gets sStderr
+
+-- | set the stdin to be used and cleared by the next "run".
+setStdin :: Text -> ShIO ()
+setStdin input = modify $ \st -> st { sStdin = Just input }
 
 data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
 
