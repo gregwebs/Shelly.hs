@@ -34,7 +34,7 @@ Library
   Exposed-modules:     Shelly
 
   Build-depends: base >= 4 && < 5, time, directory, mtl, process, text, unix-compat
-               , system-filepath, system-fileio
+               , system-filepath, system-fileio, unix
 
   ghc-options: -Wall
 
