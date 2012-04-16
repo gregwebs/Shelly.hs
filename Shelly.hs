@@ -28,7 +28,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, command, command_, command1, command1_, lastStderr, setStdin
+         , run, ( # ), run_, command, command_, command1, command1_, lastStderr, setStdin, bg
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -64,6 +64,7 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.IO as STIO
 import System.Process( runInteractiveProcess, waitForProcess, ProcessHandle )
+import System.Posix.Process( forkProcess )
 
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
@@ -375,6 +376,18 @@ silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
+
+-- | Run a command and send it to the background. This should behave
+-- like appending & on a shell command. It returns immediately and you
+-- have no access to the process once it's gone.
+bg :: ShIO a -> ShIO ()
+bg proc = do
+    state <- get
+    _ <- liftIO $ forkProcess $ do
+        a <- shelly $ put state >> proc
+        return ()
+
+    return ()
 
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 print_commands :: ShIO a -> ShIO a
