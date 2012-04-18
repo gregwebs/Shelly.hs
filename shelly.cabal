@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.3.1
+Version:     0.3.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly is a package provides a single module for convenient
@@ -27,10 +27,8 @@ Category:            Development
 Build-type:          Simple
 Cabal-version:       >=1.6
 
--- Extra-source-files:
 
 Library
-  -- Modules exported by the library.
   Exposed-modules:     Shelly
 
   Build-depends: base >= 4 && < 5, time, directory, mtl, process, text, unix-compat
@@ -52,5 +50,5 @@ test-suite test
 --  main-is: test/drain.hs
 
 source-repository head
-  type:     darcs
-  location: http://repos.mornfall.net/shelly
+  type:     git
+  location: https://github.com/yesodweb/Shelly.hs
