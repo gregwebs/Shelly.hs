@@ -12,7 +12,10 @@ module Shelly
          ShIO, shelly, sub, silently, verbosely, print_commands
 
          -- * Modifying and querying environment.
-         , setenv, getenv, getenv_def, cd, chdir, pwd
+         , setenv, getenv, getenv_def, appendPath
+
+         -- * Environment directory
+         , cd, chdir, pwd
 
          -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect
@@ -356,6 +359,15 @@ setenv k v =
   let (kStr, vStr) = (LT.unpack k, LT.unpack v)
       wibble env = (kStr, vStr) : filter ((/=kStr).fst) env
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
+
+-- | add the filepath onto the PATH env variable
+appendPath :: FilePath -> ShIO ()
+appendPath filepath = do
+  tp <- toTextWarn filepath
+  pe <- getenv path_env
+  setenv path_env $ pe `mappend` ":" `mappend` tp
+  where
+    path_env = "PATH"
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
