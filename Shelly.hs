@@ -31,7 +31,9 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, command, command_, command1, command1_, lastStderr, setStdin
+         , run, ( # ), run_, (-|-), lastStderr, setStdin
+         , command, command_, command1, command1_
+--         , Sudo(..), run_sudo
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -170,6 +172,16 @@ runInteractiveProcess' cmd args = do
     (map LT.unpack args)
     (Just $ unpack $ sDirectory st)
     (Just $ sEnvironment st)
+
+{-
+-- | use for commands requiring usage of sudo. see 'run_sudo'.
+--  Use this pattern for priveledge separation
+newtype Sudo a = Sudo { sudo :: ShIO a }
+
+-- | require that the caller explicitly state 'sudo'
+run_sudo :: Text -> [Text] -> Sudo Text
+run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
+-}
 
 -- | A helper to catch any exception (same as
 -- @... `catch` \(e :: SomeException) -> ...@).
@@ -393,13 +405,13 @@ print_commands :: ShIO a -> ShIO a
 print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
 
 -- | Enter a sub-ShIO that inherits the environment and working directory
--- from the current ShIO, but cannot affect the current one.
+-- The original state will be restored when the sub-ShIO completes.
  --Exceptions are propagated normally.
 sub :: ShIO a -> ShIO a
 sub a = do
-  st <- get
-  r <- a `catch_sh` (\(e :: SomeException) -> put st >> throw e)
-  put st
+  state <- get
+  r <- a `catch_sh` (\(e :: SomeException) -> put state >> throw e)
+  put state
   return r
 
 -- | Enter a ShIO from (Monad)IO. The environment and working directories are
@@ -532,6 +544,13 @@ lastStderr = gets sStderr
 -- | set the stdin to be used and cleared by the next "run".
 setStdin :: Text -> ShIO ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
+
+-- | set the output of the first command as the stdin of the second.
+(-|-) :: ShIO Text -> ShIO b -> ShIO b
+one -|- two = do
+  res <- one
+  setStdin res
+  two
 
 data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
 
