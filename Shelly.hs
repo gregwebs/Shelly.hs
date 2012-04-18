@@ -39,7 +39,7 @@ module Shelly
          , exit, errorExit, terror
 
          -- * Utilities.
-         , (<$>), (<$$>), grep, whenM, canonic
+         , (<$>), (<$$>), grep, whenM, unlessM, canonic
          , catchany, catch_sh, catchany_sh
          , MemTime(..), time
          , RunFailed(..)
@@ -47,8 +47,8 @@ module Shelly
          , (|<>), (<>|)
          -- * convert between Text and FilePath
          , toTextUnsafe, toTextWarn, fromText
-         -- * Re-export for your con
-         , liftIO, when
+         -- * Re-exported for your convenience
+         , liftIO, when, unless
          ) where
 
 import Prelude hiding ( catch, readFile, FilePath )
@@ -320,8 +320,11 @@ canonic = absPath >=> liftIO . canonicalizePath
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
-whenM c a = do res <- c
-               when res a
+whenM c a = c >>= \res -> when res a
+
+-- | A monadic-conditional version of the "unless" guard.
+unlessM :: Monad m => m Bool -> m () -> m ()
+unlessM c a = c >>= \res -> unless res a
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
