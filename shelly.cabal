@@ -25,7 +25,7 @@ Author:              Greg Weber, Petr Rockai
 Maintainer:          Greg Weber <greg@gregweber.info>
 Category:            Development
 Build-type:          Simple
-Cabal-version:       >=1.6
+Cabal-version:       >=1.8
 
 
 Library
