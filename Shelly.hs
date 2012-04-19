@@ -12,7 +12,7 @@ module Shelly
          ShIO, shelly, sub, silently, verbosely, print_commands
 
          -- * Modifying and querying environment.
-         , setenv, getenv, getenv_def, appendPath
+         , setenv, getenv, getenv_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -24,7 +24,7 @@ module Shelly
          , ls, ls', test_e, test_f, test_d, test_s, which, find
 
          -- * Filename helpers
-         , path, absPath
+         , path, absPath, (</>), (<.>)
 
          -- * Manipulating filesystem.
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -73,9 +73,10 @@ import System.Process( runInteractiveProcess, waitForProcess, ProcessHandle )
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.Builder as B
+import qualified Data.Text as T
 import Data.Monoid (mappend)
 
-import Filesystem.Path.CurrentOS hiding (concat, fromText)
+import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem
 import qualified Filesystem.Path.CurrentOS as FP
 
@@ -84,6 +85,29 @@ import System.Directory ( setPermissions, getPermissions, Permissions(..), getTe
 
 infixr 5 <>| 
 infixr 5 |<> 
+
+class ToFilePath a where
+  toFilePath :: a -> FilePath
+
+instance ToFilePath FilePath where
+  toFilePath = id
+
+instance ToFilePath Text where
+  toFilePath = fromText
+
+instance ToFilePath T.Text where
+  toFilePath = FP.fromText
+
+instance ToFilePath String where
+  toFilePath = FP.fromText . T.pack
+
+-- | uses System.FilePath.CurrentOS, but can automatically convert a Text
+(</>) :: (ToFilePath fp) => fp -> fp -> FilePath
+x </> y = toFilePath x FP.</> toFilePath y
+
+-- | uses System.FilePath.CurrentOS, but can automatically convert a Text
+(<.>) :: (ToFilePath fp) => fp -> Text -> FilePath
+x <.> y = toFilePath x FP.<.> LT.toStrict y
 
 -- | mappend a Text & FilePath. Warning: uses toTextUnsafe
 (<>|) :: Text -> FilePath -> Text
@@ -223,7 +247,7 @@ path = canonic
 
 -- | makes an absolute path. @path@ will also normalize
 absPath :: FilePath -> ShIO FilePath
-absPath p | relative p = (</> p) <$> gets sDirectory
+absPath p | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
   
 -- | apply a String IO operations to a Text FilePath
@@ -264,11 +288,11 @@ ls = path >=> liftIO . listDirectory
 find :: FilePath -> ShIO [FilePath]
 find dir = do bits <- ls dir
               subDir <- forM bits $ \x -> do
-                ex <- test_d $ dir </> x
-                sym <- test_s $ dir </> x
-                if ex && not sym then find (dir </> x)
+                ex <- test_d $ dir FP.</> x
+                sym <- test_s $ dir FP.</> x
+                if ex && not sym then find (dir FP.</> x)
                                  else return []
-              return $ map (dir </>) bits ++ concat subDir
+              return $ map (dir FP.</>) bits ++ concat subDir
 
 -- | Obtain the current (ShIO) working directory.
 pwd :: ShIO FilePath
@@ -376,8 +400,8 @@ setenv k v =
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
 -- | add the filepath onto the PATH env variable
-appendPath :: FilePath -> ShIO ()
-appendPath filepath = do
+appendToPath :: FilePath -> ShIO ()
+appendToPath filepath = do
   tp <- toTextWarn filepath
   pe <- getenv path_env
   setenv path_env $ pe `mappend` ":" `mappend` tp
@@ -590,7 +614,7 @@ time what = sub $ do -- TODO track memory usage as well
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from to = do
     whenM (test_d from) $
-      mkdir to >> ls from >>= mapM_ (\item -> cp_r (from </> item) (to </> item))
+      mkdir to >> ls from >>= mapM_ (\item -> cp_r (from FP.</> item) (to FP.</> item))
     whenM (test_f from) $ cp from to
 
 -- | Copy a file. The second path could be a directory, in which case the
@@ -600,7 +624,7 @@ cp from to = do
   from' <- absPath from
   to' <- absPath to
   to_dir <- test_d to
-  liftIO $ copyFile from' $ if to_dir then to' </> filename from else to'
+  liftIO $ copyFile from' $ if to_dir then to' FP.</> filename from else to'
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
