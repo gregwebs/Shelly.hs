@@ -1,11 +1,22 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances #-}
 
--- | A module for shell-like / perl-like programming in Haskell. The stuff in
--- here is not always pretty, but it gets the job done. The functionality provided by
+-- | A module for shell-like / perl-like programming in Haskell.
+-- Shelly's focus is entirely on ease of use for those coming from shell scripting.
+-- However, it also tries to use modern libraries and techniques to keep things efficient.
+--
+-- The functionality provided by
 -- this module is (unlike standard Haskell filesystem functionality)
 -- thread-safe: each ShIO maintains its own environment and its own working
 -- directory.
+--
+-- I highly recommend putting the following at the top of your program,
+-- otherwise you will need either type annotations/conversions
+--
+-- {-# LANGUAGE OverloadedStrings #-}
+-- {-# LANGUAGE ExtendedDefaultRules #-}
+-- {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- default (Text) -- this goes after import statements
 module Shelly
        (
          -- * Entering ShIO.
@@ -31,7 +42,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, ( # ), run_, (-|-), lastStderr, setStdin
+         , run, result, ( # ), run_, (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
 --         , Sudo(..), run_sudo
 
@@ -46,10 +57,31 @@ module Shelly
          -- * mappend (<>) Text with a FilePath
          , (|<>), (<>|)
          -- * convert between Text and FilePath
-         , toTextUnsafe, toTextWarn, fromText
+         , toTextIgnore, toTextWarn, fromText
          -- * Re-exported for your convenience
          , liftIO, when, unless
          ) where
+
+-- TODO:
+-- shebang runner that puts wrappers in and invokes
+-- convenience for commands that use record arguments
+{-
+      let oFiles = ("a.o", "b.o")
+      let ldOutput x = ("-o", x)
+
+      let def = LD { output = error "", verbose = False, inputs = [] }
+      data LD = LD { output :: FilePath, verbose :: Bool, inputs :: [FilePath] } deriving(Data, Typeable)
+      instance Runnable LD where
+        run :: LD -> IO ()
+
+      class Runnable a where
+        run :: a -> ShIO Text
+
+      let ld = def :: LD
+      run (ld "foo") { oFiles = [] }
+      run ld { oFiles = [] }
+      ld = ..magic..
+-}
 
 import Prelude hiding ( catch, readFile, FilePath )
 import Data.List( isInfixOf )
@@ -86,40 +118,81 @@ import System.Directory ( setPermissions, getPermissions, Permissions(..), getTe
 infixr 5 <>| 
 infixr 5 |<> 
 
+{- GHC won't default to Text with this
+class ShellArgs a where
+  toTextArgs :: a -> [Text]
+
+instance ShellArgs Text       where toTextArgs t = [t]
+instance ShellArgs FilePath   where toTextArgs t = [toTextIgnore t]
+instance ShellArgs [Text]     where toTextArgs = id
+instance ShellArgs [FilePath] where toTextArgs = map toTextIgnore
+
+instance ShellArgs (Text, Text) where
+  toTextArgs (t1,t2) = [t1, t2]
+instance ShellArgs (FilePath, FilePath) where
+  toTextArgs (fp1,fp2) = [toTextIgnore fp1, toTextIgnore fp2]
+instance ShellArgs (Text, FilePath) where
+  toTextArgs (t1, fp1) = [t1, toTextIgnore fp1]
+instance ShellArgs (FilePath, Text) where
+  toTextArgs (fp1,t1) = [toTextIgnore fp1, t1]
+
+cmd :: (ShellArgs args) => FilePath -> args -> ShIO Text
+cmd fp args = run fp $ toTextArgs args
+-}
+
 class ToFilePath a where
   toFilePath :: a -> FilePath
 
-instance ToFilePath FilePath where
-  toFilePath = id
+instance ToFilePath FilePath where toFilePath = id
+instance ToFilePath Text     where toFilePath = fromText
+instance ToFilePath T.Text   where toFilePath = FP.fromText
+instance ToFilePath String   where toFilePath = FP.fromText . T.pack
 
-instance ToFilePath Text where
-  toFilePath = fromText
+class ShellArg a where toTextArg :: a -> Text
+instance ShellArg Text     where toTextArg = id
+instance ShellArg FilePath where toTextArg = toTextIgnore
 
-instance ToFilePath T.Text where
-  toFilePath = FP.fromText
 
-instance ToFilePath String where
-  toFilePath = FP.fromText . T.pack
+-- | For the variadic argument version of 'run' called 'result'.
+class ShellCommand t where
+    cmdAll :: FilePath -> [Text] -> t
+instance ShellCommand (ShIO Text) where
+    cmdAll fp args = run fp args
+instance ShellCommand (ShIO ()) where
+    cmdAll fp args = run_ fp args
+instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
+    cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
+
+-- | variadic argument version of run.
+-- Convenient (avoid list syntax and use FilePath without converting), but has a big downside:
+-- It always returns a result, it should always be used as value <- result
+-- Note that value could be ().
+-- If you do not return a value you will get a nasty error message!
+-- So the function is named 'result' to remind you of that.
+-- An argument can be a Text or a FilePath.
+-- a FilePath is converted to Text with 'toTextIgnore'.
+result :: (ShellCommand result) => FilePath -> result
+result fp = cmdAll fp []
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
-(</>) :: (ToFilePath fp) => fp -> fp -> FilePath
+(</>) :: (ToFilePath filepath) => filepath -> filepath -> FilePath
 x </> y = toFilePath x FP.</> toFilePath y
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
-(<.>) :: (ToFilePath fp) => fp -> Text -> FilePath
+(<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
 x <.> y = toFilePath x FP.<.> LT.toStrict y
 
--- | mappend a Text & FilePath. Warning: uses toTextUnsafe
+-- | mappend a Text & FilePath. Warning: uses toTextIgnore
 (<>|) :: Text -> FilePath -> Text
-(<>|) t fp = t `mappend` toTextUnsafe fp
+(<>|) t fp = t `mappend` toTextIgnore fp
   
--- | mappend a FilePath & Text. Warning: uses toTextUnsafe
+-- | mappend a FilePath & Text. Warning: uses toTextIgnore
 (|<>) :: FilePath -> Text -> Text
-(|<>) fp t = toTextUnsafe fp `mappend` t
+(|<>) fp t = toTextIgnore fp `mappend` t
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
-toTextUnsafe :: FilePath -> Text
-toTextUnsafe fp = LT.fromStrict $ case toText fp of
+toTextIgnore :: FilePath -> Text
+toTextIgnore fp = LT.fromStrict $ case toText fp of
                                     Left  f -> f
                                     Right f -> f
 
@@ -190,9 +263,9 @@ gets :: (State -> a) -> ShIO a
 gets f = f <$> get
 
 runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
-runInteractiveProcess' cmd args = do
+runInteractiveProcess' exe args = do
   st <- get
-  liftIO $ runInteractiveProcess (unpack cmd)
+  liftIO $ runInteractiveProcess (unpack exe)
     (map LT.unpack args)
     (Just $ unpack $ sDirectory st)
     (Just $ sEnvironment st)
@@ -463,9 +536,9 @@ shelly a = do
 data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
 instance Show RunFailed where
-  show (RunFailed cmd args code errs) =
+  show (RunFailed exe args code errs) =
     "error running " ++
-      unpack cmd ++ " " ++ show args ++
+      unpack exe ++ " " ++ show args ++
       ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
 
 instance Exception RunFailed
@@ -473,7 +546,7 @@ instance Exception RunFailed
 
 -- | An infix shorthand for "run". Write @\"command\" # [ \"argument\" ... ]@.
 ( # ) :: FilePath -> [Text] -> ShIO Text
-cmd # args = run cmd args
+exe # args = run exe args
 
 -- | Execute an external command. Takes the command name (no shell allowed,
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
@@ -487,7 +560,7 @@ cmd # args = run cmd args
 -- You can avoid this but still consume the result by using "run'",
 -- or if you need to process the output than "runFoldLines"
 run :: FilePath -> [Text] -> ShIO Text
-run cmd args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder cmd args
+run exe args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder exe args
 
 foldBuilder :: (B.Builder, Text) -> B.Builder
 foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\n'
@@ -523,12 +596,12 @@ liftIO_ action = liftIO action >> return ()
 -- same as "run", but fold over stdout as it is read to avoid keeping it in memory
 -- stderr is still placed in memory (this could be changed in the future)
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
-runFoldLines start cb cmd args = do
+runFoldLines start cb exe args = do
     state <- get
     when (sPrintCommands state) $ do
-      c <- toTextWarn cmd
+      c <- toTextWarn exe
       echo $ LT.intercalate " " (c:args)
-    (inH,outH,errH,procH) <- sRun state cmd args
+    (inH,outH,errH,procH) <- sRun state exe args
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
@@ -562,7 +635,7 @@ runFoldLines start cb cmd args = do
     }
     case ex of
       ExitSuccess   -> return outs
-      ExitFailure n -> throw $ RunFailed cmd args n errs
+      ExitFailure n -> throw $ RunFailed exe args n errs
 
 -- | The output of last external command. See "run".
 lastStderr :: ShIO Text
