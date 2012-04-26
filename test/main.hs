@@ -1,5 +1,7 @@
 {-# Language OverloadedStrings #-}
 {-# Language ExtendedDefaultRules #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
 import Shelly
 import Data.Text.Lazy as LT
 default (LT.Text)
@@ -12,5 +14,5 @@ main =
     setStdin "catted"
     run_ "cat" ["-"]
     res <- cmd "echo" "foo"
-    cmd "echo" "bar" "baz"
+    _<-cmd "echo" "bar" "baz"
     echo res

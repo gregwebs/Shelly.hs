@@ -14,7 +14,7 @@ Description: Shelly is a package provides a single module for convenient
              .
                * Shelly is modern. It uses Text and system-filepath/system-fileio
              .
-             These are all in contrast to HSH. Elegance in HSH comes from polymorphic input and output.
+               * Shelly is aimed at convenience and newer Haskell users
              .
              Shelly is a fork of Shellish that features low memory usage, bug fixes, and modernization
 
@@ -42,6 +42,7 @@ test-suite test
     type:           exitcode-stdio-1.0
     main-is:        main.hs
     hs-source-dirs: ., test
+    ghc-options: -Wall
 
     Build-depends: base >= 4 && < 5, time, directory, text, mtl, process
                  , unix-compat < 0.4

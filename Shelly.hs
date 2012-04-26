@@ -11,16 +11,22 @@
 -- directory.
 --
 -- I highly recommend putting the following at the top of your program,
--- otherwise you will need either type annotations/conversions
+-- otherwise you will likely need either type annotations or type conversions
 --
--- {-# LANGUAGE OverloadedStrings #-}
--- {-# LANGUAGE ExtendedDefaultRules #-}
--- {-# OPTIONS_GHC -fno-warn-type-defaults #-}
--- default (Text) -- this goes after import statements
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE ExtendedDefaultRules #-}
+-- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- > import Data.Text.Lazy as LT
+-- > default (LT.Text)
 module Shelly
        (
          -- * Entering ShIO.
          ShIO, shelly, sub, silently, verbosely, print_commands
+
+         -- * Running external commands.
+         , run, run_, cmd, (-|-), lastStderr, setStdin
+         , command, command_, command1, command1_
+--         , Sudo(..), run_sudo
 
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, appendToPath
@@ -41,11 +47,6 @@ module Shelly
          , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
          , readfile, writefile, appendfile, withTmpDir
 
-         -- * Running external commands.
-         , run, cmd, ( # ), run_, (-|-), lastStderr, setStdin
-         , command, command_, command1, command1_
---         , Sudo(..), run_sudo
-
          -- * exiting the program
          , exit, errorExit, terror
 
@@ -54,10 +55,10 @@ module Shelly
          , catchany, catch_sh, catchany_sh
          , MemTime(..), time
          , RunFailed(..)
-         -- * mappend (<>) Text with a FilePath
-         , (|<>), (<>|)
+
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, fromText
+
          -- * Re-exported for your convenience
          , liftIO, when, unless
          ) where
@@ -115,9 +116,6 @@ import qualified Filesystem.Path.CurrentOS as FP
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
 
-infixr 5 <>| 
-infixr 5 |<> 
-
 {- GHC won't default to Text with this
 class ShellArgs a where
   toTextArgs :: a -> [Text]
@@ -173,10 +171,13 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 -- An argument can be a Text or a FilePath.
 -- a FilePath is converted to Text with 'toTextIgnore'.
 -- You will need to add the following to your module:
--- {-# Language ExtendedDefaultRules #-}
--- import Shelly
--- import Data.Text.Lazy as LT
--- default (LT.Text)
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE ExtendedDefaultRules #-}
+-- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- > import Shelly
+-- > import Data.Text.Lazy as LT
+-- > default (LT.Text)
 --
 cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []
@@ -189,13 +190,6 @@ x </> y = toFilePath x FP.</> toFilePath y
 (<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
 x <.> y = toFilePath x FP.<.> LT.toStrict y
 
--- | mappend a Text & FilePath. Warning: uses toTextIgnore
-(<>|) :: Text -> FilePath -> Text
-(<>|) t fp = t `mappend` toTextIgnore fp
-  
--- | mappend a FilePath & Text. Warning: uses toTextIgnore
-(|<>) :: FilePath -> Text -> Text
-(|<>) fp t = toTextIgnore fp `mappend` t
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextIgnore :: FilePath -> Text
@@ -551,10 +545,6 @@ instance Show RunFailed where
 instance Exception RunFailed
 
 
--- | An infix shorthand for "run". Write @\"command\" # [ \"argument\" ... ]@.
-( # ) :: FilePath -> [Text] -> ShIO Text
-exe # args = run exe args
-
 -- | Execute an external command. Takes the command name (no shell allowed,
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
 -- @PATH@ is not taken into account, only the one inherited from the actual
@@ -652,7 +642,7 @@ lastStderr = gets sStderr
 setStdin :: Text -> ShIO ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
 
--- | set the output of the first command as the stdin of the second.
+-- | Pipe operator. set the stdout the first command as the stdin of the second.
 (-|-) :: ShIO Text -> ShIO b -> ShIO b
 one -|- two = do
   res <- one
