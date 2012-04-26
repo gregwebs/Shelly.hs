@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             MultiParamTypeClasses, FlexibleInstances #-}
+             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, IncoherentInstances #-}
 
 -- | A module for shell-like / perl-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -42,7 +42,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands.
-         , run, result, ( # ), run_, (-|-), lastStderr, setStdin
+         , run, cmd, ( # ), run_, (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
 --         , Sudo(..), run_sudo
 
@@ -153,26 +153,33 @@ instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
 
 
--- | For the variadic argument version of 'run' called 'result'.
+-- | For the variadic argument version of 'run' called 'cmd'.
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
+
 instance ShellCommand (ShIO Text) where
     cmdAll fp args = run fp args
-instance ShellCommand (ShIO ()) where
-    cmdAll fp args = run_ fp args
+
+-- note that ShIO () actually doesn't compile all the time!
+instance ShellCommand (ShIO a) where
+    cmdAll fp args = run_ fp args >>
+      return (error "No Way! Shelly did not see this coming. Please report this error.")
+
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
     cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
 
 -- | variadic argument version of run.
--- Convenient (avoid list syntax and use FilePath without converting), but has a big downside:
--- It always returns a result, it should always be used as value <- result
--- Note that value could be ().
--- If you do not return a value you will get a nasty error message!
--- So the function is named 'result' to remind you of that.
+-- The syntax is more convenient but it also allows the use of a FilePath as an argument.
 -- An argument can be a Text or a FilePath.
 -- a FilePath is converted to Text with 'toTextIgnore'.
-result :: (ShellCommand result) => FilePath -> result
-result fp = cmdAll fp []
+-- You will need to add the following to your module:
+-- {-# Language ExtendedDefaultRules #-}
+-- import Shelly
+-- import Data.Text.Lazy as LT
+-- default (LT.Text)
+--
+cmd :: (ShellCommand result) => FilePath -> result
+cmd fp = cmdAll fp []
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
 (</>) :: (ToFilePath filepath) => filepath -> filepath -> FilePath

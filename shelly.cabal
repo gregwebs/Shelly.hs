@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.5.1
+Version:     0.6
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly is a package provides a single module for convenient
@@ -43,8 +43,10 @@ test-suite test
     main-is:        main.hs
     hs-source-dirs: ., test
 
-    build-depends:   base >= 4 && < 5
-                   -- , hspec
+    Build-depends: base >= 4 && < 5, time, directory, text, mtl, process
+                 , unix-compat < 0.4
+                 , system-filepath < 0.5
+                 , system-fileio < 0.4
 
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore
