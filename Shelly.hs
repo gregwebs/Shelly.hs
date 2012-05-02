@@ -48,7 +48,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands asynchronously.
-         , background, getBgResult, BackGroundResult
+         , background, getBgResult, BgResult
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -100,6 +100,7 @@ import Control.Applicative
 import Control.Exception hiding (handle)
 import Control.Monad.Reader
 import Control.Concurrent
+import qualified Control.Concurrent.MSem as Sem
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.Lazy.IO as TIO
@@ -241,7 +242,6 @@ data State = State   { sCode :: Int
                      , sStderr :: Text
                      , sDirectory :: FilePath
                      , sVerbose :: Bool
-                     , sJobsSem :: QSem
                      , sPrintCommands :: Bool -- ^ print out command
                      , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
                      , sEnvironment :: [(String, String)] }
@@ -505,41 +505,51 @@ silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
 
--- | Create a sub-ShIO which has limits the max number of background tasks.
--- See "sub".  By default the limit is `maxBound :: Int` but can be adjusted
--- by customizing the jobs state.  Note that this limit is per `ShIO` instance,
--- two parallel executions inside the `ShIO` monad will effectively double
--- this limit.
-jobs :: Int -> ShIO a -> ShIO a
-jobs mx a = do
-  sem <- liftIO $ newQSem mx
-  sub $ modify (\x -> x { sJobsSem = sem }) >> a
+-- | Create a sub-ShIO which has a 'limit' on the max number of background tasks.
+-- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
+-- This blocks the execution of the program until all 'background' jobs are finished.
+jobs :: Int -> (BgJobManager -> ShIO a) -> ShIO a
+jobs limit action = do
+    unless (limit > 0) $ terror "expected limit to be > 0"
+    availableJobsSem <- liftIO $ Sem.new limit
+    res <- action $ BgJobManager availableJobsSem
+    liftIO $ waitForJobs availableJobsSem
+    return res
+  where
+    waitForJobs sem = do
+      avail <- Sem.peekAvail sem
+      if avail == limit then return () else waitForJobs sem
+
+newtype BgJobManager = BgJobManager (Sem.MSem Int)
 
 -- | Type returned by tasks run asynchronously in the background.
-newtype BackGroundResult a = BGResult (MVar a)
+newtype BgResult a = BgResult (MVar a)
 
--- | Returns the result from a backgrounded task.  Blocks until
+-- | Returns the promised result from a backgrounded task.  Blocks until
 -- the task completes.
-getBgResult :: BackGroundResult a -> IO a
-getBgResult (BGResult mvar) = do
-  takeMVar mvar
+getBgResult :: BgResult a -> ShIO a
+getBgResult (BgResult mvar) = liftIO $ takeMVar mvar
 
 -- | Run the `ShIO` task asynchronously in the background, returns
--- the `BackGroundResult a` immediately, see "getBgResult".
--- The subtask will inherit the current ShIO context, including
--- current task count.  This means that if the asynchronous task
--- also calls background the max jobs limit must be sufficient for
--- the parent and all children.
-background :: ShIO a -> ShIO (BackGroundResult a)
-background proc = do
+-- the `BgResult a`, a promise immediately. Run "getBgResult" to wait for the result.
+-- The background task will inherit the current ShIO context
+-- The 'BjJobManager' ensures the max jobs limit must be sufficient for the parent and all children.
+background :: BgJobManager -> ShIO a -> ShIO (BgResult a)
+background (BgJobManager manager) proc = do
   state <- get
-  mvar <- liftIO newEmptyMVar
-  _ <- liftIO $ forkIO $ do
-    waitQSem (sJobsSem state)
-    result <- shelly $ (put state >> proc)
-    signalQSem (sJobsSem state)
-    liftIO $ putMVar mvar result
-  return $ BGResult mvar
+  liftIO $ do
+    -- take up a spot
+    -- It is important to do this before forkIO:
+    -- It ensures that that jobs will block and the program won't exit before our jobs are done
+    -- On the other hand, a user might not expect 'jobs' to block
+    Sem.wait manager
+    mvar <- newEmptyMVar -- future result
+
+    _<- forkIO $ do
+      result <- shelly $ (put state >> proc)
+      Sem.signal manager -- open a spot back up
+      liftIO $ putMVar mvar result
+    return $ BgResult mvar
 
 
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
@@ -564,12 +574,10 @@ shelly :: MonadIO m => ShIO a -> m a
 shelly a = do
   env <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
-  sem <- liftIO $ newQSem maxBound
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = LT.empty
                    , sVerbose = True
-                   , sJobsSem = sem
                    , sPrintCommands = False
                    , sRun = runInteractiveProcess'
                    , sEnvironment = env
