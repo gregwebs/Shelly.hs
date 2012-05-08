@@ -142,6 +142,7 @@ cmd :: (ShellArgs args) => FilePath -> args -> ShIO Text
 cmd fp args = run fp $ toTextArgs args
 -}
 
+-- | Helper to convert a Text to a FilePath. Used for arguments to 'cmd'
 class ToFilePath a where
   toFilePath :: a -> FilePath
 
@@ -187,7 +188,7 @@ cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
-(</>) :: (ToFilePath filepath) => filepath -> filepath -> FilePath
+(</>) :: (ToFilePath filepath1, ToFilePath filepath2) => filepath1 -> filepath2 -> FilePath
 x </> y = toFilePath x FP.</> toFilePath y
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
