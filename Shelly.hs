@@ -67,7 +67,12 @@ module Shelly
          ) where
 
 -- TODO:
+-- log every function invocation to make a stack trace of sorts
+-- as per: http://web.engr.oregonstate.edu/~erwig/papers/DeclScripting_SLE09.pdf
+-- remove file-location usage
+--
 -- shebang runner that puts wrappers in and invokes
+-- perhaps also adds monadloc
 -- convenience for commands that use record arguments
 {-
       let oFiles = ("a.o", "b.o")
@@ -120,7 +125,8 @@ import qualified Filesystem.Path.CurrentOS as FP
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
 
-{- GHC won't default to Text with this
+{- GHC won't default to Text with this, even with extensions!
+ - see: http://hackage.haskell.org/trac/ghc/ticket/6030
 class ShellArgs a where
   toTextArgs :: a -> [Text]
 
@@ -274,7 +280,7 @@ runInteractiveProcess' exe args = do
   liftIO $ runInteractiveProcess (unpack exe)
     (map LT.unpack args)
     (Just $ unpack $ sDirectory st)
-    (Just $ sEnvironment st)
+    (Just $ sEnvironment st) -- TODO: is PATH buggy?
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
@@ -402,7 +408,9 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = absPath >=> liftIO . createDirectory False
+mkdir = absPath >=> liftIO . (\fp ->
+	createDirectory False fp `catchany` (\e -> throwIO e >> return ())
+  )
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
@@ -563,7 +571,9 @@ print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
 sub :: ShIO a -> ShIO a
 sub a = do
   state <- get
-  r <- a `catch_sh` (\(e :: SomeException) -> put state >> throw e)
+  r <- a `catchany_sh` (\e -> do
+	put state
+	liftIO $ throwIO e)
   put state
   return r
 
@@ -592,10 +602,15 @@ instance Show RunFailed where
   show (RunFailed exe args code errs) =
     "error running " ++
       unpack exe ++ " " ++ show args ++
-      ": exit status " ++ show code ++ ":\n" ++ LT.unpack errs
+      "\nexit status: " ++ show code ++ "\nstderr: " ++ LT.unpack errs
 
 instance Exception RunFailed
 
+data Exception e => ReThrownException e = ReThrownException e String deriving (Typeable)
+instance Exception e => Exception (ReThrownException e)
+instance Exception e => Show (ReThrownException e) where
+  show (ReThrownException ex msg) =
+    "Exception: " ++ show ex ++ "\n" ++ msg
 
 -- | Execute an external command. Takes the command name (no shell allowed,
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
@@ -684,7 +699,8 @@ runFoldLines start cb exe args = do
     }
     case ex of
       ExitSuccess   -> return outs
-      ExitFailure n -> throw $ RunFailed exe args n errs
+      ExitFailure n ->
+		liftIO $ throwIO $ RunFailed exe args n errs
 
 -- | The output of last external command. See "run".
 lastStderr :: ShIO Text
@@ -735,9 +751,11 @@ time what = sub $ do -- TODO track memory usage as well
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from to = do
-    whenM (test_d from) $
-      mkdir to >> ls from >>= mapM_ (\item -> cp_r (from FP.</> item) (to FP.</> item))
-    whenM (test_f from) $ cp from to
+    from_d <- (test_d from)
+    if not from_d then cp from to else do
+		 unlessM (test_d to) $ mkdir to
+		 ls from >>= mapM_
+		   (\item -> cp_r (from FP.</> filename item) (to FP.</> filename item))
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
@@ -746,7 +764,12 @@ cp from to = do
   from' <- absPath from
   to' <- absPath to
   to_dir <- test_d to
-  liftIO $ copyFile from' $ if to_dir then to' FP.</> filename from else to'
+  let to_loc = if to_dir then to' FP.</> filename from else to'
+  liftIO $ copyFile from' to_loc `catchany` (\e -> throwIO $
+	  ReThrownException e (extraMsg to_loc from')
+	)
+  where
+    extraMsg t f = "when copying from: " ++ unpack f ++ " to: " ++ unpack t
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
@@ -758,7 +781,7 @@ instance (Eq a) => PredicateLike [a] [a] where
   match pat = (pat `isInfixOf`)
 
 -- | Like filter, but more conveniently used with String lists, where a
--- substring match (TODO: also provide regexps, and maybe globs) is expressed as
+-- substring match (TODO: also provide globs) is expressed as
 --  @grep \"needle\" [ \"the\", \"stack\", \"of\", \"hay\" ]@. Boolean
 -- predicates just like with "filter" are supported too:
 -- @grep (\"fun\" `isPrefixOf`) [...]@.
@@ -780,7 +803,8 @@ withTmpDir act = do
   liftIO $ hClose handle -- required on windows
   rm_f p
   mkdir p
-  a <- act p`catch_sh` \(e :: SomeException) -> rm_rf p >> throw e
+  a <- act p`catch_sh` \(e :: SomeException) -> do
+	rm_rf p >> liftIO (throwIO e)
   rm_rf p
   return a
 
