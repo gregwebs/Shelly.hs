@@ -713,7 +713,7 @@ setStdin input = modify $ \st -> st { sStdin = Just input }
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
 (-|-) :: ShIO Text -> ShIO b -> ShIO b
 one -|- two = do
-  res <- one
+  res <- silently one
   setStdin res
   two
 
