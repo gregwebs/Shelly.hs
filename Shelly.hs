@@ -21,7 +21,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, jobs, print_commands
+         ShIO, shelly, sub, silently, verbosely, print_stdout, print_commands
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
@@ -36,6 +36,7 @@ module Shelly
 
          -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect
+         , tag, trace
 
          -- * Querying filesystem.
          , ls, ls', test_e, test_f, test_d, test_s, which, find
@@ -48,7 +49,7 @@ module Shelly
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands asynchronously.
-         , background, getBgResult, BgResult
+         , jobs, background, getBgResult, BgResult
 
          -- * exiting the program
          , exit, errorExit, terror
@@ -67,10 +68,6 @@ module Shelly
          ) where
 
 -- TODO:
--- log every function invocation to make a stack trace of sorts
--- as per: http://web.engr.oregonstate.edu/~erwig/papers/DeclScripting_SLE09.pdf
--- remove file-location usage
---
 -- shebang runner that puts wrappers in and invokes
 -- perhaps also adds monadloc
 -- convenience for commands that use record arguments
@@ -248,10 +245,24 @@ data State = State   { sCode :: Int
                      , sStdin :: Maybe Text -- ^ stdin for the command to be run
                      , sStderr :: Text
                      , sDirectory :: FilePath
-                     , sVerbose :: Bool
-                     , sPrintCommands :: Bool -- ^ print out command
+                     , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+                     , sPrintCommands :: Bool -- ^ print command that is executed
                      , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
-                     , sEnvironment :: [(String, String)] }
+                     , sEnvironment :: [(String, String)]
+                     , sTrace :: B.Builder
+                     }
+
+-- | same as 'trace', but use it combinator style
+tag :: ShIO a -> Text -> ShIO a
+tag action msg = do
+  result <- action
+  trace msg
+  return result
+
+
+-- | log actions that occur
+trace :: Text -> ShIO ()
+trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` "\n" `mappend` B.fromLazyText msg }
 
 type ShIO a = ReaderT (IORef State) IO a
 
@@ -314,6 +325,7 @@ catchany_sh = catch_sh
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> ShIO ()
 cd dir = do dir' <- absPath dir
+            trace $ "cd " `mappend` toTextIgnore dir'
             modify $ \st -> st { sDirectory = dir' }
 
 -- | "cd", execute a ShIO action in the new directory and then pop back to the original directory
@@ -356,22 +368,25 @@ pack = decodeString
 mv :: FilePath -> FilePath -> ShIO ()
 mv a b = do a' <- absPath a
             b' <- absPath b
+            trace $ "mv " `mappend` toTextIgnore a' `mappend` " " `mappend` toTextIgnore b'
             liftIO $ rename a' b'
 
 -- | Get back [Text] instead of [FilePath]
 ls' :: FilePath -> ShIO [Text]
 ls' fp = do
+    trace $ "ls " `mappend` toTextIgnore fp
     efiles <- ls fp
     mapM toTextWarn efiles
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls = path >=> liftIO . listDirectory
+ls = path >=> \fp -> (liftIO $ listDirectory fp) `tag` ("ls " `mappend` toTextIgnore fp) 
 
 -- | List directory recursively (like the POSIX utility "find").
 find :: FilePath -> ShIO [FilePath]
-find dir = do bits <- ls dir
+find dir = do trace ("find " `mappend` toTextIgnore dir)
+              bits <- ls dir
               subDir <- forM bits $ \x -> do
                 ex <- test_d $ dir FP.</> x
                 sym <- test_s $ dir FP.</> x
@@ -408,14 +423,16 @@ inspect = liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = absPath >=> liftIO . (\fp ->
-	createDirectory False fp `catchany` (\e -> throwIO e >> return ())
-  )
+mkdir = absPath >=> \fp -> do
+  trace $ "mkdir " `mappend` toTextIgnore fp
+  liftIO $ createDirectory False fp `catchany` (\e -> throwIO e >> return ())
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = absPath >=> liftIO . createTree
+mkdir_p = absPath >=> \fp -> do
+  trace $ "mkdir_p " `mappend` toTextIgnore fp
+  liftIO $ createTree fp
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
@@ -476,7 +493,9 @@ rm_rf f = absPath f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = whenM (test_e f) $ absPath f >>= liftIO . removeFile
+rm_f f = whenM (test_e f) $ absPath f >>= \fp -> do
+  trace $ "rm_f " `mappend` toTextIgnore fp
+  liftIO $ removeFile fp
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -508,11 +527,14 @@ getenv_def k d = gets sEnvironment >>=
 
 -- | Create a sub-ShIO in which external command outputs are not echoed. See "sub".
 silently :: ShIO a -> ShIO a
-silently a = sub $ modify (\x -> x { sVerbose = False }) >> a
+silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = False }) >> a
 
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 verbosely :: ShIO a -> ShIO a
-verbosely a = sub $ modify (\x -> x { sVerbose = True }) >> a
+verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
+
+print_stdout :: ShIO a -> ShIO a
+print_stdout a = sub $ modify (\x -> x { sPrintStdout = True }) >> a
 
 -- | Create a sub-ShIO which has a 'limit' on the max number of background tasks.
 -- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
@@ -582,19 +604,23 @@ sub a = do
 -- processwide working directory or environment are not reflected in the
 -- running ShIO.
 shelly :: MonadIO m => ShIO a -> m a
-shelly a = do
+shelly action = do
   env <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = LT.empty
-                   , sVerbose = True
+                   , sPrintStdout = True
                    , sPrintCommands = False
                    , sRun = runInteractiveProcess'
                    , sEnvironment = env
+                   , sTrace = B.fromText ""
                    , sDirectory = dir }
   stref <- liftIO $ newIORef def
-  liftIO $ runReaderT a stref
+  let caught =
+        action `catchany_sh` \e ->
+          get >>= liftIO . throwIO . ReThrownException e . LT.unpack .  B.toLazyText . sTrace
+  liftIO $ runReaderT caught stref
 
 data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
@@ -669,7 +695,7 @@ runFoldLines start cb exe args = do
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
-    if sVerbose state
+    if sPrintStdout state
       then do
         liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
         liftIO_ $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
@@ -751,6 +777,7 @@ time what = sub $ do -- TODO track memory usage as well
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from to = do
+    trace $ "cp_r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
     from_d <- (test_d from)
     if not from_d then cp from to else do
 		 unlessM (test_d to) $ mkdir to
@@ -763,6 +790,7 @@ cp :: FilePath -> FilePath -> ShIO ()
 cp from to = do
   from' <- absPath from
   to' <- absPath to
+  trace $ "cp " `mappend` toTextIgnore from' `mappend` " " `mappend` toTextIgnore to'
   to_dir <- test_d to
   let to_loc = if to_dir then to' FP.</> filename from else to'
   liftIO $ copyFile from' to_loc `catchany` (\e -> throwIO $
@@ -796,6 +824,7 @@ f <$$> v = fmap f . v
 -- computation. The directory is nuked afterwards.
 withTmpDir :: (FilePath -> ShIO a) -> ShIO a
 withTmpDir act = do
+  trace "withTmpDir"
   dir <- liftIO getTemporaryDirectory
   tid <- liftIO myThreadId
   (pS, handle) <- liftIO $ openTempFile dir ("tmp"++filter isAlphaNum (show tid))
@@ -803,22 +832,27 @@ withTmpDir act = do
   liftIO $ hClose handle -- required on windows
   rm_f p
   mkdir p
-  a <- act p`catch_sh` \(e :: SomeException) -> do
+  a <- act p`catchany_sh` \e -> do
 	rm_rf p >> liftIO (throwIO e)
   rm_rf p
   return a
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> Text -> ShIO ()
-writefile f bits = absPath f >>= \f' -> liftIO (TIO.writeFile (unpack f') bits)
+writefile f bits = absPath f >>= \f' -> do
+  trace $ "writefile " `mappend` toTextIgnore f'
+  liftIO (TIO.writeFile (unpack f') bits)
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> Text -> ShIO ()
-appendfile f bits = absPath f >>= \f' -> liftIO (TIO.appendFile (unpack f') bits)
+appendfile f bits = absPath f >>= \f' -> do
+  trace $ "appendfile " `mappend` toTextIgnore f'
+  liftIO (TIO.appendFile (unpack f') bits)
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO Text
-readfile =
-  absPath >=> fmap LT.fromStrict . liftIO . STIO.readFile . unpack
+readfile = absPath >=> \fp -> do
+  trace $ "appendfile " `mappend` toTextIgnore fp
+  (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
