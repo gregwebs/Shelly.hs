@@ -262,7 +262,7 @@ tag action msg = do
 
 -- | log actions that occur
 trace :: Text -> ShIO ()
-trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` "\n" `mappend` B.fromLazyText msg }
+trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
 
 type ShIO a = ReaderT (IORef State) IO a
 
@@ -585,19 +585,24 @@ background (BgJobManager manager) proc = do
 
 -- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
 print_commands :: ShIO a -> ShIO a
-print_commands a = sub $ modify (\x -> x { sPrintCommands = True }) >> a
+print_commands a = sub $ modify (\st -> st { sPrintCommands = True }) >> a
 
 -- | Enter a sub-ShIO that inherits the environment and working directory
 -- The original state will be restored when the sub-ShIO completes.
  --Exceptions are propagated normally.
 sub :: ShIO a -> ShIO a
 sub a = do
-  state <- get
+  oldState <- get
+  modify $ \st -> st { sTrace = B.fromText "" }
   r <- a `catchany_sh` (\e -> do
-	put state
+	putState oldState
 	liftIO $ throwIO e)
-  put state
+  putState oldState
   return r
+  where
+    putState oldState = do
+      newState <- get
+      put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
 -- | Enter a ShIO from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
@@ -619,8 +624,10 @@ shelly action = do
   stref <- liftIO $ newIORef def
   let caught =
         action `catchany_sh` \e ->
-          get >>= liftIO . throwIO . ReThrownException e . LT.unpack .  B.toLazyText . sTrace
+          get >>= liftIO . throwIO . ReThrownException e . errorMsg . LT.unpack .  B.toLazyText . sTrace
   liftIO $ runReaderT caught stref
+  where
+    errorMsg trc = "Ran commands: \n" `mappend` trc
 
 data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
@@ -635,8 +642,8 @@ instance Exception RunFailed
 data Exception e => ReThrownException e = ReThrownException e String deriving (Typeable)
 instance Exception e => Exception (ReThrownException e)
 instance Exception e => Show (ReThrownException e) where
-  show (ReThrownException ex msg) =
-    "Exception: " ++ show ex ++ "\n" ++ msg
+  show (ReThrownException ex msg) = "\n" ++
+    msg ++ "\n" ++ "Exception: " ++ show ex
 
 -- | Execute an external command. Takes the command name (no shell allowed,
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
@@ -739,9 +746,11 @@ setStdin input = modify $ \st -> st { sStdin = Just input }
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
 (-|-) :: ShIO Text -> ShIO b -> ShIO b
 one -|- two = do
-  res <- silently one
+  res <- no_print_stdout one
   setStdin res
   two
+  where
+    no_print_stdout a = sub $ modify (\x -> x { sPrintStdout = False }) >> a
 
 data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
 
@@ -797,7 +806,7 @@ cp from to = do
 	  ReThrownException e (extraMsg to_loc from')
 	)
   where
-    extraMsg t f = "when copying from: " ++ unpack f ++ " to: " ++ unpack t
+    extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
