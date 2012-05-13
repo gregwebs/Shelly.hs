@@ -272,9 +272,9 @@ get = do
   liftIO (readIORef stateVar)
 
 put :: State -> ShIO ()
-put state = do
+put newState = do
   stateVar <- ask 
-  liftIO (writeIORef stateVar state)
+  liftIO (writeIORef stateVar newState)
 
 modify :: (State -> State) -> ShIO ()
 modify f = do
@@ -291,7 +291,7 @@ runInteractiveProcess' exe args = do
   liftIO $ runInteractiveProcess (unpack exe)
     (map LT.unpack args)
     (Just $ unpack $ sDirectory st)
-    (Just $ sEnvironment st) -- TODO: is PATH buggy?
+    (Just $ sEnvironment st)
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
@@ -525,18 +525,22 @@ getenv_def :: Text -> Text -> ShIO Text
 getenv_def k d = gets sEnvironment >>=
   return . LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k)
 
--- | Create a sub-ShIO in which external command outputs are not echoed. See "sub".
+-- | Create a sub-ShIO in which external command outputs are not echoed.
+-- Also commands are not printed.
+-- See "sub".
 silently :: ShIO a -> ShIO a
 silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = False }) >> a
 
--- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
+-- | Create a sub-ShIO in which external command outputs are echoed.
+-- Executed commands are printed
+-- See "sub".
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
 
 print_stdout :: ShIO a -> ShIO a
 print_stdout a = sub $ modify (\x -> x { sPrintStdout = True }) >> a
 
--- | Create a sub-ShIO which has a 'limit' on the max number of background tasks.
+-- | Create a 'BgJobManager' which has a 'limit' on the max number of background tasks.
 -- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
 -- This blocks the execution of the program until all 'background' jobs are finished.
 jobs :: Int -> (BgJobManager -> ShIO a) -> ShIO a
@@ -583,24 +587,24 @@ background (BgJobManager manager) proc = do
     return $ BgResult mvar
 
 
--- | Create a sub-ShIO in which external command outputs are echoed. See "sub".
+-- | Create a sub-ShIO in which external commands are echoed. See "sub".
 print_commands :: ShIO a -> ShIO a
 print_commands a = sub $ modify (\st -> st { sPrintCommands = True }) >> a
 
--- | Enter a sub-ShIO that inherits the environment and working directory
+-- | Enter a sub-ShIO that inherits the environment
 -- The original state will be restored when the sub-ShIO completes.
- --Exceptions are propagated normally.
+-- Exceptions are propagated normally.
 sub :: ShIO a -> ShIO a
 sub a = do
   oldState <- get
   modify $ \st -> st { sTrace = B.fromText "" }
   r <- a `catchany_sh` (\e -> do
-	putState oldState
+	restoreState oldState
 	liftIO $ throwIO e)
-  putState oldState
+  restoreState oldState
   return r
   where
-    putState oldState = do
+    restoreState oldState = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
@@ -694,11 +698,24 @@ liftIO_ action = liftIO action >> return ()
 -- stderr is still placed in memory (this could be changed in the future)
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
 runFoldLines start cb exe args = do
+    -- clear stdin before beginning command execution
+    origstate <- get
+    let mStdin = sStdin origstate
+    put $ origstate { sStdin = Nothing, sCode = 0, sStderr = LT.empty }
     state <- get
-    when (sPrintCommands state) $ do
-      c <- toTextWarn exe
-      echo $ LT.intercalate " " (c:args)
+
+    let exeT = toTextIgnore exe
+    let cmdString = LT.intercalate " " (exeT: map (surround '\'') args)
+    when (sPrintCommands state) $ echo cmdString
+    trace cmdString
+
     (inH,outH,errH,procH) <- sRun state exe args
+
+    case mStdin of
+      Just input ->
+        liftIO $ TIO.hPutStr inH input >> hClose inH
+        -- stdin is cleared from state below
+      Nothing -> return ()
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
@@ -710,30 +727,20 @@ runFoldLines start cb exe args = do
         liftIO_ $ forkIO $ getContent errH >>= putMVar errV
         liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
 
-    -- If input was provided write it to the input handle.
-    case sStdin state of
-      Just input ->
-        liftIO $ TIO.hPutStr inH input >> hClose inH
-        -- stdin is cleared from state below
-      Nothing -> return ()
-
     errs <- liftIO $ takeMVar errV
-    outs <- liftIO $ takeMVar outV
     ex <- liftIO $ waitForProcess procH
-
 
     let code = case ex of
                  ExitSuccess -> 0
                  ExitFailure n -> n
-    put $ state {
-       sStdin = Nothing
-     , sStderr = errs
-     , sCode = code
-    }
-    case ex of
-      ExitSuccess   -> return outs
-      ExitFailure n ->
-		liftIO $ throwIO $ RunFailed exe args n errs
+
+    put $ state { sStderr = errs , sCode = code }
+
+    liftIO $ case ex of
+      ExitSuccess   -> takeMVar outV
+      ExitFailure n -> throwIO $ RunFailed exe args n errs
+  where
+    surround c t = LT.cons c $ LT.snoc t c
 
 -- | The output of last external command. See "run".
 lastStderr :: ShIO Text
