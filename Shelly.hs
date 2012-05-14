@@ -481,6 +481,7 @@ test_s = absPath >=> liftIO . \f -> do
 -- own. Use carefully.
 rm_rf :: FilePath -> ShIO ()
 rm_rf f = absPath f >>= \f' -> do
+  trace $ "rm_rf " `mappend` toTextIgnore f
   whenM (test_d f) $ do
     _<- find f' >>= mapM (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
     liftIO_ $ removeTree f'
@@ -493,9 +494,9 @@ rm_rf f = absPath f >>= \f' -> do
 -- | Remove a file. Does not fail if the file already is not there. Does fail
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f f = whenM (test_e f) $ absPath f >>= \fp -> do
-  trace $ "rm_f " `mappend` toTextIgnore fp
-  liftIO $ removeFile fp
+rm_f f = do
+  trace $ "rm_f " `mappend` toTextIgnore f
+  whenM (test_e f) $ absPath f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
