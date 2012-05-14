@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.8.0.1
+Version:     0.8.0.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides a single module for convenient
@@ -16,9 +16,7 @@ Description: Shelly provides a single module for convenient
              .
                * is modern. It uses Text and system-filepath/system-fileio
              .
-               * is aimed at convenience and newer Haskell users
-             .
-             Shelly is forked from the Shellish package.
+             Shelly is originally forked from the Shellish package.
 
 
 Homepage:            https://github.com/yesodweb/Shelly.hs

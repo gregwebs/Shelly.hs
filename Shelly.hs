@@ -145,21 +145,13 @@ cmd :: (ShellArgs args) => FilePath -> args -> ShIO Text
 cmd fp args = run fp $ toTextArgs args
 -}
 
--- | Helper to convert a Text to a FilePath. Used for arguments to 'cmd'
-class ToFilePath a where
-  toFilePath :: a -> FilePath
-
-instance ToFilePath FilePath where toFilePath = id
-instance ToFilePath Text     where toFilePath = fromText
-instance ToFilePath T.Text   where toFilePath = FP.fromText
-instance ToFilePath String   where toFilePath = FP.fromText . T.pack
-
+-- | Converter for the variadic argument version of 'run' called 'cmd'.
 class ShellArg a where toTextArg :: a -> Text
 instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
 
 
--- | For the variadic argument version of 'run' called 'cmd'.
+-- Voodoo to create the variadic function 'cmd'
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
 
@@ -189,6 +181,16 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 --
 cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []
+
+-- | Helper to convert a Text to a FilePath. Used by '(</>)' and '(<.>)'
+class ToFilePath a where
+  toFilePath :: a -> FilePath
+
+instance ToFilePath FilePath where toFilePath = id
+instance ToFilePath Text     where toFilePath = fromText
+instance ToFilePath T.Text   where toFilePath = FP.fromText
+instance ToFilePath String   where toFilePath = FP.fromText . T.pack
+
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
 (</>) :: (ToFilePath filepath1, ToFilePath filepath2) => filepath1 -> filepath2 -> FilePath
@@ -551,6 +553,7 @@ jobs limit action = do
       avail <- Sem.peekAvail sem
       if avail == limit then return () else waitForJobs sem
 
+-- | The manager tracks the number of jobs. Register your 'background' jobs with it.
 newtype BgJobManager = BgJobManager (Sem.MSem Int)
 
 -- | Type returned by tasks run asynchronously in the background.
@@ -799,6 +802,7 @@ cp from to = do
   where
     extraMsg t f = "when copying from: " ++ unpack f ++ " to: " ++ unpack t
 
+-- | for 'grep'
 class PredicateLike pattern hay where
   match :: pattern -> hay -> Bool
 
