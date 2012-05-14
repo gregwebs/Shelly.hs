@@ -61,3 +61,9 @@ Shelly gives you something fairly close to this though.
 It keeps a log of API usage and prints it out on failure.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
+
+
+# Future plans
+
+* Switch from lazy text to primarily strict
+* separate out timed & jobs functionality to a shelly-extras package to keep dependencies to a minimum..
