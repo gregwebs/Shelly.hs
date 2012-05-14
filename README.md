@@ -59,4 +59,5 @@ Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 Haskell's #1 weakness is a lack of stack traces.
 Shelly gives you something fairly close to this though.
 It keeps a log of API usage and prints it out on failure.
-This is in addition to the `verbosely` settings that will print out commands and their output.
+This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
+Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
