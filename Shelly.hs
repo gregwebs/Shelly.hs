@@ -91,7 +91,7 @@ module Shelly
 
 import Prelude hiding ( catch, readFile, FilePath )
 import Data.List( isInfixOf )
-import Data.Char( isAlphaNum )
+import Data.Char( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
@@ -638,11 +638,18 @@ data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
 instance Show RunFailed where
   show (RunFailed exe args code errs) =
-    "error running " ++
-      unpack exe ++ " " ++ show args ++
+    "error running: " ++ LT.unpack (show_command exe args) ++
       "\nexit status: " ++ show code ++ "\nstderr: " ++ LT.unpack errs
 
 instance Exception RunFailed
+
+show_command :: FilePath -> [Text] -> Text
+show_command exe args =
+    LT.intercalate " " $ map quote (toTextIgnore exe : args)
+  where
+    quote t = if LT.any isSpace t then surround '\'' t else t
+    surround c t = LT.cons c $ LT.snoc t c
+
 
 data Exception e => ReThrownException e = ReThrownException e String deriving (Typeable)
 instance Exception e => Exception (ReThrownException e)
@@ -705,8 +712,7 @@ runFoldLines start cb exe args = do
     put $ origstate { sStdin = Nothing, sCode = 0, sStderr = LT.empty }
     state <- get
 
-    let exeT = toTextIgnore exe
-    let cmdString = LT.intercalate " " (exeT: map (surround '\'') args)
+    let cmdString = show_command exe args
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
@@ -740,8 +746,6 @@ runFoldLines start cb exe args = do
     liftIO $ case ex of
       ExitSuccess   -> takeMVar outV
       ExitFailure n -> throwIO $ RunFailed exe args n errs
-  where
-    surround c t = LT.cons c $ LT.snoc t c
 
 -- | The output of last external command. See "run".
 lastStderr :: ShIO Text
