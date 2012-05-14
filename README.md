@@ -1,9 +1,9 @@
 Shelly provides a single module for convenient systems programming in Haskell.
 
-* Shelly is aimed at getting things done rather than being a demonstration of elegance.
+* Shelly is aimed at convenience and getting things done rather than being a demonstration of elegance.
 * Shelly maintains its own environment, making it thread-safe.
 
-Shelly is a fork of Shellish for efficiency and correctness.
+Shelly is a fork of Shellish (which accomplished the above 2 goals) with many useful improvements
 
 * Good error messages
 * Text everywhere instead of String
