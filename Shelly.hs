@@ -64,7 +64,7 @@ module Shelly
          , toTextIgnore, toTextWarn, fromText
 
          -- * Re-exported for your convenience
-         , liftIO, when, unless
+         , liftIO, when, unless, FilePath
          ) where
 
 -- TODO:
@@ -509,6 +509,7 @@ setenv k v =
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
 -- | add the filepath onto the PATH env variable
+-- FIXME: see comments for "which"
 appendToPath :: FilePath -> ShIO ()
 appendToPath filepath = do
   tp <- toTextWarn filepath
@@ -540,8 +541,9 @@ silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = Fals
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
 
-print_stdout :: ShIO a -> ShIO a
-print_stdout a = sub $ modify (\x -> x { sPrintStdout = True }) >> a
+-- | Turn on/off printing stdout
+print_stdout :: Bool -> ShIO a -> ShIO a
+print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
 
 -- | Create a 'BgJobManager' which has a 'limit' on the max number of background tasks.
 -- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
@@ -591,9 +593,9 @@ background (BgJobManager manager) proc = do
     return $ BgResult mvar
 
 
--- | Create a sub-ShIO in which external commands are echoed. See "sub".
-print_commands :: ShIO a -> ShIO a
-print_commands a = sub $ modify (\st -> st { sPrintCommands = True }) >> a
+-- | Turn on/off command echoing.
+print_commands :: Bool -> ShIO a -> ShIO a
+print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = shouldPrint }) >> a
 
 -- | Enter a sub-ShIO that inherits the environment
 -- The original state will be restored when the sub-ShIO completes.
@@ -662,15 +664,15 @@ instance Exception e => Show (ReThrownException e) where
 
 -- | Execute an external command. Takes the command name (no shell allowed,
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
--- @PATH@ is not taken into account, only the one inherited from the actual
--- outside environment). Nothing is provided on "stdin" of the process, and
--- "stdout" and "stderr" are collected and stored. The "stdout" is returned as
+-- @PATH@ is not taken into account when finding the exe name)
+--
+-- "stdout" and "stderr" are collected. The "stdout" is returned as
 -- a result of "run", and complete stderr output is available after the fact using
 -- "lastStderr" 
 --
 -- All of the stdout output will be loaded into memory
--- You can avoid this but still consume the result by using "run'",
--- or if you need to process the output than "runFoldLines"
+-- You can avoid this but still consume the result by using "run_",
+-- If you want to avoid the memory and need to process the output then use "runFoldLines".
 run :: FilePath -> [Text] -> ShIO Text
 run exe args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder exe args
 
@@ -761,11 +763,9 @@ setStdin input = modify $ \st -> st { sStdin = Just input }
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
 (-|-) :: ShIO Text -> ShIO b -> ShIO b
 one -|- two = do
-  res <- no_print_stdout one
+  res <- (print_stdout False) one
   setStdin res
   two
-  where
-    no_print_stdout a = sub $ modify (\x -> x { sPrintStdout = False }) >> a
 
 data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
 
