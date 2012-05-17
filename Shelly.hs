@@ -804,9 +804,11 @@ cp_r from to = do
     trace $ "cp_r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
     from_d <- (test_d from)
     if not from_d then cp from to else do
-		 unlessM (test_d to) $ mkdir to
-		 ls from >>= mapM_
-		   (\item -> cp_r (from FP.</> filename item) (to FP.</> filename item))
+         let fromName = filename from
+         let toDir = if filename to == fromName then to else to FP.</> fromName
+         unlessM (test_d toDir) $ mkdir toDir
+         ls from >>= mapM_
+            (\item -> cp_r (from FP.</> filename item) (toDir FP.</> filename item))
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
