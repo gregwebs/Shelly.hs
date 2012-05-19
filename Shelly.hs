@@ -288,6 +288,7 @@ modify f = do
 gets :: (State -> a) -> ShIO a
 gets f = f <$> get
 
+-- FIXME: find the full path to the exe from PATH
 runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
 runInteractiveProcess' exe args = do
   st <- get
@@ -443,8 +444,9 @@ mkdir_p = absPath >=> \fp -> do
   liftIO $ createTree fp
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
--- respect setenv'd environment and uses @PATH@ inherited from the process
+-- respect setenv'd environment and uses @findExecutable@ which uses the @PATH@ inherited from the process
 -- environment.
+-- FIXME: findExecutable does not maintain a hash of existing commands and does a ton of file stats
 which :: FilePath -> ShIO (Maybe FilePath)
 which fp = do
   (trace . mappend "which " . toTextIgnore) fp
@@ -516,7 +518,7 @@ setenv k v =
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
 -- | add the filepath onto the PATH env variable
--- FIXME: see comments for "which"
+-- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
 appendToPath :: FilePath -> ShIO ()
 appendToPath filepath = do
   tp <- toTextWarn filepath
@@ -552,7 +554,7 @@ verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True
 print_stdout :: Bool -> ShIO a -> ShIO a
 print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
 
--- | Create a 'BgJobManager' which has a 'limit' on the max number of background tasks.
+-- | Create a 'BgJobManager' that has a 'limit' on the max number of background tasks.
 -- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
 -- This blocks the execution of the program until all 'background' jobs are finished.
 jobs :: Int -> (BgJobManager -> ShIO a) -> ShIO a
