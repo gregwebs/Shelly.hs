@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, IncoherentInstances #-}
+             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances #-}
 
 -- | A module for shell-like / perl-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -159,17 +159,25 @@ class ShellCommand t where
 instance ShellCommand (ShIO Text) where
     cmdAll fp args = run fp args
 
--- note that ShIO () actually doesn't compile all the time!
-instance ShellCommand (ShIO a) where
-    cmdAll fp args = run_ fp args >>
-      return (error "No Way! Shelly did not see this coming. Please report this error.")
+instance (s ~ Text, Show s) => ShellCommand (ShIO s) where
+    cmdAll fp args = run fp args
+
+-- note that ShIO () actually doesn't work for its case (_<- cmd) when there is no type signature
+instance ShellCommand (ShIO ()) where
+    cmdAll fp args = run_ fp args >> liftIO (throwIO CmdError)
+
+data CmdError = CmdError deriving Typeable
+instance Show CmdError where
+  show (CmdError) = "Sorry! You are running up against some of the magic from using the variadic argument function 'cmd'. Please report this issue so we can fix it."
+
+instance Exception CmdError
 
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
     cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
 
 -- | variadic argument version of run.
--- The syntax is more convenient but it also allows the use of a FilePath as an argument.
--- An argument can be a Text or a FilePath.
+-- The syntax is more convenient but it also allows the use of a FilePath as a command argument.
+-- So an argument can be a Text or a FilePath.
 -- a FilePath is converted to Text with 'toTextIgnore'.
 -- You will need to add the following to your module:
 --
@@ -428,7 +436,9 @@ terror = fail . LT.unpack
 
 -- | a print lifted into ShIO
 inspect :: (Show s) => s -> ShIO ()
-inspect = trace . LT.pack . show >=> liftIO . print
+inspect x = do
+  (trace . LT.pack . show) x
+  liftIO $ print x
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()

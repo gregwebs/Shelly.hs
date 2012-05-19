@@ -1,5 +1,6 @@
 {-# Language OverloadedStrings #-}
 {-# Language ExtendedDefaultRules #-}
+{-# Language ScopedTypeVariables #-}
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 import Shelly
@@ -8,19 +9,30 @@ default (LT.Text)
 
 main :: IO ()
 main =
-  shelly $ do
+  shelly $
+    -- verbosely $
+    do
     jobs 2 $ \job -> do
-      background job $ cmd "sleep" "2"
-      echo "yawn"
-      background job $ cmd "sleep" "2"
-      echo "tired"
-      background job $ cmd "sleep" "2"
-      echo "zzzz"
+      _<- background job $ cmd "sleep" "2"
+      echo "immediate"
+      _<- background job $ cmd "sleep" "2"
+      echo "immediate2"
+      _<- background job $ cmd "sleep" "2"
+      echo "blocked by background "
  
+    echo "blocked by jobs"
+
     setStdin "in"
-    echo "echo"
-    setStdin "catted"
+    setStdin "override stdin"
     run_ "cat" ["-"]
-    res <- cmd "echo" "foo"
+
+    recho <- cmd "echo" "cmd"
     _<-cmd "echo" "bar" "baz"
-    echo res
+    echo recho
+
+    (res :: Text) <- cmd "pwd"
+    liftIO $ putStrLn $ show res
+    inspect res
+
+    inspect =<< (cmd "echo" "compose" :: ShIO Text)
+    inspect =<< (cmd "pwd")
