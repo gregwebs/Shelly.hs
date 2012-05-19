@@ -26,6 +26,7 @@ module Shelly
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
+ 
 --         , Sudo(..), run_sudo
 
          -- * Modifying and querying environment.
@@ -36,7 +37,7 @@ module Shelly
 
          -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect
-         , tag, trace
+         , tag, trace, show_command
 
          -- * Querying filesystem.
          , ls, ls', test_e, test_f, test_d, test_s, which, find
@@ -57,7 +58,7 @@ module Shelly
          -- * Utilities.
          , (<$>), (<$$>), grep, whenM, unlessM, canonic
          , catchany, catch_sh, catchany_sh
-         , MemTime(..), time
+         , Timing(..), time
          , RunFailed(..)
 
          -- * convert between Text and FilePath
@@ -257,8 +258,8 @@ data State = State   { sCode :: Int
 -- | same as 'trace', but use it combinator style
 tag :: ShIO a -> Text -> ShIO a
 tag action msg = do
-  result <- action
   trace msg
+  result <- action
   return result
 
 
@@ -335,7 +336,9 @@ chdir :: FilePath -> ShIO a -> ShIO a
 chdir dir action = do
   d <- pwd
   cd dir
-  r <- action
+  r <- action `catchany_sh` (\e ->
+      cd d >> liftIO (throwIO e)
+    )
   cd d
   return r
 
@@ -398,19 +401,22 @@ find dir = do trace ("find " `mappend` toTextIgnore dir)
 
 -- | Obtain the current (ShIO) working directory.
 pwd :: ShIO FilePath
-pwd = gets sDirectory
+pwd = gets sDirectory `tag` "pwd"
 
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: Text -> ShIO ()
-echo       = liftIO . TIO.putStrLn
-echo_n     = liftIO . (>> hFlush System.IO.stdout) . TIO.putStr
-echo_err   = liftIO . TIO.hPutStrLn stderr
-echo_n_err = liftIO . (>> hFlush stderr) . TIO.hPutStr stderr
+echo       = traceLiftIO TIO.putStrLn
+echo_n     = traceLiftIO $ (>> hFlush System.IO.stdout) . TIO.putStr
+echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
+echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
+
+traceLiftIO :: (Text -> IO ()) -> Text -> ShIO ()
+traceLiftIO f msg = trace ("echo " `mappend` msg) >> liftIO (f msg)
 
 exit :: Int -> ShIO ()
-exit 0 = liftIO $ exitWith ExitSuccess
-exit n = liftIO $ exitWith (ExitFailure n)
+exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
+exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
 
 errorExit :: Text -> ShIO ()
 errorExit msg = echo msg >> exit 1
@@ -421,7 +427,7 @@ terror = fail . LT.unpack
 
 -- | a print lifted into ShIO
 inspect :: (Show s) => s -> ShIO ()
-inspect = liftIO . print
+inspect = trace . LT.pack . show >=> liftIO . print
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
@@ -433,15 +439,16 @@ mkdir = absPath >=> \fp -> do
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
 mkdir_p = absPath >=> \fp -> do
-  trace $ "mkdir_p " `mappend` toTextIgnore fp
+  trace $ "mkdir -p " `mappend` toTextIgnore fp
   liftIO $ createTree fp
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @PATH@ inherited from the process
 -- environment.
 which :: FilePath -> ShIO (Maybe FilePath)
-which =
-  liftIO . findExecutable . unpack >=> return . fmap pack 
+which fp = do
+  (trace . mappend "which " . toTextIgnore) fp
+  (liftIO . findExecutable . unpack >=> return . fmap pack) fp
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
 -- "canonicalizePath" in FileSystem.
@@ -483,7 +490,7 @@ test_s = absPath >=> liftIO . \f -> do
 -- own. Use carefully.
 rm_rf :: FilePath -> ShIO ()
 rm_rf f = absPath f >>= \f' -> do
-  trace $ "rm_rf " `mappend` toTextIgnore f
+  trace $ "rm -rf " `mappend` toTextIgnore f
   whenM (test_d f) $ do
     _<- find f' >>= mapM (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
     liftIO_ $ removeTree f'
@@ -497,7 +504,7 @@ rm_rf f = absPath f >>= \f' -> do
 -- if the file is not a file.
 rm_f :: FilePath -> ShIO ()
 rm_f f = do
-  trace $ "rm_f " `mappend` toTextIgnore f
+  trace $ "rm -f " `mappend` toTextIgnore f
   whenM (test_e f) $ absPath f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
@@ -767,15 +774,16 @@ one -|- two = do
   setStdin res
   two
 
-data MemTime = MemTime Rational Double deriving (Read, Show, Ord, Eq)
+data Timing = Timing Double deriving (Read, Show, Ord, Eq)
 
--- | Run a ShIO computation and collect timing (TODO: and memory) information.
-time :: ShIO a -> ShIO (MemTime, a)
-time what = sub $ do -- TODO track memory usage as well
+-- | Run a ShIO computation and collect timing  information.
+time :: ShIO a -> ShIO (Timing, a)
+time what = sub $ do
+  trace "time"
   t <- liftIO getCurrentTime
   res <- what
   t' <- liftIO getCurrentTime
-  let mt = MemTime 0 (realToFrac $ diffUTCTime t' t)
+  let mt = Timing (realToFrac $ diffUTCTime t' t)
   return (mt, res)
 
 {-
@@ -801,7 +809,7 @@ time what = sub $ do -- TODO track memory usage as well
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from to = do
-    trace $ "cp_r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
+    trace $ "cp -r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
     from_d <- (test_d from)
     if not from_d then cp from to else do
          let fromName = filename from
@@ -859,7 +867,7 @@ withTmpDir act = do
   liftIO $ hClose handle -- required on windows
   rm_f p
   mkdir p
-  a <- act p`catchany_sh` \e -> do
+  a <- act p `catchany_sh` \e -> do
 	rm_rf p >> liftIO (throwIO e)
   rm_rf p
   return a
@@ -881,5 +889,5 @@ appendfile f bits = absPath f >>= \f' -> do
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO Text
 readfile = absPath >=> \fp -> do
-  trace $ "appendfile " `mappend` toTextIgnore fp
+  trace $ "readfile " `mappend` toTextIgnore fp
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
