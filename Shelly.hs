@@ -421,7 +421,7 @@ echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
 echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
 
 traceLiftIO :: (Text -> IO ()) -> Text -> ShIO ()
-traceLiftIO f msg = trace ("echo " `mappend` msg) >> liftIO (f msg)
+traceLiftIO f msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'") >> liftIO (f msg)
 
 exit :: Int -> ShIO ()
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
