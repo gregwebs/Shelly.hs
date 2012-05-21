@@ -21,7 +21,7 @@
 module Shelly
        (
          -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, print_stdout, print_commands
+         ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
@@ -108,7 +108,7 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.IO as STIO
-import System.Process( runInteractiveProcess, waitForProcess, ProcessHandle )
+import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, ProcessHandle )
 
 import qualified Data.Text.Lazy as LT
 import Data.Text.Lazy (Text)
@@ -297,13 +297,31 @@ gets :: (State -> a) -> ShIO a
 gets f = f <$> get
 
 -- FIXME: find the full path to the exe from PATH
-runInteractiveProcess' :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
-runInteractiveProcess' exe args = do
+runCommand :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+runCommand exe args = do
   st <- get
-  liftIO $ runInteractiveProcess (unpack exe)
-    (map LT.unpack args)
-    (Just $ unpack $ sDirectory st)
-    (Just $ sEnvironment st)
+  shellyProcess st $
+    RawCommand (unpack exe) (map LT.unpack args)
+
+runCommandNoEscape :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape exe args = do
+  st <- get
+  shellyProcess st $
+    ShellCommand $ LT.unpack $ LT.intercalate " " (toTextIgnore exe : args)
+    
+
+shellyProcess :: State -> CmdSpec -> ShIO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess st cmdSpec =  do
+  (Just hin, Just hout, Just herr, pHandle) <- liftIO $
+    createProcess $ CreateProcess {
+        cmdspec = cmdSpec
+      , cwd = Just $ unpack $ sDirectory st
+      , env = Just $ sEnvironment st
+      , std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe
+      , close_fds = False
+      , create_group = False
+      }
+  return (hin, hout, herr, pHandle)
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
@@ -524,7 +542,7 @@ rm_f f = do
 setenv :: Text -> Text -> ShIO ()
 setenv k v =
   let (kStr, vStr) = (LT.unpack k, LT.unpack v)
-      wibble env = (kStr, vStr) : filter ((/=kStr).fst) env
+      wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
 -- | add the filepath onto the PATH env variable
@@ -633,21 +651,30 @@ sub a = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
+escaping :: Bool -> ShIO a -> ShIO a
+escaping shouldEscape action = sub $ do
+  modify $ \st -> st { sRun =
+      if shouldEscape
+        then runCommand
+        else runCommandNoEscape
+    }
+  action
+
 -- | Enter a ShIO from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running ShIO.
 shelly :: MonadIO m => ShIO a -> m a
 shelly action = do
-  env <- liftIO getEnvironment
+  environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = LT.empty
                    , sPrintStdout = True
                    , sPrintCommands = False
-                   , sRun = runInteractiveProcess'
-                   , sEnvironment = env
+                   , sRun = runCommand
+                   , sEnvironment = environment
                    , sTrace = B.fromText ""
                    , sDirectory = dir }
   stref <- liftIO $ newIORef def
