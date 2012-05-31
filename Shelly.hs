@@ -698,7 +698,8 @@ show_command :: FilePath -> [Text] -> Text
 show_command exe args =
     LT.intercalate " " $ map quote (toTextIgnore exe : args)
   where
-    quote t = if LT.any isSpace t then surround '\'' t else t
+    quote t = if LT.any (== '\'') t then t
+      else if LT.any isSpace t then surround '\'' t else t
     surround c t = LT.cons c $ LT.snoc t c
 
 
