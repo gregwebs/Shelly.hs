@@ -1,5 +1,6 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances #-}
+{-# LANGUAGE CPP #-}
 
 -- | A module for shell-like / perl-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -319,7 +320,9 @@ shellyProcess st cmdSpec =  do
       , env = Just $ sEnvironment st
       , std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe
       , close_fds = False
+#if MIN_VERSION_process(1,1,0)
       , create_group = False
+#endif
       }
   return (hin, hout, herr, pHandle)
 
