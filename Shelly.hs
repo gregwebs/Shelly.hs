@@ -27,6 +27,7 @@ module Shelly
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
+         , sshPairs, sshPairs_
  
 --         , Sudo(..), run_sudo
 
@@ -703,7 +704,37 @@ show_command exe args =
   where
     quote t = if LT.any (== '\'') t then t
       else if LT.any isSpace t then surround '\'' t else t
-    surround c t = LT.cons c $ LT.snoc t c
+
+surround :: Char -> Text -> Text
+surround c t = LT.cons c $ LT.snoc t c
+
+-- | same as 'sshPairs', but returns ()
+sshPairs_ :: Text -> [(FilePath, [Text])] -> ShIO ()
+sshPairs_ _ [] = return ()
+sshPairs_ server cmds = sshPairs' run_ server cmds
+
+-- | run commands over SSH.
+-- An ssh executable is expected in your path.
+-- Commands are in the same form as 'run', but given as pairs
+--
+-- > sshPairs "server-name" [("cd", "dir"), ("rm",["-r","dir2"])]
+--
+-- I am not fond of this interface, but it seems to work.
+--
+-- Please note this sets 'escaping' to False: the commands will not be shell escaped.
+-- I think this should be more convenient for ssh.
+-- Internally the list of commands are combined with the string " && " before given to ssh.
+sshPairs :: Text -> [(FilePath, [Text])] -> ShIO Text
+sshPairs _ [] = return ""
+sshPairs server cmds = sshPairs' run server cmds
+
+sshPairs' :: (FilePath -> [Text] -> ShIO a) -> Text -> [(FilePath, [Text])] -> ShIO a
+sshPairs' run' server actions = do
+  escaping False $ do
+    let ssh_commands = surround '\'' $ foldl1 ((mappend) . (mappend " && ")) (map toSSH actions)
+    run' "ssh" $ [server, ssh_commands]
+  where
+    toSSH (exe,args) = show_command exe args
 
 
 data Exception e => ReThrownException e = ReThrownException e String deriving (Typeable)
