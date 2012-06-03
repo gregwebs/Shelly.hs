@@ -693,8 +693,11 @@ data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
 instance Show RunFailed where
   show (RunFailed exe args code errs) =
-    "error running: " ++ LT.unpack (show_command exe args) ++
-      "\nexit status: " ++ show code ++ "\nstderr: " ++ LT.unpack errs
+    let codeMsg = case code of
+          127 -> ". exit code 127 usually means the command does not exist (in the PATH)"
+          _ -> ""
+    in "error running: " ++ LT.unpack (show_command exe args) ++
+         "\nexit status: " ++ show code ++ codeMsg ++ "\nstderr: " ++ LT.unpack errs
 
 instance Exception RunFailed
 
