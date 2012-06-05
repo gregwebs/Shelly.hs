@@ -50,7 +50,7 @@ module Shelly
          , path, absPath, (</>), (<.>)
 
          -- * Manipulating filesystem.
-         , mv, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
+         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
          , readfile, writefile, appendfile, withTmpDir
 
          -- * Running external commands asynchronously.
@@ -551,12 +551,19 @@ rm_rf f = absPath f >>= \f' -> do
              let deletable = permissions { readable = True, writable = True, executable = True }
              liftIO $ setPermissions file deletable
 
--- | Remove a file. Does not fail if the file already is not there. Does fail
--- if the file is not a file.
+-- | Remove a file. Does not fail if the file already is not there.
+-- Does fail if the file is not a file.
 rm_f :: FilePath -> ShIO ()
 rm_f f = do
   trace $ "rm -f " `mappend` toTextIgnore f
   whenM (test_e f) $ absPath f >>= liftIO . removeFile
+
+-- | Remove a file.
+-- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
+rm :: FilePath -> ShIO ()
+rm f = do
+  trace $ "rm" `mappend` toTextIgnore f
+  absPath f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -876,38 +883,6 @@ one -|- two = do
   setStdin res
   two
 
-data Timing = Timing Double deriving (Read, Show, Ord, Eq)
-
--- | Run a ShIO computation and collect timing  information.
-time :: ShIO a -> ShIO (Timing, a)
-time what = sub $ do
-  trace "time"
-  t <- liftIO getCurrentTime
-  res <- what
-  t' <- liftIO getCurrentTime
-  let mt = Timing (realToFrac $ diffUTCTime t' t)
-  return (mt, res)
-
-{-
-    stats_f <- liftIO $
-      do tmpdir <- getTemporaryDirectory
-         (f, h) <- openTempFile tmpdir "darcs-stats-XXXX"
-         hClose h
-         return f
-    let args = args' ++ ["+RTS", "-s" ++ stats_f, "-RTS"]
-    ...
-    stats <- liftIO $ do c <- readFile' stats_f
-                         removeFile stats_f `catchany` \e -> hPutStrLn stderr (show e)
-                         return c
-                       `catchany` \_ -> return ""
-    let bytes = (stats =~ "([0-9, ]+) M[bB] total memory in use") :: String
-        mem = case length bytes of
-          0 -> 0
-          _ -> (read (filter (`elem` "0123456789") bytes) :: Int)
-    recordMemoryUsed $ mem * 1024 * 1024
-    return res
--}
-
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from to = do
@@ -993,3 +968,36 @@ readfile :: FilePath -> ShIO Text
 readfile = absPath >=> \fp -> do
   trace $ "readfile " `mappend` toTextIgnore fp
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
+
+
+data Timing = Timing Double deriving (Read, Show, Ord, Eq)
+
+-- | Run a ShIO computation and collect timing  information.
+time :: ShIO a -> ShIO (Timing, a)
+time what = sub $ do
+  trace "time"
+  t <- liftIO getCurrentTime
+  res <- what
+  t' <- liftIO getCurrentTime
+  let mt = Timing (realToFrac $ diffUTCTime t' t)
+  return (mt, res)
+
+{-
+    stats_f <- liftIO $
+      do tmpdir <- getTemporaryDirectory
+         (f, h) <- openTempFile tmpdir "darcs-stats-XXXX"
+         hClose h
+         return f
+    let args = args' ++ ["+RTS", "-s" ++ stats_f, "-RTS"]
+    ...
+    stats <- liftIO $ do c <- readFile' stats_f
+                         removeFile stats_f `catchany` \e -> hPutStrLn stderr (show e)
+                         return c
+                       `catchany` \_ -> return ""
+    let bytes = (stats =~ "([0-9, ]+) M[bB] total memory in use") :: String
+        mem = case length bytes of
+          0 -> 0
+          _ -> (read (filter (`elem` "0123456789") bytes) :: Int)
+    recordMemoryUsed $ mem * 1024 * 1024
+    return res
+-}
