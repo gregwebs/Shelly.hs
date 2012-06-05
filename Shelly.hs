@@ -1,5 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances #-}
+             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances,
+             GADTs
+             #-}
 {-# LANGUAGE CPP #-}
 
 -- | A module for shell-like / perl-like programming in Haskell.
@@ -59,7 +61,7 @@ module Shelly
 
          -- * Utilities.
          , (<$>), (<$$>), grep, whenM, unlessM, canonic
-         , catchany, catch_sh, catchany_sh
+         , catchany, catch_sh, ShellyHandler(..), catches_sh, catchany_sh
          , Timing(..), time
          , RunFailed(..)
 
@@ -344,8 +346,23 @@ catchany = catch
 
 -- | Catch an exception in the ShIO monad.
 catch_sh :: (Exception e) => ShIO a -> (e -> ShIO a) -> ShIO a
-catch_sh a h = do ref <- ask
-                  liftIO $ catch (runReaderT a ref) (\e -> runReaderT (h e) ref)
+catch_sh action handle = do
+    ref <- ask
+    liftIO $ catch (runReaderT action ref) (\e -> runReaderT (handle e) ref)
+
+
+-- | You need this when using 'catches_sh'.
+data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> ShIO a)
+
+-- | Catch multiple exceptions in the ShIO monad.
+catches_sh :: ShIO a -> [ShellyHandler a] -> ShIO a
+catches_sh action handlers = do
+    ref <- ask
+    let runner a = runReaderT a ref
+    liftIO $ catches (runner action) $ map (toHandler runner) handlers
+  where
+    toHandler :: (ShIO a -> IO a) -> ShellyHandler a -> Handler a
+    toHandler runner (ShellyHandler handle) = Handler (\e -> runner (handle e))
 
 -- | Catch an exception in the ShIO monad.
 catchany_sh :: ShIO a -> (SomeException -> ShIO a) -> ShIO a
@@ -683,10 +700,18 @@ shelly action = do
                    , sDirectory = dir }
   stref <- liftIO $ newIORef def
   let caught =
-        action `catchany_sh` \e ->
-          get >>= liftIO . throwIO . ReThrownException e . errorMsg . LT.unpack .  B.toLazyText . sTrace
+        action `catches_sh` [
+              ShellyHandler (\ex ->
+                case ex of
+                  ExitSuccess   -> liftIO $ throwIO ex
+                  ExitFailure _ -> throwExplainedException ex
+              )
+            , ShellyHandler (\(ex::SomeException) -> throwExplainedException ex)
+          ]
   liftIO $ runReaderT caught stref
   where
+    throwExplainedException ex = get >>=
+      liftIO . throwIO . ReThrownException ex . errorMsg . LT.unpack .  B.toLazyText . sTrace
     errorMsg trc = "Ran commands: \n" `mappend` trc
 
 data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
