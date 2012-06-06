@@ -717,6 +717,7 @@ shelly action = do
           ]
   liftIO $ runReaderT caught stref
   where
+    throwExplainedException :: Exception exception => exception -> ShIO a
     throwExplainedException ex = get >>=
       liftIO . throwIO . ReThrownException ex . errorMsg . LT.unpack .  B.toLazyText . sTrace
     errorMsg trc = "Ran commands: \n" `mappend` trc
