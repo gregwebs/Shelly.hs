@@ -767,7 +767,9 @@ sshPairs server cmds = sshPairs' run server cmds
 sshPairs' :: (FilePath -> [Text] -> ShIO a) -> Text -> [(FilePath, [Text])] -> ShIO a
 sshPairs' run' server actions = do
   escaping False $ do
-    let ssh_commands = surround '\'' $ foldl1 ((mappend) . (mappend " && ")) (map toSSH actions)
+    let ssh_commands = surround '\'' $ foldl1
+          (\memo next -> memo `mappend` " && " `mappend` next)
+          (map toSSH actions)
     run' "ssh" $ [server, ssh_commands]
   where
     toSSH (exe,args) = show_command exe args
