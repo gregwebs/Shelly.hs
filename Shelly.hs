@@ -1,8 +1,8 @@
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances,
              GADTs
              #-}
-{-# LANGUAGE CPP #-}
 
 -- | A module for shell-like / perl-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -44,10 +44,12 @@ module Shelly
          , tag, trace, show_command
 
          -- * Querying filesystem.
-         , ls, ls', test_e, test_f, test_d, test_s, which, find
+         , ls, ls', test_e, test_f, test_d, test_s, which,
+         -- * Finding files
+         find, findRelative, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
 
          -- * Filename helpers
-         , path, absPath, (</>), (<.>)
+         , path, absPath, (</>), (<.>), relativeTo, canonic
 
          -- * Manipulating filesystem.
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -60,7 +62,7 @@ module Shelly
          , exit, errorExit, terror
 
          -- * Utilities.
-         , (<$>), (<$$>), grep, whenM, unlessM, canonic
+         , (<$>), (<$$>), grep, whenM, unlessM
          , catchany, catch_sh, ShellyHandler(..), catches_sh, catchany_sh
          , Timing(..), time
          , RunFailed(..)
@@ -121,7 +123,8 @@ import qualified Data.Text as T
 import Data.Monoid (mappend)
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
-import Filesystem
+import Filesystem hiding (canonicalizePath)
+import qualified Filesystem
 import qualified Filesystem.Path.CurrentOS as FP
 
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
@@ -390,12 +393,15 @@ chdir dir action = do
   cd d
   return r
 
--- | makes an absolute path. Same as canonic.
--- TODO: use normalise from system-filepath
+-- | makes an absolute path.
+-- Like 'canonic', but on an exception returns 'absPath'
 path :: FilePath -> ShIO FilePath
-path = canonic
+path fp = do
+  absFP <- absPath fp
+  liftIO $ canonicalizePath absFP `catchany` \_ -> return absFP
 
--- | makes an absolute path. @path@ will also normalize
+-- | makes an absolute path based on the working directory.
+-- @path@ will also canonicalize
 absPath :: FilePath -> ShIO FilePath
 absPath p | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
@@ -436,16 +442,90 @@ ls' fp = do
 ls :: FilePath -> ShIO [FilePath]
 ls = path >=> \fp -> (liftIO $ listDirectory fp) `tag` ("ls " `mappend` toTextIgnore fp) 
 
+-- | Like 'find' but return relative paths using 'relativeTo'
+findRelative :: FilePath -> ShIO [FilePath]
+findRelative fp = mapM (relativeTo fp) =<< find fp
+
+-- | make the second path relative to the first
+-- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
+relativeTo :: FilePath -- ^ anchor path, the prefix
+           -> FilePath -- ^ make this relative to anchor path
+           -> ShIO FilePath
+relativeTo relativeFP fp = do
+  stripIt relativeFP fp $ do
+    isDir <- test_d relativeFP
+    let relDir = if not isDir then relativeFP else addTrailingSlash relativeFP
+    relAbs <- path relDir
+    absFP  <- path fp
+    stripIt relAbs absFP $ return fp
+  where
+    stripIt rel toStrip nada = do
+      case stripPrefix rel toStrip of
+        Just stripped ->
+          if stripped == toStrip then nada
+            else return stripped
+        Nothing -> nada
+
+addTrailingSlash :: FilePath -> FilePath
+addTrailingSlash p =
+  if FP.null (filename p) then p else
+    p FP.</> FP.empty
+
+-- | bugfix older version of canonicalizePath loses trailing slash
+canonicalizePath :: FilePath -> IO FilePath
+canonicalizePath p = let was_dir = FP.null (filename p) in
+   if not was_dir then Filesystem.canonicalizePath p
+     else addTrailingSlash `fmap` Filesystem.canonicalizePath p
+
+
 -- | List directory recursively (like the POSIX utility "find").
 find :: FilePath -> ShIO [FilePath]
-find dir = do trace ("find " `mappend` toTextIgnore dir)
-              bits <- ls dir
-              subDir <- forM bits $ \x -> do
-                ex <- test_d $ dir FP.</> x
-                sym <- test_s $ dir FP.</> x
-                if ex && not sym then find (dir FP.</> x)
-                                 else return []
-              return $ map (dir FP.</>) bits ++ concat subDir
+find dir = findFold dir [] (\paths fp -> return $ paths ++ [fp])
+
+-- | Fold an arbitrary folding function over files froma a 'find'.
+-- Like 'findWhen' but more general fold.
+findFold :: FilePath -> a -> (a -> FilePath -> ShIO a) -> ShIO a
+findFold fp = findFoldDirFilter fp (const $ return True)
+
+-- | like 'findDirFilterWhen' but use a folding function rather than a filter
+-- The most general finder: you probably want a more specific one
+findFoldDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> a -> (a -> FilePath -> ShIO a) -> ShIO a
+findFoldDirFilter dir dirFilter startValue folder = do
+  trace ("findFold " `mappend` toTextIgnore dir)
+  filt <- dirFilter dir
+  if filt
+    then ls dir >>= foldM traverse startValue
+    else return startValue
+  where
+    traverse acc x = do
+      let full = dir FP.</> x
+      isDir <- test_d full
+      sym <- test_s full
+      if isDir && not sym
+        then findFold full acc folder
+        else folder acc full
+
+-- | 'find' that filters the found files as it finds
+-- Files must satisfy the filter
+findWhen :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
+findWhen dir filt = findDirFilterWhen dir (const $ return True) filt
+
+-- | 'find' that filters out directories as it finds
+-- Filtering out directories makes the find much more efficient
+findDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
+findDirFilter dir filt = findDirFilterWhen dir filt (const $ return True)
+
+-- | like 'findWhen', but also filter out directories
+-- Filtering out directories makes the find much more efficient
+findDirFilterWhen :: FilePath -- ^ directory
+                  -> (FilePath -> ShIO Bool) -- ^ directory filter
+                  -> (FilePath -> ShIO Bool) -- ^ file filter
+                  -> ShIO [FilePath]
+findDirFilterWhen dir dirFilt fileFilter = findFoldDirFilter dir dirFilt [] filterIt
+  where
+    filterIt paths fp = do
+      yes <- fileFilter fp
+      return $ if yes then paths ++ [fp] else paths
 
 -- | Obtain the current (ShIO) working directory.
 pwd :: ShIO FilePath
@@ -539,6 +619,7 @@ test_s = absPath >=> liftIO . \f -> do
 -- | A swiss army cannon for removing things. Actually this goes farther than a
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
+-- Uses 'removeTree'
 rm_rf :: FilePath -> ShIO ()
 rm_rf f = absPath f >>= \f' -> do
   trace $ "rm -rf " `mappend` toTextIgnore f

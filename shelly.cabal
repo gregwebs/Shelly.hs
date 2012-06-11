@@ -52,6 +52,9 @@ test-suite test
                  , unix-compat < 0.4
                  , system-filepath < 0.5
                  , system-fileio < 0.4
+                 , hspec-discover
+                 , hspec >= 1.1
+                 , HUnit
 
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore
