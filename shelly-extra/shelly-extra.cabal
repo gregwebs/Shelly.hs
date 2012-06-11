@@ -1,0 +1,44 @@
+Name:       shelly
+
+Version:     0.9.8
+Synopsis:    shelly features that require extra dependencies
+
+Description: Please see the shelly package. Shelly provides a single module for convenient
+             systems programming in Haskell, similar in spirit to POSIX shells.
+             .
+             shelly-extra is designed to be a grab bag for functionality that requires extra dependencies
+             .
+             currently contains a background job implementation for performing tasks in parallel
+
+
+Homepage:            https://github.com/yesodweb/Shelly.hs
+License:             BSD3
+License-file:        LICENSE
+Author:              Greg Weber
+Maintainer:          Greg Weber <greg@gregweber.info>
+Category:            Development
+Build-type:          Simple
+Cabal-version:       >=1.8
+
+
+Library
+  Exposed-modules:     Shelly.Extra
+
+  Build-depends: base, shelly >= 0.10 , SafeSemaphore
+
+  ghc-options: -Wall
+
+test-suite test
+    type:           exitcode-stdio-1.0
+    main-is:        main.hs
+    hs-source-dirs: ., test
+    ghc-options: -Wall
+
+    Build-depends: base 
+                 , hspec-discover
+                 , hspec >= 1.1
+                 , HUnit
+
+source-repository head
+  type:     git
+  location: https://github.com/yesodweb/Shelly.hs

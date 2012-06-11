@@ -55,9 +55,6 @@ module Shelly
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
          , readfile, writefile, appendfile, withTmpDir
 
-         -- * Running external commands asynchronously.
-         , jobs, background, getBgResult, BgResult
-
          -- * exiting the program
          , exit, errorExit, terror
 
@@ -72,6 +69,9 @@ module Shelly
 
          -- * Re-exported for your convenience
          , liftIO, when, unless, FilePath
+
+         -- * internal functions for writing extension
+         , get, put
          ) where
 
 -- TODO:
@@ -109,7 +109,6 @@ import Control.Applicative
 import Control.Exception hiding (handle)
 import Control.Monad.Reader
 import Control.Concurrent
-import qualified Control.Concurrent.MSem as Sem
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.Lazy.IO as TIO
@@ -693,53 +692,6 @@ verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True
 -- | Turn on/off printing stdout
 print_stdout :: Bool -> ShIO a -> ShIO a
 print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
-
--- | Create a 'BgJobManager' that has a 'limit' on the max number of background tasks.
--- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
--- This blocks the execution of the program until all 'background' jobs are finished.
-jobs :: Int -> (BgJobManager -> ShIO a) -> ShIO a
-jobs limit action = do
-    unless (limit > 0) $ terror "expected limit to be > 0"
-    availableJobsSem <- liftIO $ Sem.new limit
-    res <- action $ BgJobManager availableJobsSem
-    liftIO $ waitForJobs availableJobsSem
-    return res
-  where
-    waitForJobs sem = do
-      avail <- Sem.peekAvail sem
-      if avail == limit then return () else waitForJobs sem
-
--- | The manager tracks the number of jobs. Register your 'background' jobs with it.
-newtype BgJobManager = BgJobManager (Sem.MSem Int)
-
--- | Type returned by tasks run asynchronously in the background.
-newtype BgResult a = BgResult (MVar a)
-
--- | Returns the promised result from a backgrounded task.  Blocks until
--- the task completes.
-getBgResult :: BgResult a -> ShIO a
-getBgResult (BgResult mvar) = liftIO $ takeMVar mvar
-
--- | Run the `ShIO` task asynchronously in the background, returns
--- the `BgResult a`, a promise immediately. Run "getBgResult" to wait for the result.
--- The background task will inherit the current ShIO context
--- The 'BjJobManager' ensures the max jobs limit must be sufficient for the parent and all children.
-background :: BgJobManager -> ShIO a -> ShIO (BgResult a)
-background (BgJobManager manager) proc = do
-  state <- get
-  liftIO $ do
-    -- take up a spot
-    -- It is important to do this before forkIO:
-    -- It ensures that that jobs will block and the program won't exit before our jobs are done
-    -- On the other hand, a user might not expect 'jobs' to block
-    Sem.wait manager
-    mvar <- newEmptyMVar -- future result
-
-    _<- forkIO $ do
-      result <- shelly $ (put state >> proc)
-      Sem.signal manager -- open a spot back up
-      liftIO $ putMVar mvar result
-    return $ BgResult mvar
 
 
 -- | Turn on/off command echoing.

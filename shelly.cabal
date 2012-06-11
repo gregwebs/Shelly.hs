@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.9.8
+Version:     0.10
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides a single module for convenient
@@ -34,7 +34,6 @@ Library
 
   Build-depends: base >= 4 && < 5, time, directory, text, mtl
                , process >= 1.0
-               , SafeSemaphore
                , unix-compat < 0.4
                , system-filepath < 0.5
                , system-fileio < 0.4
@@ -48,7 +47,6 @@ test-suite test
     ghc-options: -Wall
 
     Build-depends: base >= 4 && < 5, time, directory, text, mtl, process
-                 , SafeSemaphore
                  , unix-compat < 0.4
                  , system-filepath < 0.5
                  , system-fileio < 0.4
