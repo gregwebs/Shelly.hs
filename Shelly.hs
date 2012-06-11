@@ -40,13 +40,13 @@ module Shelly
          , cd, chdir, pwd
 
          -- * Printing
-         , echo, echo_n, echo_err, echo_n_err, inspect
+         , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
          , tag, trace, show_command
 
          -- * Querying filesystem.
          , ls, ls', test_e, test_f, test_d, test_s, which,
          -- * Finding files
-         find, findRelative, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
+         find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
 
          -- * Filename helpers
          , path, absPath, (</>), (<.>), relativeTo, canonic
@@ -432,19 +432,12 @@ mv a b = do a' <- absPath a
 
 -- | Get back [Text] instead of [FilePath]
 ls' :: FilePath -> ShIO [Text]
-ls' fp = do
-    trace $ "ls " `mappend` toTextIgnore fp
-    efiles <- ls fp
-    mapM toTextWarn efiles
+ls' fp = ls fp >>= mapM toTextWarn
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
 ls :: FilePath -> ShIO [FilePath]
-ls = path >=> \fp -> (liftIO $ listDirectory fp) `tag` ("ls " `mappend` toTextIgnore fp) 
-
--- | Like 'find' but return relative paths using 'relativeTo'
-findRelative :: FilePath -> ShIO [FilePath]
-findRelative fp = mapM (relativeTo fp) =<< find fp
+ls fp = (liftIO $ listDirectory fp) `tag` ("ls " `mappend` toTextIgnore fp)
 
 -- | make the second path relative to the first
 -- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
@@ -471,7 +464,7 @@ addTrailingSlash p =
   if FP.null (filename p) then p else
     p FP.</> FP.empty
 
--- | bugfix older version of canonicalizePath loses trailing slash
+-- | bugfix older version of canonicalizePath (system-fileio <= 0.3.7) loses trailing slash
 canonicalizePath :: FilePath -> IO FilePath
 canonicalizePath p = let was_dir = FP.null (filename p) in
    if not was_dir then Filesystem.canonicalizePath p
@@ -479,43 +472,29 @@ canonicalizePath p = let was_dir = FP.null (filename p) in
 
 
 -- | List directory recursively (like the POSIX utility "find").
+-- listing is relative if the path given is relative.
+-- If you want to filter out some results or fold over them you can do that with the returned files.
+-- A more efficient approach is to use one of the other find functions.
 find :: FilePath -> ShIO [FilePath]
 find dir = findFold dir [] (\paths fp -> return $ paths ++ [fp])
 
--- | Fold an arbitrary folding function over files froma a 'find'.
--- Like 'findWhen' but more general fold.
-findFold :: FilePath -> a -> (a -> FilePath -> ShIO a) -> ShIO a
-findFold fp = findFoldDirFilter fp (const $ return True)
-
--- | like 'findDirFilterWhen' but use a folding function rather than a filter
--- The most general finder: you probably want a more specific one
-findFoldDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> a -> (a -> FilePath -> ShIO a) -> ShIO a
-findFoldDirFilter dir dirFilter startValue folder = do
-  trace ("findFold " `mappend` toTextIgnore dir)
-  filt <- dirFilter dir
-  if filt
-    then ls dir >>= foldM traverse startValue
-    else return startValue
-  where
-    traverse acc x = do
-      let full = dir FP.</> x
-      isDir <- test_d full
-      sym <- test_s full
-      if isDir && not sym
-        then findFold full acc folder
-        else folder acc full
-
--- | 'find' that filters the found files as it finds
--- Files must satisfy the filter
+-- | 'find' that filters the found files as it finds.
+-- Files must satisfy the given filter to be returned in the result.
 findWhen :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
 findWhen dir filt = findDirFilterWhen dir (const $ return True) filt
 
+-- | Fold an arbitrary folding function over files froma a 'find'.
+-- Like 'findWhen' but use a more general fold rather than a filter.
+findFold :: FilePath -> a -> (a -> FilePath -> ShIO a) -> ShIO a
+findFold fp = findFoldDirFilter fp (const $ return True)
+
 -- | 'find' that filters out directories as it finds
--- Filtering out directories makes the find much more efficient
+-- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
 findDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
 findDirFilter dir filt = findDirFilterWhen dir filt (const $ return True)
 
--- | like 'findWhen', but also filter out directories
+-- | similar 'findWhen', but also filter out directories
+-- Alternatively, similar to 'findDirFilter', but also filter out files
 -- Filtering out directories makes the find much more efficient
 findDirFilterWhen :: FilePath -- ^ directory
                   -> (FilePath -> ShIO Bool) -- ^ directory filter
@@ -526,6 +505,23 @@ findDirFilterWhen dir dirFilt fileFilter = findFoldDirFilter dir dirFilt [] filt
     filterIt paths fp = do
       yes <- fileFilter fp
       return $ if yes then paths ++ [fp] else paths
+
+-- | like 'findDirFilterWhen' but use a folding function rather than a filter
+-- The most general finder: you likely want a more specific one
+findFoldDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> a -> (a -> FilePath -> ShIO a) -> ShIO a
+findFoldDirFilter dir dirFilter startValue folder = do
+  trace ("findFold " `mappend` toTextIgnore dir)
+  filt <- dirFilter dir
+  if filt
+    then ls dir >>= foldM traverse startValue
+    else return startValue
+  where
+    traverse acc x = do
+      isDir <- test_d x
+      sym <- test_s x
+      if isDir && not sym
+        then findFold x acc folder
+        else folder acc x
 
 -- | Obtain the current (ShIO) working directory.
 pwd :: ShIO FilePath
@@ -558,6 +554,13 @@ inspect :: (Show s) => s -> ShIO ()
 inspect x = do
   (trace . LT.pack . show) x
   liftIO $ print x
+
+-- | a print lifted into ShIO using stderr
+inspect_err :: (Show s) => s -> ShIO ()
+inspect_err x = do
+  let shown = LT.pack $ show x
+  trace shown
+  echo_err shown
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
