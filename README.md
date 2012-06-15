@@ -12,10 +12,14 @@ Shelly is a fork of Shellish (which accomplished the above 2 goals) with many us
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
 
-Alternatives
+Please see the shelly-extra package for additional functionality.
+
+
+## Alternatives
 
 * [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
 * [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has more extensive shell capabilities
+
 
 # Usage
 
@@ -38,12 +42,12 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
     main = shelly $ verbosely $ do
       listing <- cmd "ls" "-a" "foo"
 
-      monit ["reload"]
+      monit_ ["reload"]
       echo "monit reloaded"
 ~~~~~
 
 Yes, you can write variadic functions in Haskell quite easily, you just can't compose them.
-So there is no `cmd_` variant that doesn't return input, and you are less likely to build abstractions with `cmd`
+I find `cmd` to be more convenient, but I use `run` when I am building up abstractions.
 
 Shelly's usage of system-filepath means you may need to convert between Text and FilePath sometimes.
 This should be infrequent though because
@@ -65,5 +69,5 @@ Shelly's own error messages are detailed and in some cases it will catch Haskell
 
 # Future plans
 
-* Switch from lazy text to primarily strict
-* separate out timed & jobs functionality to a shelly-extras package to keep dependencies to a minimum..
+* Switch from lazy text to strict
+* fix PATH/which implementation
