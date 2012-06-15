@@ -6,7 +6,10 @@ Synopsis:    shelly features that require extra dependencies
 Description: Please see the shelly package. Shelly provides a single module for convenient
              systems programming in Haskell, similar in spirit to POSIX shells.
              .
-             shelly-extra is designed to be a grab bag for functionality that requires extra dependencies
+             shelly-extra is designed to be a grab bag for functionality that
+               * requires extra dependencies
+             .
+               * or is application specific and not generally applicable
              .
              currently contains a background job implementation for performing tasks in parallel
 
@@ -22,9 +25,9 @@ Cabal-version:       >=1.8
 
 
 Library
-  Exposed-modules:     Shelly.Extra
+  Exposed-modules:     Shelly.Background
 
-  Build-depends: base, shelly >= 0.10 , SafeSemaphore
+  Build-depends: base, shelly >= 0.10, SafeSemaphore
 
   ghc-options: -Wall
 
@@ -34,10 +37,7 @@ test-suite test
     hs-source-dirs: ., test
     ghc-options: -Wall
 
-    Build-depends: base 
-                 , hspec-discover
-                 , hspec >= 1.1
-                 , HUnit
+    Build-depends: base, text, shelly, SafeSemaphore
 
 source-repository head
   type:     git

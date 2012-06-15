@@ -4,9 +4,11 @@
 {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 
 import Shelly
-import qualified Data.Text.Lazy as LT
-default (LT.Text)
+import Shelly.Background
+import Data.Text.Lazy (Text)
+default (Text)
 
+-- smoke tests
 main :: IO ()
 main =
   shelly $

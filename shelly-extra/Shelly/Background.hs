@@ -1,5 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
-module Shelly.Extra (
+module Shelly.Background (
    -- * Running external commands asynchronously.
    jobs, background, getBgResult, BgResult
 ) where

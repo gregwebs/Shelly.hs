@@ -17,6 +17,8 @@ Description: Shelly provides a single module for convenient
                * is modern. It uses Text and system-filepath/system-fileio
              .
              Shelly is originally forked from the Shellish package.
+             .
+             See the shelly-extra package for additional functionality.
 
 
 Homepage:            https://github.com/yesodweb/Shelly.hs
