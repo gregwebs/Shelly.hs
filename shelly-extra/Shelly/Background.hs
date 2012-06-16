@@ -6,6 +6,7 @@ module Shelly.Background (
 
 import Shelly
 import Control.Concurrent
+import Control.Exception (finally)
 import qualified Control.Concurrent.MSem as Sem
 
 -- | Create a 'BgJobManager' that has a 'limit' on the max number of background tasks.
@@ -50,8 +51,9 @@ background (BgJobManager manager) proc = do
     mvar <- newEmptyMVar -- future result
 
     _<- forkIO $ do
-      result <- shelly $ (put state >> proc)
-      Sem.signal manager -- open a spot back up
-      liftIO $ putMVar mvar result
+      result <-
+        finally (shelly $ (put state >> proc))
+                (Sem.signal manager >> return ()) -- open a spot back up
+      putMVar mvar result
     return $ BgResult mvar
 

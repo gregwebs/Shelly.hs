@@ -1,6 +1,6 @@
 Name:       shelly-extra
 
-Version:     0.2
+Version:     0.2.1
 Synopsis:    shelly features that require extra dependencies
 
 Description: Please see the shelly package. Shelly provides a single module for convenient
