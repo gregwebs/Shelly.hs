@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
 module Shelly.Background (
    -- * Running external commands asynchronously.
    jobs, background, getBgResult, BgResult
@@ -6,7 +6,8 @@ module Shelly.Background (
 
 import Shelly
 import Control.Concurrent
-import Control.Exception (finally)
+import Control.Exception (finally, catch, throw, SomeException)
+import Prelude hiding (catch)
 import qualified Control.Concurrent.MSem as Sem
 
 -- | Create a 'BgJobManager' that has a 'limit' on the max number of background tasks.
@@ -50,10 +51,14 @@ background (BgJobManager manager) proc = do
     Sem.wait manager
     mvar <- newEmptyMVar -- future result
 
+    mainTid <- myThreadId
     _<- forkIO $ do
       result <-
-        finally (shelly $ (put state >> proc))
-                (Sem.signal manager >> return ()) -- open a spot back up
+        finally (
+            (shelly $ (put state >> proc)) `catch`
+              (\(e::SomeException) -> throwTo mainTid e >> throw e)
+          )
+          (Sem.signal manager >> return ()) -- open a spot back up
       putMVar mvar result
     return $ BgResult mvar
 
