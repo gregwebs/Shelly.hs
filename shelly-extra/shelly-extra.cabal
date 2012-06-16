@@ -37,7 +37,7 @@ test-suite test
     hs-source-dirs: ., test
     ghc-options: -Wall
 
-    Build-depends: base, text, shelly, SafeSemaphore
+    Build-depends: base, text, shelly, SafeSemaphore, HUnit
 
 source-repository head
   type:     git

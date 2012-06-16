@@ -170,19 +170,20 @@ instance (s ~ Text, Show s) => ShellCommand (ShIO s) where
 
 -- note that ShIO () actually doesn't work for its case (_<- cmd) when there is no type signature
 instance ShellCommand (ShIO ()) where
-    cmdAll fp args = run_ fp args >> liftIO (throwIO CmdError)
-
+    cmdAll fp args = run_ fp args
+{-
+    >> liftIO (throwIO CmdError)
 data CmdError = CmdError deriving Typeable
 instance Show CmdError where
   show (CmdError) = "Sorry! You are running up against some of the magic from using the variadic argument function 'cmd'. Please report this issue so we can fix it."
-
 instance Exception CmdError
+-}
 
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
     cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
 
 -- | variadic argument version of run.
--- The syntax is more convenient but it also allows the use of a FilePath as a command argument.
+-- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
 -- So an argument can be a Text or a FilePath.
 -- a FilePath is converted to Text with 'toTextIgnore'.
 -- You will need to add the following to your module:

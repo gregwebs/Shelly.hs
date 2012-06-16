@@ -5,29 +5,28 @@
 
 import Shelly
 import Shelly.Background
-import Data.Text.Lazy (Text)
+import Data.Text.Lazy (Text, stripEnd)
+import Test.HUnit
 default (Text)
 
--- smoke tests
+shIOUnit :: ShIO ()
+shIOUnit = do
+  cmd "pwd"
+  chdir ".." $
+    cmd "pwd"
+
 main :: IO ()
-main =
-  shelly $
-    -- verbosely $
-    do
-    jobs 2 $ \job -> do
-      _<- background job $ cmd "sleep" "2"
-      echo "immediate"
-      _<- background job $ cmd "sleep" "2"
-      echo "immediate2"
-      _<- background job $ cmd "sleep" "2"
-      echo "blocked by background "
- 
-    echo "blocked by jobs"
-
+main = do
+  -- stdin
+  shelly $ do
     setStdin "in"
-    setStdin "override stdin"
-    run_ "cat" ["-"]
+    let overStdin = "override stdin"
+    setStdin overStdin
+    over <- run "cat" ["-"]
+    liftIO $ stripEnd over @?= overStdin
 
+  -- various uses of cmd
+  shelly $ do
     recho <- cmd "echo" "cmd"
     _<-cmd "echo" "bar" "baz"
     echo recho
@@ -38,4 +37,19 @@ main =
 
     inspect =<< (cmd "echo" "compose" :: ShIO Text)
     inspect =<< (cmd "pwd")
+
+    -- this somehow forces more evaluation
+    shIOUnit
+
+  -- waiting on background jobs
+  shelly $ do
+    jobs 2 $ \job -> do
+      _<- background job $ cmd "sleep" "2"
+      echo "immediate"
+      _<- background job $ cmd "sleep" "2"
+      echo "immediate2"
+      _<- background job $ cmd "sleep" "2"
+      echo "blocked by background "
+ 
+    echo "blocked by jobs"
 
