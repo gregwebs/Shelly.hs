@@ -8,8 +8,6 @@ import Test.HUnit hiding (path)
 import Test.Hspec.Monadic
 
 import Shelly
--- import qualified Data.Text.Lazy as LT
--- default (LT.Text)
 
 main :: IO ()
 main = hspecX spec
@@ -47,8 +45,8 @@ spec = do
 
     it "lists relative files" $ do
       res <- shelly $ find "test"
-      res @?= ["test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs"]
+      res @?= ["test/CopySpec.hs", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs"]
 
     it "lists absolute files" $ do
       res <- shelly $ path "test" >>= find >>= mapM (relativeTo "test")
-      res @?= ["drain.hs", "drain.sh", "FindSpec.hs", "main.hs"]
+      res @?= ["CopySpec.hs", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs"]

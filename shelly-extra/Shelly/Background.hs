@@ -6,7 +6,7 @@ module Shelly.Background (
 
 import Shelly
 import Control.Concurrent
-import Control.Exception (finally, catch, throw, SomeException)
+import Control.Exception (finally, catch, throwIO, SomeException)
 import Prelude hiding (catch)
 import qualified Control.Concurrent.MSem as Sem
 
@@ -56,7 +56,7 @@ background (BgJobManager manager) proc = do
       result <-
         finally (
             (shelly $ (put state >> proc)) `catch`
-              (\(e::SomeException) -> throwTo mainTid e >> throw e)
+              (\(e::SomeException) -> throwTo mainTid e >> throwIO e)
           )
           (Sem.signal manager >> return ()) -- open a spot back up
       putMVar mvar result
