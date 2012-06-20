@@ -58,6 +58,13 @@ This should be infrequent though because
 Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 
 
+# Thread-safe working directory
+
+`cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
+All of the Shelly API takes this into account.
+If you are mixing code outside of the Shelly API, it is best to work with absolute paths, which is what Shelly does internally. You can get turn a Shelly relative path into an absolute with `absPath`.
+
+
 # Good error messages
 
 Haskell's #1 weakness for IO code is a lack of stack traces.
@@ -67,7 +74,7 @@ Shelly keeps a log of API usage and prints it out on failure.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
-If you make your own shelly primitive functions, use `trace` or `tag` to log what they are doing.
+If you make your own primitive functions that don't use the Shelly API, use `trace` or `tag` to log what they are doing.
 
 
 # Future plans
