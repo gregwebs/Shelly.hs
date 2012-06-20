@@ -63,6 +63,7 @@ Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 `cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
 All of the Shelly API takes this into account.
 If you are mixing code outside of the Shelly API, it is best to work with absolute paths, which is what Shelly does internally. You can get turn a Shelly relative path into an absolute with `absPath`.
+If you want to make a relative path relative to the Shelly working directory you can use `path`.
 
 
 # Good error messages
