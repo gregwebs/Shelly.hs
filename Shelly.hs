@@ -44,9 +44,7 @@ module Shelly
          , tag, trace, show_command
 
          -- * Querying filesystem.
-         , ls, lsT, test_e, test_f, test_d, test_s, which,
-         -- * Finding files
-         find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
+         , ls, lsT, test_e, test_f, test_d, test_s, which
 
          -- * Filename helpers
          , path, (</>), (<.>), canonic, canonicalize, absPath, relativeTo
@@ -74,28 +72,11 @@ module Shelly
          , get, put
          ) where
 
--- TODO:
--- shebang runner that puts wrappers in and invokes
--- perhaps also adds monadloc
--- convenience for commands that use record arguments
-{-
-      let oFiles = ("a.o", "b.o")
-      let ldOutput x = ("-o", x)
-
-      let def = LD { output = error "", verbose = False, inputs = [] }
-      data LD = LD { output :: FilePath, verbose :: Bool, inputs :: [FilePath] } deriving(Data, Typeable)
-      instance Runnable LD where
-        run :: LD -> IO ()
-
-      class Runnable a where
-        run :: a -> ShIO Text
-
-      let ld = def :: LD
-      run (ld "foo") { oFiles = [] }
-      run ld { oFiles = [] }
-      ld = ..magic..
--}
-
+import Shelly.Base
+import Shelly.Find (find)
+import Control.Monad ( when, unless )
+import Control.Monad.Trans ( MonadIO )
+import Control.Monad.Reader (runReaderT, ask)
 import Prelude hiding ( catch, readFile, FilePath )
 import Data.List( isInfixOf )
 import Data.Char( isAlphaNum, isSpace )
@@ -107,7 +88,6 @@ import System.Exit
 import System.Environment
 import Control.Applicative
 import Control.Exception hiding (handle)
-import Control.Monad.Reader
 import Control.Concurrent
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
@@ -117,17 +97,14 @@ import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), cr
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text.Lazy as LT
-import Data.Text.Lazy (Text)
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text as T
 import Data.Monoid (mappend)
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
-import qualified Filesystem
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
 
 {- GHC won't default to Text with this, even with extensions!
@@ -211,11 +188,6 @@ x </> y = toFilePath x FP.</> toFilePath y
 x <.> y = toFilePath x FP.<.> LT.toStrict y
 
 
--- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
-toTextIgnore :: FilePath -> Text
-toTextIgnore fp = LT.fromStrict $ case toText fp of
-                                    Left  f -> f
-                                    Right f -> f
 
 toTextWarn :: FilePath -> ShIO Text
 toTextWarn efile = fmap lazy $ case toText efile of
@@ -253,48 +225,16 @@ foldHandleLines start foldLine readHandle = go start
       go $ foldLine (acc, line)
      `catchany` \_ -> return acc
 
-data State = State   { sCode :: Int
-                     , sStdin :: Maybe Text -- ^ stdin for the command to be run
-                     , sStderr :: Text
-                     , sDirectory :: FilePath
-                     , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
-                     , sPrintCommands :: Bool -- ^ print command that is executed
-                     , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
-                     , sEnvironment :: [(String, String)]
-                     , sTrace :: B.Builder
-                     }
-
 -- | same as 'trace', but use it combinator style
 tag :: ShIO a -> Text -> ShIO a
 tag action msg = do
   trace msg
   action
 
-
--- | log actions that occur
-trace :: Text -> ShIO ()
-trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
-
-type ShIO a = ReaderT (IORef State) IO a
-
-get :: ShIO State
-get = do
-  stateVar <- ask 
-  liftIO (readIORef stateVar)
-
 put :: State -> ShIO ()
 put newState = do
   stateVar <- ask 
   liftIO (writeIORef stateVar newState)
-
-modify :: (State -> State) -> ShIO ()
-modify f = do
-  state <- ask 
-  liftIO (modifyIORef state f)
-
-
-gets :: (State -> a) -> ShIO a
-gets f = f <$> get
 
 -- FIXME: find the full path to the exe from PATH
 runCommand :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
@@ -335,11 +275,6 @@ run_sudo :: Text -> [Text] -> Sudo Text
 run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 -}
 
--- | A helper to catch any exception (same as
--- @... `catch` \(e :: SomeException) -> ...@).
-catchany :: IO a -> (SomeException -> IO a) -> IO a
-catchany = catch
-
 -- | Catch an exception in the ShIO monad.
 catch_sh :: (Exception e) => ShIO a -> (e -> ShIO a) -> ShIO a
 catch_sh action handle = do
@@ -372,12 +307,12 @@ catchany_sh = catch_sh
 
 -- | Change current working directory of ShIO. This does *not* change the
 -- working directory of the process we are running it. Instead, ShIO keeps
--- track of its own workking directory and builds absolute paths internally
+-- track of its own working directory and builds absolute paths internally
 -- instead of passing down relative paths. This may have performance
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> ShIO ()
-cd = path >=> \dir -> do
+cd = absPath >=> \dir -> do
             trace $ "cd " `mappend` toTextIgnore dir
             modify $ \st -> st { sDirectory = dir }
 
@@ -387,28 +322,6 @@ chdir dir action = do
   d <- gets sDirectory
   cd dir
   action `finally_sh` cd d
-
--- | makes an absolute path.
--- Like 'canonicalize', but on an exception returns 'path'
-canonic :: FilePath -> ShIO FilePath
-canonic fp = do
-  p <- path fp
-  liftIO $ canonicalizePath p `catchany` \_ -> return p
-
--- | makes the path relative to the current ShIO working directory.
--- an absolute path is returned as is
-path :: FilePath -> ShIO FilePath
-path p | relative p = (FP.</> p) <$> gets sDirectory
-       | otherwise = return p
-
-absPath :: FilePath -> ShIO FilePath
-absPath = path
-{-# DEPRECATED absPath "use path instead" #-}
-
--- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
--- "canonicalizePath" in system-fileio.
-canonicalize :: FilePath -> ShIO FilePath
-canonicalize = path >=> liftIO . canonicalizePath
 
   
 -- | apply a String IO operations to a Text FilePath
@@ -421,17 +334,14 @@ asString :: (String -> String) -> FilePath -> FilePath
 asString f = pack . f . unpack
 -}
 
-unpack :: FilePath -> String
-unpack = encodeString
-
 pack :: String -> FilePath
 pack = decodeString
 
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
 mv :: FilePath -> FilePath -> ShIO ()
-mv a b = do a' <- path a
-            b' <- path b
+mv a b = do a' <- absPath a
+            b' <- absPath b
             trace $ "mv " `mappend` toTextIgnore a' `mappend` " " `mappend` toTextIgnore b'
             liftIO $ rename a' b'
 
@@ -439,126 +349,9 @@ mv a b = do a' <- path a
 lsT :: FilePath -> ShIO [Text]
 lsT = ls >=> mapM toTextWarn
 
--- | List directory contents. Does *not* include \".\" and \"..\", but it does
--- include (other) hidden files.
-ls :: FilePath -> ShIO [FilePath]
-ls = path >=> \fp -> do
-  trace $ "ls " `mappend` toTextIgnore fp
-  liftIO $ listDirectory fp
-
--- | make the second path relative to the first
--- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
-relativeTo :: FilePath -- ^ anchor path, the prefix
-           -> FilePath -- ^ make this relative to anchor path
-           -> ShIO FilePath
-relativeTo relativeFP fp =
-  fmap (fromMaybe fp) $ maybeRelativeTo relativeFP fp
-
-maybeRelativeTo :: FilePath -- ^ anchor path, the prefix
-                 -> FilePath -- ^ make this relative to anchor path
-                 -> ShIO (Maybe FilePath)
-maybeRelativeTo relativeFP fp = do
-  epath <- eitherRelativeTo relativeFP fp
-  return $ case epath of
-             Right p -> Just p
-             Left _ -> Nothing
-
-eitherRelativeTo :: FilePath -- ^ anchor path, the prefix
-                 -> FilePath -- ^ make this relative to anchor path
-                 -> ShIO (Either FilePath FilePath) -- ^ Left is canonic of second path
-eitherRelativeTo relativeFP fp = do
-  stripIt relativeFP fp $ do
-    isDir <- test_d relativeFP
-    let relDir = if not isDir then relativeFP else addTrailingSlash relativeFP
-    relCan <- canonic relDir
-    fpCan  <- canonic fp
-    stripIt relCan fpCan $ return $ Left fpCan
-  where
-    stripIt rel toStrip nada = do
-      case stripPrefix rel toStrip of
-        Just stripped ->
-          if stripped == toStrip then nada
-            else return $ Right stripped
-        Nothing -> nada
-
-addTrailingSlash :: FilePath -> FilePath
-addTrailingSlash p =
-  if FP.null (filename p) then p else
-    p FP.</> FP.empty
-
--- | bugfix older version of canonicalizePath (system-fileio <= 0.3.7) loses trailing slash
-canonicalizePath :: FilePath -> IO FilePath
-canonicalizePath p = let was_dir = FP.null (filename p) in
-   if not was_dir then Filesystem.canonicalizePath p
-     else addTrailingSlash `fmap` Filesystem.canonicalizePath p
-
-
--- | List directory recursively (like the POSIX utility "find").
--- listing is relative if the path given is relative.
--- If you want to filter out some results or fold over them you can do that with the returned files.
--- A more efficient approach is to use one of the other find functions.
-find :: FilePath -> ShIO [FilePath]
-find dir = findFold dir [] (\paths fp -> return $ paths ++ [fp])
-
--- | 'find' that filters the found files as it finds.
--- Files must satisfy the given filter to be returned in the result.
-findWhen :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
-findWhen dir filt = findDirFilterWhen dir (const $ return True) filt
-
--- | Fold an arbitrary folding function over files froma a 'find'.
--- Like 'findWhen' but use a more general fold rather than a filter.
-findFold :: FilePath -> a -> (a -> FilePath -> ShIO a) -> ShIO a
-findFold fp = findFoldDirFilter fp (const $ return True)
-
--- | 'find' that filters out directories as it finds
--- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
-findDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> ShIO [FilePath]
-findDirFilter dir filt = findDirFilterWhen dir filt (const $ return True)
-
--- | similar 'findWhen', but also filter out directories
--- Alternatively, similar to 'findDirFilter', but also filter out files
--- Filtering out directories makes the find much more efficient
-findDirFilterWhen :: FilePath -- ^ directory
-                  -> (FilePath -> ShIO Bool) -- ^ directory filter
-                  -> (FilePath -> ShIO Bool) -- ^ file filter
-                  -> ShIO [FilePath]
-findDirFilterWhen dir dirFilt fileFilter = findFoldDirFilter dir dirFilt [] filterIt
-  where
-    filterIt paths fp = do
-      yes <- fileFilter fp
-      return $ if yes then paths ++ [fp] else paths
-
--- | like 'findDirFilterWhen' but use a folding function rather than a filter
--- The most general finder: you likely want a more specific one
-findFoldDirFilter :: FilePath -> (FilePath -> ShIO Bool) -> a -> (a -> FilePath -> ShIO a) -> ShIO a
-findFoldDirFilter dir dirFilter startValue folder = do
-  trace ("find " `mappend` toTextIgnore dir)
-  filt <- dirFilter dir
-  if filt
-    then ls dir >>= foldM traverse startValue
-    else return startValue
-  where
-    traverse acc x = do
-      isDir <- test_d x
-      sym <- test_s x
-      if isDir && not sym
-        then findFold x acc folder
-        else folder acc x
-
 -- | Obtain the current (ShIO) working directory.
 pwd :: ShIO FilePath
 pwd = gets sDirectory `tag` "pwd"
-
--- | Echo text to standard (error, when using _err variants) output. The _n
--- variants do not print a final newline.
-echo, echo_n, echo_err, echo_n_err :: Text -> ShIO ()
-echo       = traceLiftIO TIO.putStrLn
-echo_n     = traceLiftIO $ (>> hFlush System.IO.stdout) . TIO.putStr
-echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
-echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
-
-traceLiftIO :: (Text -> IO ()) -> Text -> ShIO ()
-traceLiftIO f msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'") >> liftIO (f msg)
 
 exit :: Int -> ShIO ()
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
@@ -571,29 +364,16 @@ errorExit msg = echo msg >> exit 1
 terror :: Text -> ShIO a
 terror = fail . LT.unpack
 
--- | a print lifted into ShIO
-inspect :: (Show s) => s -> ShIO ()
-inspect x = do
-  (trace . LT.pack . show) x
-  liftIO $ print x
-
--- | a print lifted into ShIO using stderr
-inspect_err :: (Show s) => s -> ShIO ()
-inspect_err x = do
-  let shown = LT.pack $ show x
-  trace shown
-  echo_err shown
-
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> ShIO ()
-mkdir = path >=> \fp -> do
+mkdir = absPath >=> \fp -> do
   trace $ "mkdir " `mappend` toTextIgnore fp
   liftIO $ createDirectory False fp
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> ShIO ()
-mkdir_p = path >=> \fp -> do
+mkdir_p = absPath >=> \fp -> do
   trace $ "mkdir -p " `mappend` toTextIgnore fp
   liftIO $ createTree fp
 
@@ -616,39 +396,29 @@ unlessM c a = c >>= \res -> unless res a
 
 -- | Does a path point to an existing filesystem object?
 test_e :: FilePath -> ShIO Bool
-test_e = path >=> \f -> do
+test_e = absPath >=> \f -> do
   liftIO $ do
     file <- isFile f
     if file then return True else isDirectory f
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> ShIO Bool
-test_f = path >=> liftIO . isFile
-
--- | Does a path point to an existing directory?
-test_d :: FilePath -> ShIO Bool
-test_d = path >=> liftIO . isDirectory
-
--- | Does a path point to a symlink?
-test_s :: FilePath -> ShIO Bool
-test_s = path >=> liftIO . \f -> do
-  stat <- getSymbolicLinkStatus (unpack f)
-  return $ isSymbolicLink stat
+test_f = absPath >=> liftIO . isFile
 
 -- | A swiss army cannon for removing things. Actually this goes farther than a
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
 -- Uses 'removeTree'
 rm_rf :: FilePath -> ShIO ()
-rm_rf f = path f >>= \f' -> do
+rm_rf = absPath >=> \f -> do
   trace $ "rm -rf " `mappend` toTextIgnore f
   isDir <- (test_d f)
-  if not isDir then whenM (test_f f) $ rm_f f'
+  if not isDir then whenM (test_f f) $ rm_f f
     else
-      (liftIO_ $ removeTree f') `catch_sh` (\(e :: IOError) ->
+      (liftIO_ $ removeTree f) `catch_sh` (\(e :: IOError) ->
         when (isPermissionError e) $ do
-          find f' >>= mapM_ (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
-          liftIO $ removeTree f'
+          find f >>= mapM_ (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
+          liftIO $ removeTree f
         )
   where fixPermissions file =
           do permissions <- liftIO $ getPermissions file
@@ -658,16 +428,16 @@ rm_rf f = path f >>= \f' -> do
 -- | Remove a file. Does not fail if the file does not exist.
 -- Does fail if the file is not a file.
 rm_f :: FilePath -> ShIO ()
-rm_f = path >=> \f -> do
+rm_f = absPath >=> \f -> do
   trace $ "rm -f " `mappend` toTextIgnore f
-  whenM (test_e f) $ path f >>= liftIO . removeFile
+  whenM (test_e f) $ canonic f >>= liftIO . removeFile
 
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> ShIO ()
-rm = path >=> \f -> do
+rm = absPath >=> \f -> do
   trace $ "rm" `mappend` toTextIgnore f
-  path f >>= liftIO . removeFile
+  canonic f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in ShIO
 -- internally, and is passed to any external commands to be executed.
@@ -680,7 +450,7 @@ setenv k v =
 -- | add the filepath onto the PATH env variable
 -- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
 appendToPath :: FilePath -> ShIO ()
-appendToPath = path >=> \filepath -> do
+appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- getenv path_env
   setenv path_env $ pe `mappend` ":" `mappend` tp
@@ -942,30 +712,26 @@ one -|- two = do
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> ShIO ()
 cp_r from' to' = do
-    fromDir <- path from'
+    fromDir <- absPath from'
     from_d <- (test_d fromDir)
     if not from_d then cp from' to' else do
-       to <- path to'
+       to <- absPath to'
        trace $ "cp -r " `mappend` toTextIgnore fromDir `mappend` " " `mappend` toTextIgnore to
        toIsDir <- test_d to
        toDir <- if toIsDir
                then return $ fromDir </> to
                else mkdir to >> return to
-       gets sDirectory >>= inspect_err
        when (fromDir == toDir) $ liftIO $ throwIO $ userError $ LT.unpack $ "cp_r: " `mappend`
          toTextIgnore fromDir `mappend` " and " `mappend` toTextIgnore toDir `mappend` " are identical"
 
-       inspect_err fromDir
-       inspect_err toDir
-       inspect_err =<< ls fromDir
        ls fromDir >>= mapM_ (\item -> cp_r (fromDir FP.</> filename item) (toDir FP.</> filename item))
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
 cp :: FilePath -> FilePath -> ShIO ()
 cp from' to' = do
-  from <- path from'
-  to <- path to'
+  from <- absPath from'
+  to <- absPath to'
   trace $ "cp " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
@@ -1013,13 +779,13 @@ withTmpDir act = do
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> Text -> ShIO ()
-writefile f' bits = path f' >>= \f -> do
+writefile f' bits = absPath f' >>= \f -> do
   trace $ "writefile " `mappend` toTextIgnore f
   liftIO (TIO.writeFile (unpack f) bits)
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> Text -> ShIO ()
-appendfile f' bits = path f' >>= \f -> do
+appendfile f' bits = absPath f' >>= \f -> do
   trace $ "appendfile " `mappend` toTextIgnore f
   liftIO (TIO.appendFile (unpack f) bits)
 
@@ -1027,7 +793,7 @@ appendfile f' bits = path f' >>= \f -> do
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> ShIO Text
-readfile = path >=> \fp -> do
+readfile = absPath >=> \fp -> do
   trace $ "readfile " `mappend` toTextIgnore fp
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
 

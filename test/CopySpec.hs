@@ -16,11 +16,7 @@ main = hspecX spec
 
 with_dir :: FilePath -> ShIO a -> ShIO a
 with_dir d action =
-  mkdir_p d >>
-  (do res <- action
-      rm_rf d
-      return res
-  ) `finally_sh` (rm_rf d)
+  mkdir_p d >> (action `finally_sh` rm_rf d)
 
 within_dir :: FilePath -> ShIO a -> ShIO a
 within_dir d action =

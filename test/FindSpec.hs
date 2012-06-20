@@ -8,6 +8,7 @@ import Test.HUnit hiding (path)
 import Test.Hspec.Monadic
 
 import Shelly
+import Shelly.Find
 
 main :: IO ()
 main = hspecX spec
@@ -19,7 +20,7 @@ spec = do
       res <- shelly $ relativeTo "rel/" "rel/foo"
       res @?= "foo"
       res <- shelly $ relativeTo "rel" "rel/foo"
-      res @?= "rel/foo"
+      res @?= "foo"
 
     it "relative to existing dir" $ do
       res <- shelly $ relativeTo "test/" "test/drain.hs"
