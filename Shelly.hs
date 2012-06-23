@@ -47,7 +47,7 @@ module Shelly
          , ls, lsT, test_e, test_f, test_d, test_s, which
 
          -- * Filename helpers
-         , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path 
+         , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path
 
          -- * Manipulating filesystem.
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
