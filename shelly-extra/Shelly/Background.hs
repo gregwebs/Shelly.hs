@@ -1,4 +1,11 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
+-- | A futures implementation that integrates with shelly
+-- 
+-- > jobs 5 (\job -> background job (sleep 2) >> background job (sleep 1))
+--
+-- 'jobs' will wait for all concurrent jobs to finish.
+-- The argument to jobs is the maximum number of concurrent tasks.
+-- Generally shell scripts contain a lot of quick commands, but when you have the occasional command that is noticeably long and independent of other commands, you can easily run it concurrently.
 module Shelly.Background (
    -- * Running external commands asynchronously.
    jobs, background, getBgResult, BgResult

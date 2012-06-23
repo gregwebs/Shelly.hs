@@ -4,7 +4,7 @@
 module Shelly.Base
   (
     ShIO, State(..), FilePath, Text,
-    path, absPath, canonic, canonicalize,
+    relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
     ls,
@@ -54,8 +54,8 @@ data State = State   { sCode :: Int
 -- | Makes a relative path relative to the current ShIO working directory.
 -- An absolute path is returned as is.
 -- To create an absolute path, use 'absPath'
-path :: FilePath -> ShIO FilePath
-path fp = do
+relPath :: FilePath -> ShIO FilePath
+relPath fp = do
   wd  <- gets sDirectory
   rel <- eitherRelativeTo wd fp
   return $ case rel of
@@ -130,6 +130,10 @@ canonicalizePath p = let was_dir = FP.null (FP.filename p) in
 absPath :: FilePath -> ShIO FilePath
 absPath p | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
+
+path :: FilePath -> ShIO FilePath
+path = absPath
+{-# DEPRECATED path "use absPath, canonic, or relPath instead" #-}
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> ShIO Bool

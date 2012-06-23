@@ -4,7 +4,7 @@
 module FindSpec (main, spec) where
 
 import Test.Hspec.HUnit ()
-import Test.HUnit hiding (path)
+import Test.HUnit
 import Test.Hspec.Monadic
 
 import Shelly
@@ -49,5 +49,5 @@ spec = do
       res @?= ["test/CopySpec.hs", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs"]
 
     it "lists absolute files" $ do
-      res <- shelly $ path "test" >>= find >>= mapM (relativeTo "test")
+      res <- shelly $ relPath "test" >>= find >>= mapM (relativeTo "test")
       res @?= ["CopySpec.hs", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs"]

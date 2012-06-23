@@ -1,18 +1,18 @@
 Shelly provides a single module for convenient systems programming in Haskell.
 
-* Shelly is aimed at convenience and getting things done rather than being a demonstration of elegance.
-* Shelly maintains its own environment, making it thread-safe.
+I have published [an introductory article to scripting with shelly for those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/).
 
-Shelly is a fork of Shellish (which accomplished the above 2 goals) with many useful improvements
+Shelly
 
-* Good error messages
-* Text everywhere instead of String
-* Use of system-filepath and system-fileio for all its operations
-* Low memory usage
+* is aimed at convenience and getting things done rather than being a demonstration of elegance.
+* has detailed and useful error messages
+* maintains its own environment, making it thread-safe
+* is modern, using Text and system-filepath/system-fileio
+* has low memory usage
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
 
-Please see the shelly-extra package for additional functionality.
+Please see the [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package for additional functionality.
 
 
 ## Alternatives
@@ -23,8 +23,8 @@ Please see the shelly-extra package for additional functionality.
 
 # Usage
 
-Shelly's main goal is ease of scripting.
-At the same time there should be a primitive for every shell operation you need so you can easily build abstractions, so there are many of the usual file and environment operations.
+Shelly's main goal is ease of use.
+There should be a primitive for every shell operation you need so you can easily build abstractions, so there are many of the usual file and environment operations.
 
 There are 2 main entry points for running arbitrary commands: `run` and `cmd`.
 They take a FilePath as their first argument. `run` takes a [Text] as its second argument.
@@ -61,9 +61,7 @@ Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 # Thread-safe working directory
 
 `cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
-All of the Shelly API takes this into account.
-If you are mixing code outside of the Shelly API, it is best to work with absolute paths, which is what Shelly does internally. You can get turn a Shelly relative path into an absolute with `absPath`.
-If you want to make a relative path relative to the Shelly working directory you can use `path`.
+All of the Shelly API takes this into account, internally shelly converts all paths to absolute paths. You can get turn a relative path into an absolute with `absPath` or `canonic` or you can make a path relative to the Shelly working directory with `relPath`.
 
 
 # Good error messages
@@ -80,5 +78,6 @@ If you make your own primitive functions that don't use the Shelly API, use `tra
 
 # Future plans
 
+* improved SSH API
 * Switch from lazy text to strict
 * fix PATH/which implementation

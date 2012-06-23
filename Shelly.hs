@@ -47,7 +47,7 @@ module Shelly
          , ls, lsT, test_e, test_f, test_d, test_s, which
 
          -- * Filename helpers
-         , path, (</>), (<.>), canonic, canonicalize, absPath, relativeTo
+         , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path 
 
          -- * Manipulating filesystem.
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
@@ -57,9 +57,9 @@ module Shelly
          , exit, errorExit, terror
 
          -- * Utilities.
-         , (<$>), (<$$>), grep, whenM, unlessM
+         , (<$>), (<$$>), whenM, unlessM
          , catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
-         , Timing(..), time
+         , time
          , RunFailed(..)
 
          -- * convert between Text and FilePath
@@ -78,7 +78,6 @@ import Control.Monad ( when, unless )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (runReaderT, ask)
 import Prelude hiding ( catch, readFile, FilePath )
-import Data.List( isInfixOf )
 import Data.Char( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
@@ -480,12 +479,12 @@ silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = Fals
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
 
--- | Turn on/off printing stdout
+-- | Create a sub-ShIO with stdout printing on or off
 print_stdout :: Bool -> ShIO a -> ShIO a
 print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
 
 
--- | Turn on/off command echoing.
+-- | Create a sub-ShIO with command echoing on or off
 print_commands :: Bool -> ShIO a -> ShIO a
 print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = shouldPrint }) >> a
 
@@ -502,6 +501,7 @@ sub a = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
+-- | Create a sub-ShIO with shell character escaping on or off
 escaping :: Bool -> ShIO a -> ShIO a
 escaping shouldEscape action = sub $ do
   modify $ \st -> st { sRun =
@@ -578,10 +578,9 @@ sshPairs_ server cmds = sshPairs' run_ server cmds
 --
 -- > sshPairs "server-name" [("cd", "dir"), ("rm",["-r","dir2"])]
 --
--- I am not fond of this interface, but it seems to work.
+-- This interface is crude, but it works for now.
 --
 -- Please note this sets 'escaping' to False: the commands will not be shell escaped.
--- I think this should be more convenient for ssh.
 -- Internally the list of commands are combined with the string " && " before given to ssh.
 sshPairs :: Text -> [(FilePath, [Text])] -> ShIO Text
 sshPairs _ [] = return ""
@@ -741,24 +740,6 @@ cp from' to' = do
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
--- | for 'grep'
-class PredicateLike pattern hay where
-  match :: pattern -> hay -> Bool
-
-instance PredicateLike (a -> Bool) a where
-  match = id
-
-instance (Eq a) => PredicateLike [a] [a] where
-  match pat = (pat `isInfixOf`)
-
--- | Like filter, but more conveniently used with String lists, where a
--- substring match (TODO: also provide globs) is expressed as
---  @grep \"needle\" [ \"the\", \"stack\", \"of\", \"hay\" ]@. Boolean
--- predicates just like with "filter" are supported too:
--- @grep (\"fun\" `isPrefixOf`) [...]@.
-grep :: (PredicateLike pattern hay) => pattern -> [hay] -> [hay]
-grep p = filter (match p)
-
 -- | A functor-lifting function composition.
 (<$$>) :: (Functor m) => (b -> c) -> (a -> m b) -> a -> m c
 f <$$> v = fmap f . v
@@ -798,19 +779,16 @@ readfile = absPath >=> \fp -> do
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
 
 
-data Timing = Timing Double deriving (Read, Show, Ord, Eq)
-
 -- | Run a ShIO computation and collect timing  information.
-time :: ShIO a -> ShIO (Timing, a)
+time :: ShIO a -> ShIO (Double, a)
 time what = sub $ do
   trace "time"
   t <- liftIO getCurrentTime
   res <- what
   t' <- liftIO getCurrentTime
-  let mt = Timing (realToFrac $ diffUTCTime t' t)
-  return (mt, res)
+  return ((realToFrac $ diffUTCTime t' t), res)
 
-{-
+{- memory stats never implemented
     stats_f <- liftIO $
       do tmpdir <- getTemporaryDirectory
          (f, h) <- openTempFile tmpdir "darcs-stats-XXXX"
