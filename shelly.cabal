@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.12.0.1
+Version:     0.12.0.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -18,6 +18,8 @@ Description: Shelly provides convenient systems programming in Haskell,
              Shelly is originally forked from the Shellish package.
              .
              See the shelly-extra package for additional functionality.
+             .
+             Lately there are problems with generating the docs. The docs are there for this version: <http://hackage.haskell.org/package/shelly-0.11>
 
 
 Homepage:            https://github.com/yesodweb/Shelly.hs
