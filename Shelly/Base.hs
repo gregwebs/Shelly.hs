@@ -202,7 +202,7 @@ inspect_err x = do
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: Text -> ShIO ()
 echo       = traceLiftIO TIO.putStrLn
-echo_n     = traceLiftIO $ (>> hFlush System.IO.stdout) . TIO.putStr
+echo_n     = traceLiftIO $ (>> hFlush stdout) . TIO.putStr
 echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
 echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
 

@@ -82,7 +82,7 @@ import Data.Char( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
-import System.IO hiding ( readFile, FilePath )
+import System.IO ( hClose, stderr, stdout, openTempFile )
 import System.Exit
 import System.Environment
 import Control.Applicative
