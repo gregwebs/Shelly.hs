@@ -597,7 +597,7 @@ sshPairs' run' server actions = do
     toSSH (exe,args) = show_command exe args
 
 
-data Exception e => ReThrownException e = ReThrownException e String deriving (Typeable)
+data ReThrownException e = ReThrownException e String deriving (Typeable)
 instance Exception e => Exception (ReThrownException e)
 instance Exception e => Show (ReThrownException e) where
   show (ReThrownException ex msg) = "\n" ++
