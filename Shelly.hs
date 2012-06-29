@@ -19,6 +19,7 @@
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- > import Shelly
 -- > import Data.Text.Lazy as LT
 -- > default (LT.Text)
 module Shelly

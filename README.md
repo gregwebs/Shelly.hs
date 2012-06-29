@@ -34,6 +34,7 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
     {-# LANGUAGE OverloadedStrings #-}
     {-# LANGUAGE ExtendedDefaultRules #-}
     {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+    import Shelly
     import Data.Text.Lazy as LT
     default (LT.Text)
 
