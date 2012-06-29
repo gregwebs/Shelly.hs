@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.12.1
+Version:     0.12.1.1
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
