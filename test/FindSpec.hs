@@ -46,8 +46,8 @@ spec = do
 
     it "lists relative files" $ do
       res <- shelly $ find "test"
-      res @?= ["test/CopySpec.hs", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs"]
+      res @?= ["test/CopySpec.hs", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs", "test/WriteSpec.hs"]
 
     it "lists absolute files" $ do
       res <- shelly $ relPath "test" >>= find >>= mapM (relativeTo "test")
-      res @?= ["CopySpec.hs", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs"]
+      res @?= ["CopySpec.hs", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs", "WriteSpec.hs"]
