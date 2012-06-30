@@ -468,24 +468,26 @@ getenv_def :: Text -> Text -> ShIO Text
 getenv_def k d = gets sEnvironment >>=
   return . LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k)
 
--- | Create a sub-ShIO in which external command outputs are not echoed.
--- Also commands are not printed.
--- See "sub".
+-- | Create a sub-ShIO in which external command outputs are not echoed and
+-- commands are not printed.
+-- See 'sub'.
 silently :: ShIO a -> ShIO a
 silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = False }) >> a
 
--- | Create a sub-ShIO in which external command outputs are echoed.
+-- | Create a sub-ShIO in which external command outputs are echoed and
 -- Executed commands are printed
--- See "sub".
+-- See 'sub'.
 verbosely :: ShIO a -> ShIO a
 verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
 
 -- | Create a sub-ShIO with stdout printing on or off
+-- Defaults to True.
 print_stdout :: Bool -> ShIO a -> ShIO a
 print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
 
 
 -- | Create a sub-ShIO with command echoing on or off
+-- Defaults to False, set to True by 'verbosely'
 print_commands :: Bool -> ShIO a -> ShIO a
 print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = shouldPrint }) >> a
 
@@ -502,7 +504,9 @@ sub a = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
--- | Create a sub-ShIO with shell character escaping on or off
+-- | Create a sub-ShIO with shell character escaping on or off.
+-- Defaults to True.
+-- Setting to False allows for shell wildcard such as * to be expanded by the shell along with any other special shell characters.
 escaping :: Bool -> ShIO a -> ShIO a
 escaping shouldEscape action = sub $ do
   modify $ \st -> st { sRun =

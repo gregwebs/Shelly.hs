@@ -50,6 +50,8 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
 Yes, you can write variadic functions in Haskell quite easily, you just can't compose them.
 I find `cmd` to be more convenient, but I use `run` when I am building up abstractions.
 
+By default, all commands are shell escaped. If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...` 
+
 Shelly's usage of system-filepath means you may need to convert between Text and FilePath sometimes.
 This should be infrequent though because
 
