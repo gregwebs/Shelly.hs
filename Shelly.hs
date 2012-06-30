@@ -32,8 +32,6 @@ module Shelly
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
  
---         , Sudo(..), run_sudo
-
          -- * Modifying and querying environment.
          , setenv, getenv, getenv_def, appendToPath
 
@@ -49,27 +47,30 @@ module Shelly
 
          -- * Filename helpers
          , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path
+         , hasExt
 
          -- * Manipulating filesystem.
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
-         , readfile, writefile, appendfile, withTmpDir
+
+         -- * reading/writing Files
+         , readfile, writefile, appendfile, touchfile, withTmpDir
 
          -- * exiting the program
          , exit, errorExit, terror
 
-         -- * Utilities.
-         , (<$>), (<$$>), whenM, unlessM
+         -- * Exceptions
          , catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
-         , time
-         , RunFailed(..)
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, fromText
 
+         -- * Utilities.
+         , (<$>), (<$$>), whenM, unlessM, time
+
          -- * Re-exported for your convenience
          , liftIO, when, unless, FilePath
 
-         -- * internal functions for writing extension
+         -- * internal functions for writing extensions
          , get, put
          ) where
 
@@ -769,6 +770,10 @@ writefile f' bits = absPath f' >>= \f -> do
   trace $ "writefile " `mappend` toTextIgnore f
   liftIO (TIO.writeFile (unpack f) bits)
 
+-- | Update a file, creating (a blank file) if it does not exist.
+touchfile :: FilePath -> ShIO ()
+touchfile = absPath >=> flip appendfile ""
+
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> Text -> ShIO ()
 appendfile f' bits = absPath f' >>= \f -> do
@@ -783,6 +788,9 @@ readfile = absPath >=> \fp -> do
   trace $ "readfile " `mappend` toTextIgnore fp
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
 
+-- | flipped hasExtension for Text
+hasExt :: Text -> FilePath -> Bool
+hasExt = flip hasExtension . LT.toStrict
 
 -- | Run a ShIO computation and collect timing  information.
 time :: ShIO a -> ShIO (Double, a)
