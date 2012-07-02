@@ -1,9 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | prevent circular dependencies
 -- needed by multiple exposed modules
 module Shelly.Base
   (
-    ShIO, State(..), FilePath, Text,
+    ShIO, unShIO, runShIO, State(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -17,19 +18,16 @@ module Shelly.Base
 
 import Prelude hiding ( FilePath, catch )
 import Data.Text.Lazy (Text)
-import Filesystem.Path.CurrentOS (FilePath)
 import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
-import Control.Monad.Trans ( liftIO )
 import Control.Monad ( (>=>) ) 
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import Filesystem.Path.CurrentOS (encodeString, relative)
+import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
 import qualified Filesystem.Path.CurrentOS as FP
 import qualified Filesystem as FS
 import Control.Applicative ((<$>))
-import Control.Monad.Reader (ask, ReaderT)
 import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as LT
@@ -37,8 +35,15 @@ import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text.Lazy.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
+import Control.Monad.Trans ( MonadIO, liftIO )
+import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
 
-type ShIO a = ReaderT (IORef State) IO a
+newtype ShIO a = ShIO {
+      unShIO :: ReaderT (IORef State) IO a
+  } deriving (Monad, MonadIO, MonadReader (IORef State), Functor)
+
+runShIO :: ShIO a -> IORef State -> IO a
+runShIO = runReaderT . unShIO
 
 data State = State   { sCode :: Int
                      , sStdin :: Maybe Text -- ^ stdin for the command to be run
@@ -68,15 +73,15 @@ eitherRelativeTo :: FilePath -- ^ anchor path, the prefix
 eitherRelativeTo relativeFP fp = do
   let fullFp = relativeFP FP.</> fp
   let relDir = addTrailingSlash relativeFP
-  stripIt relativeFP fp $ do
-    stripIt relativeFP fullFp $ do
-      stripIt relDir fp $ do
+  stripIt relativeFP fp $
+    stripIt relativeFP fullFp $
+      stripIt relDir fp $
         stripIt relDir fullFp $ do
           relCan <- canonic relDir
           fpCan  <- canonic fullFp
           stripIt relCan fpCan $ return $ Left fpCan
   where
-    stripIt rel toStrip nada = do
+    stripIt rel toStrip nada =
       case FP.stripPrefix rel toStrip of
         Just stripped ->
           if stripped == toStrip then nada

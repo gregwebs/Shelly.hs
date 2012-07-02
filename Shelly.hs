@@ -78,7 +78,7 @@ import Shelly.Base
 import Shelly.Find (find)
 import Control.Monad ( when, unless )
 import Control.Monad.Trans ( MonadIO )
-import Control.Monad.Reader (runReaderT, ask)
+import Control.Monad.Reader (ask)
 import Prelude hiding ( catch, readFile, FilePath )
 import Data.Char( isAlphaNum, isSpace )
 import Data.Typeable
@@ -280,13 +280,13 @@ run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 catch_sh :: (Exception e) => ShIO a -> (e -> ShIO a) -> ShIO a
 catch_sh action handle = do
     ref <- ask
-    liftIO $ catch (runReaderT action ref) (\e -> runReaderT (handle e) ref)
+    liftIO $ catch (runShIO action ref) (\e -> runShIO (handle e) ref)
 
 -- | Catch an exception in the ShIO monad.
 finally_sh :: ShIO a -> ShIO b -> ShIO a
 finally_sh action handle = do
     ref <- ask
-    liftIO $ finally (runReaderT action ref) (runReaderT handle ref)
+    liftIO $ finally (runShIO action ref) (runShIO handle ref)
 
 
 -- | You need this when using 'catches_sh'.
@@ -296,7 +296,7 @@ data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> ShIO a)
 catches_sh :: ShIO a -> [ShellyHandler a] -> ShIO a
 catches_sh action handlers = do
     ref <- ask
-    let runner a = runReaderT a ref
+    let runner a = runShIO a ref
     liftIO $ catches (runner action) $ map (toHandler runner) handlers
   where
     toHandler :: (ShIO a -> IO a) -> ShellyHandler a -> Handler a
@@ -544,7 +544,7 @@ shelly action = do
               )
             , ShellyHandler (\(ex::SomeException) -> throwExplainedException ex)
           ]
-  liftIO $ runReaderT caught stref
+  liftIO $ runShIO caught stref
   where
     throwExplainedException :: Exception exception => exception -> ShIO a
     throwExplainedException ex = get >>=
