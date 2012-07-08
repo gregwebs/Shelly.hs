@@ -21,6 +21,7 @@ import Data.Text.Lazy (Text)
 import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
+import Control.Applicative(Applicative)
 import Control.Monad ( (>=>) ) 
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
@@ -40,7 +41,7 @@ import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
 
 newtype ShIO a = ShIO {
       unShIO :: ReaderT (IORef State) IO a
-  } deriving (Monad, MonadIO, MonadReader (IORef State), Functor)
+  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
 
 runShIO :: ShIO a -> IORef State -> IO a
 runShIO = runReaderT . unShIO
