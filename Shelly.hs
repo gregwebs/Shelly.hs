@@ -72,10 +72,12 @@ module Shelly
 
          -- * internal functions for writing extensions
          , get, put
+         -- * find functions
+         , find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
          ) where
 
 import Shelly.Base
-import Shelly.Find (find)
+import Shelly.Find
 import Control.Monad ( when, unless )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
@@ -801,22 +803,4 @@ time what = sub $ do
   t' <- liftIO getCurrentTime
   return ((realToFrac $ diffUTCTime t' t), res)
 
-{- memory stats never implemented
-    stats_f <- liftIO $
-      do tmpdir <- getTemporaryDirectory
-         (f, h) <- openTempFile tmpdir "darcs-stats-XXXX"
-         hClose h
-         return f
-    let args = args' ++ ["+RTS", "-s" ++ stats_f, "-RTS"]
-    ...
-    stats <- liftIO $ do c <- readFile' stats_f
-                         removeFile stats_f `catchany` \e -> hPutStrLn stderr (show e)
-                         return c
-                       `catchany` \_ -> return ""
-    let bytes = (stats =~ "([0-9, ]+) M[bB] total memory in use") :: String
-        mem = case length bytes of
-          0 -> 0
-          _ -> (read (filter (`elem` "0123456789") bytes) :: Int)
-    recordMemoryUsed $ mem * 1024 * 1024
-    return res
--}
+

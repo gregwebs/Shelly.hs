@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.12.2
+Version:     0.13
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -33,8 +33,8 @@ Cabal-version:       >=1.8
 
 
 Library
-  Exposed-modules: Shelly, Shelly.Find
-  other-modules:   Shelly.Base
+  Exposed-modules: Shelly
+  other-modules:   Shelly.Base, Shelly.Find
 
   Build-depends: base >= 4 && < 5, time, directory, text, mtl
                , process >= 1.0

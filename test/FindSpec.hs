@@ -8,7 +8,6 @@ import Test.HUnit
 import Test.Hspec.Monadic
 
 import Shelly
-import Shelly.Find
 
 main :: IO ()
 main = hspecX spec
