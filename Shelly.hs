@@ -33,7 +33,7 @@ module Shelly
          , sshPairs, sshPairs_
  
          -- * Modifying and querying environment.
-         , setenv, getenv, getenv_def, appendToPath
+         , setenv, get_env, get_env_text, getenv, getenv_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -460,16 +460,29 @@ appendToPath = absPath >=> \filepath -> do
   where
     path_env = "PATH"
 
--- | Fetch the current value of an environment variable. Both empty and
--- non-existent variables give empty string as a result.
+-- | Fetch the current value of an environment variable.
+-- if non-existant or empty text, will be Nothing
+get_env :: Text -> Sh (Maybe Text)
+get_env k = do
+  mval <- return . fmap LT.pack . lookup (LT.unpack k) =<< gets sEnvironment
+  return $ case mval of
+    Nothing -> Nothing
+    j@(Just val) -> if LT.null val then Nothing else j
+
 getenv :: Text -> Sh Text
 getenv k = getenv_def k ""
+{-# DEPRECATED getenv "use get_env or get_env_text" #-}
 
 -- | Fetch the current value of an environment variable. Both empty and
--- non-existent variables give the default value as a result
+-- non-existent variables give empty string as a result.
+get_env_text :: Text -> Sh Text
+get_env_text k = getenv_def k ""
+
+-- | Fetch the current value of an environment variable. Both empty and
+-- non-existent variables give the default Text value as a result
 getenv_def :: Text -> Text -> Sh Text
-getenv_def k d = gets sEnvironment >>=
-  return . LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k)
+getenv_def d = get_env >=> return . fromMaybe d
+
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
 -- commands are not printed.
