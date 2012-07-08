@@ -40,8 +40,8 @@ import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
--- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
-{- # DEPRECATED ShIO, "Use Sh instead of ShIO" #-}
+{- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
+ - # DEPRECATED ShIO, "Use Sh instead of ShIO" # -}
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a

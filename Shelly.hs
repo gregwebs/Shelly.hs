@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
+         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
