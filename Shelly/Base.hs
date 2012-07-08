@@ -4,7 +4,7 @@
 -- needed by multiple exposed modules
 module Shelly.Base
   (
-    ShIO, unShIO, runShIO, State(..), FilePath, Text,
+    ShIO, Sh, unSh, runSh, State(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -38,12 +38,17 @@ import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
 
-newtype ShIO a = ShIO {
-      unShIO :: ReaderT (IORef State) IO a
+-- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
+type ShIO a = Sh a
+-- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
+{- # DEPRECATED ShIO, "Use Sh instead of ShIO" #-}
+
+newtype Sh a = Sh {
+      unSh :: ReaderT (IORef State) IO a
   } deriving (Monad, MonadIO, MonadReader (IORef State), Functor)
 
-runShIO :: ShIO a -> IORef State -> IO a
-runShIO = runReaderT . unShIO
+runSh :: Sh a -> IORef State -> IO a
+runSh = runReaderT . unSh
 
 data State = State   { sCode :: Int
                      , sStdin :: Maybe Text -- ^ stdin for the command to be run
@@ -51,15 +56,15 @@ data State = State   { sCode :: Int
                      , sDirectory :: FilePath
                      , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
                      , sPrintCommands :: Bool -- ^ print command that is executed
-                     , sRun :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+                     , sRun :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
                      , sEnvironment :: [(String, String)]
                      , sTrace :: B.Builder
                      }
 
--- | Makes a relative path relative to the current ShIO working directory.
+-- | Makes a relative path relative to the current Sh working directory.
 -- An absolute path is returned as is.
 -- To create an absolute path, use 'absPath'
-relPath :: FilePath -> ShIO FilePath
+relPath :: FilePath -> Sh FilePath
 relPath fp = do
   wd  <- gets sDirectory
   rel <- eitherRelativeTo wd fp
@@ -69,7 +74,7 @@ relPath fp = do
 
 eitherRelativeTo :: FilePath -- ^ anchor path, the prefix
                  -> FilePath -- ^ make this relative to anchor path
-                 -> ShIO (Either FilePath FilePath) -- ^ Left is canonic of second path
+                 -> Sh (Either FilePath FilePath) -- ^ Left is canonic of second path
 eitherRelativeTo relativeFP fp = do
   let fullFp = relativeFP FP.</> fp
   let relDir = addTrailingSlash relativeFP
@@ -92,13 +97,13 @@ eitherRelativeTo relativeFP fp = do
 -- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
 relativeTo :: FilePath -- ^ anchor path, the prefix
            -> FilePath -- ^ make this relative to anchor path
-           -> ShIO FilePath
+           -> Sh FilePath
 relativeTo relativeFP fp =
   fmap (fromMaybe fp) $ maybeRelativeTo relativeFP fp
 
 maybeRelativeTo :: FilePath -- ^ anchor path, the prefix
                  -> FilePath -- ^ make this relative to anchor path
-                 -> ShIO (Maybe FilePath)
+                 -> Sh (Maybe FilePath)
 maybeRelativeTo relativeFP fp = do
   epath <- eitherRelativeTo relativeFP fp
   return $ case epath of
@@ -113,14 +118,14 @@ addTrailingSlash p =
 
 -- | makes an absolute path.
 -- Like 'canonicalize', but on an exception returns 'path'
-canonic :: FilePath -> ShIO FilePath
+canonic :: FilePath -> Sh FilePath
 canonic fp = do
   p <- absPath fp
   liftIO $ canonicalizePath p `catchany` \_ -> return p
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
 -- "canonicalizePath" in system-fileio.
-canonicalize :: FilePath -> ShIO FilePath
+canonicalize :: FilePath -> Sh FilePath
 canonicalize = absPath >=> liftIO . canonicalizePath
 
 -- | bugfix older version of canonicalizePath (system-fileio <= 0.3.7) loses trailing slash
@@ -132,20 +137,20 @@ canonicalizePath p = let was_dir = FP.null (FP.filename p) in
 -- | Make a relative path absolute by combining with the working directory.
 -- An absolute path is returned as is.
 -- To create a relative path, use 'path'.
-absPath :: FilePath -> ShIO FilePath
+absPath :: FilePath -> Sh FilePath
 absPath p | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
 
-path :: FilePath -> ShIO FilePath
+path :: FilePath -> Sh FilePath
 path = absPath
 {-# DEPRECATED path "use absPath, canonic, or relPath instead" #-}
 
 -- | Does a path point to an existing directory?
-test_d :: FilePath -> ShIO Bool
+test_d :: FilePath -> Sh Bool
 test_d = absPath >=> liftIO . isDirectory
 
 -- | Does a path point to a symlink?
-test_s :: FilePath -> ShIO Bool
+test_s :: FilePath -> Sh Bool
 test_s = absPath >=> liftIO . \f -> do
   stat <- getSymbolicLinkStatus (unpack f)
   return $ isSymbolicLink stat
@@ -153,27 +158,27 @@ test_s = absPath >=> liftIO . \f -> do
 unpack :: FilePath -> String
 unpack = encodeString
 
-gets :: (State -> a) -> ShIO a
+gets :: (State -> a) -> Sh a
 gets f = f <$> get
 
-get :: ShIO State
+get :: Sh State
 get = do
   stateVar <- ask 
   liftIO (readIORef stateVar)
 
-modify :: (State -> State) -> ShIO ()
+modify :: (State -> State) -> Sh ()
 modify f = do
   state <- ask 
   liftIO (modifyIORef state f)
 
 -- | internally log what occured.
 -- Log will be re-played on failure.
-trace :: Text -> ShIO ()
+trace :: Text -> Sh ()
 trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
-ls :: FilePath -> ShIO [FilePath]
+ls :: FilePath -> Sh [FilePath]
 -- it is important to use path and not absPath so that the listing can remain relative
 ls f = absPath f >>= \fp -> do
   trace $ "ls " `mappend` toTextIgnore fp
@@ -190,14 +195,14 @@ toTextIgnore fp = LT.fromStrict $ case FP.toText fp of
                                     Left  f -> f
                                     Right f -> f
 
--- | a print lifted into ShIO
-inspect :: (Show s) => s -> ShIO ()
+-- | a print lifted into 'Sh'
+inspect :: (Show s) => s -> Sh ()
 inspect x = do
   (trace . LT.pack . show) x
   liftIO $ print x
 
--- | a print lifted into ShIO using stderr
-inspect_err :: (Show s) => s -> ShIO ()
+-- | a print lifted into 'Sh' using stderr
+inspect_err :: (Show s) => s -> Sh ()
 inspect_err x = do
   let shown = LT.pack $ show x
   trace shown
@@ -205,13 +210,13 @@ inspect_err x = do
 
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
-echo, echo_n, echo_err, echo_n_err :: Text -> ShIO ()
+echo, echo_n, echo_err, echo_n_err :: Text -> Sh ()
 echo       = traceLiftIO TIO.putStrLn
 echo_n     = traceLiftIO $ (>> hFlush stdout) . TIO.putStr
 echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
 echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
 
-traceLiftIO :: (Text -> IO ()) -> Text -> ShIO ()
+traceLiftIO :: (Text -> IO ()) -> Text -> Sh ()
 traceLiftIO f msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'") >> liftIO (f msg)
 
 -- | A helper to catch any exception (same as

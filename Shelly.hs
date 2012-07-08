@@ -10,7 +10,7 @@
 --
 -- The functionality provided by
 -- this module is (unlike standard Haskell filesystem functionality)
--- thread-safe: each ShIO maintains its own environment and its own working
+-- thread-safe: each Sh maintains its own environment and its own working
 -- directory.
 --
 -- I highly recommend putting the following at the top of your program,
@@ -24,8 +24,8 @@
 -- > default (LT.Text)
 module Shelly
        (
-         -- * Entering ShIO.
-         ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
+         -- * Entering Sh.
+         Sh, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
@@ -129,7 +129,7 @@ instance ShellArgs (Text, FilePath) where
 instance ShellArgs (FilePath, Text) where
   toTextArgs (fp1,t1) = [toTextIgnore fp1, t1]
 
-cmd :: (ShellArgs args) => FilePath -> args -> ShIO Text
+cmd :: (ShellArgs args) => FilePath -> args -> Sh Text
 cmd fp args = run fp $ toTextArgs args
 -}
 
@@ -143,14 +143,14 @@ instance ShellArg FilePath where toTextArg = toTextIgnore
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
 
-instance ShellCommand (ShIO Text) where
+instance ShellCommand (Sh Text) where
     cmdAll fp args = run fp args
 
-instance (s ~ Text, Show s) => ShellCommand (ShIO s) where
+instance (s ~ Text, Show s) => ShellCommand (Sh s) where
     cmdAll fp args = run fp args
 
--- note that ShIO () actually doesn't work for its case (_<- cmd) when there is no type signature
-instance ShellCommand (ShIO ()) where
+-- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
+instance ShellCommand (Sh ()) where
     cmdAll fp args = run_ fp args
 
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
@@ -192,7 +192,7 @@ x <.> y = toFilePath x FP.<.> LT.toStrict y
 
 
 
-toTextWarn :: FilePath -> ShIO Text
+toTextWarn :: FilePath -> Sh Text
 toTextWarn efile = fmap lazy $ case toText efile of
     Left f -> encodeError f >> return f
     Right f -> return f
@@ -229,31 +229,31 @@ foldHandleLines start foldLine readHandle = go start
      `catchany` \_ -> return acc
 
 -- | same as 'trace', but use it combinator style
-tag :: ShIO a -> Text -> ShIO a
+tag :: Sh a -> Text -> Sh a
 tag action msg = do
   trace msg
   action
 
-put :: State -> ShIO ()
+put :: State -> Sh ()
 put newState = do
   stateVar <- ask 
   liftIO (writeIORef stateVar newState)
 
 -- FIXME: find the full path to the exe from PATH
-runCommand :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+runCommand :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommand exe args = do
   st <- get
   shellyProcess st $
     RawCommand (unpack exe) (map LT.unpack args)
 
-runCommandNoEscape :: FilePath -> [Text] -> ShIO (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommandNoEscape exe args = do
   st <- get
   shellyProcess st $
     ShellCommand $ LT.unpack $ LT.intercalate " " (toTextIgnore exe : args)
     
 
-shellyProcess :: State -> CmdSpec -> ShIO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess :: State -> CmdSpec -> Sh (Handle, Handle, Handle, ProcessHandle)
 shellyProcess st cmdSpec =  do
   (Just hin, Just hout, Just herr, pHandle) <- liftIO $
     createProcess $ CreateProcess {
@@ -271,56 +271,56 @@ shellyProcess st cmdSpec =  do
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
 --  Use this pattern for priveledge separation
-newtype Sudo a = Sudo { sudo :: ShIO a }
+newtype Sudo a = Sudo { sudo :: Sh a }
 
 -- | require that the caller explicitly state 'sudo'
 run_sudo :: Text -> [Text] -> Sudo Text
 run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 -}
 
--- | Catch an exception in the ShIO monad.
-catch_sh :: (Exception e) => ShIO a -> (e -> ShIO a) -> ShIO a
+-- | Catch an exception in the Sh monad.
+catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh action handle = do
     ref <- ask
-    liftIO $ catch (runShIO action ref) (\e -> runShIO (handle e) ref)
+    liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
 
--- | Catch an exception in the ShIO monad.
-finally_sh :: ShIO a -> ShIO b -> ShIO a
+-- | Catch an exception in the Sh monad.
+finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
     ref <- ask
-    liftIO $ finally (runShIO action ref) (runShIO handle ref)
+    liftIO $ finally (runSh action ref) (runSh handle ref)
 
 
 -- | You need this when using 'catches_sh'.
-data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> ShIO a)
+data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
 
--- | Catch multiple exceptions in the ShIO monad.
-catches_sh :: ShIO a -> [ShellyHandler a] -> ShIO a
+-- | Catch multiple exceptions in the Sh monad.
+catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
 catches_sh action handlers = do
     ref <- ask
-    let runner a = runShIO a ref
+    let runner a = runSh a ref
     liftIO $ catches (runner action) $ map (toHandler runner) handlers
   where
-    toHandler :: (ShIO a -> IO a) -> ShellyHandler a -> Handler a
+    toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
     toHandler runner (ShellyHandler handle) = Handler (\e -> runner (handle e))
 
--- | Catch an exception in the ShIO monad.
-catchany_sh :: ShIO a -> (SomeException -> ShIO a) -> ShIO a
+-- | Catch an exception in the Sh monad.
+catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
 catchany_sh = catch_sh
 
--- | Change current working directory of ShIO. This does *not* change the
--- working directory of the process we are running it. Instead, ShIO keeps
+-- | Change current working directory of Sh. This does *not* change the
+-- working directory of the process we are running it. Instead, Sh keeps
 -- track of its own working directory and builds absolute paths internally
 -- instead of passing down relative paths. This may have performance
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
-cd :: FilePath -> ShIO ()
+cd :: FilePath -> Sh ()
 cd = absPath >=> \dir -> do
             trace $ "cd " `mappend` toTextIgnore dir
             modify $ \st -> st { sDirectory = dir }
 
--- | "cd", execute a ShIO action in the new directory and then pop back to the original directory
-chdir :: FilePath -> ShIO a -> ShIO a
+-- | "cd", execute a Sh action in the new directory and then pop back to the original directory
+chdir :: FilePath -> Sh a -> Sh a
 chdir dir action = do
   d <- gets sDirectory
   cd dir
@@ -329,7 +329,7 @@ chdir dir action = do
   
 -- | apply a String IO operations to a Text FilePath
 {-
-liftStringIO :: (String -> IO String) -> FilePath -> ShIO FilePath
+liftStringIO :: (String -> IO String) -> FilePath -> Sh FilePath
 liftStringIO f = liftIO . f . unpack >=> return . pack
 
 -- | @asString f = pack . f . unpack@
@@ -342,40 +342,40 @@ pack = decodeString
 
 -- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
 -- move. TODO: Support directory paths in the second parameter, like in "cp".
-mv :: FilePath -> FilePath -> ShIO ()
+mv :: FilePath -> FilePath -> Sh ()
 mv a b = do a' <- absPath a
             b' <- absPath b
             trace $ "mv " `mappend` toTextIgnore a' `mappend` " " `mappend` toTextIgnore b'
             liftIO $ rename a' b'
 
 -- | Get back [Text] instead of [FilePath]
-lsT :: FilePath -> ShIO [Text]
+lsT :: FilePath -> Sh [Text]
 lsT = ls >=> mapM toTextWarn
 
--- | Obtain the current (ShIO) working directory.
-pwd :: ShIO FilePath
+-- | Obtain the current (Sh) working directory.
+pwd :: Sh FilePath
 pwd = gets sDirectory `tag` "pwd"
 
-exit :: Int -> ShIO ()
+exit :: Int -> Sh ()
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
 
-errorExit :: Text -> ShIO ()
+errorExit :: Text -> Sh ()
 errorExit msg = echo msg >> exit 1
 
 -- | fail that takes a Text
-terror :: Text -> ShIO a
+terror :: Text -> Sh a
 terror = fail . LT.unpack
 
 -- | Create a new directory (fails if the directory exists).
-mkdir :: FilePath -> ShIO ()
+mkdir :: FilePath -> Sh ()
 mkdir = absPath >=> \fp -> do
   trace $ "mkdir " `mappend` toTextIgnore fp
   liftIO $ createDirectory False fp
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
-mkdir_p :: FilePath -> ShIO ()
+mkdir_p :: FilePath -> Sh ()
 mkdir_p = absPath >=> \fp -> do
   trace $ "mkdir -p " `mappend` toTextIgnore fp
   liftIO $ createTree fp
@@ -384,7 +384,7 @@ mkdir_p = absPath >=> \fp -> do
 -- respect setenv'd environment and uses @findExecutable@ which uses the @PATH@ inherited from the process
 -- environment.
 -- FIXME: findExecutable does not maintain a hash of existing commands and does a ton of file stats
-which :: FilePath -> ShIO (Maybe FilePath)
+which :: FilePath -> Sh (Maybe FilePath)
 which fp = do
   (trace . mappend "which " . toTextIgnore) fp
   (liftIO . findExecutable . unpack >=> return . fmap pack) fp
@@ -398,21 +398,21 @@ unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM c a = c >>= \res -> unless res a
 
 -- | Does a path point to an existing filesystem object?
-test_e :: FilePath -> ShIO Bool
-test_e = absPath >=> \f -> do
+test_e :: FilePath -> Sh Bool
+test_e = absPath >=> \f ->
   liftIO $ do
     file <- isFile f
     if file then return True else isDirectory f
 
 -- | Does a path point to an existing file?
-test_f :: FilePath -> ShIO Bool
+test_f :: FilePath -> Sh Bool
 test_f = absPath >=> liftIO . isFile
 
 -- | A swiss army cannon for removing things. Actually this goes farther than a
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
 -- Uses 'removeTree'
-rm_rf :: FilePath -> ShIO ()
+rm_rf :: FilePath -> Sh ()
 rm_rf = absPath >=> \f -> do
   trace $ "rm -rf " `mappend` toTextIgnore f
   isDir <- (test_d f)
@@ -430,21 +430,21 @@ rm_rf = absPath >=> \f -> do
 
 -- | Remove a file. Does not fail if the file does not exist.
 -- Does fail if the file is not a file.
-rm_f :: FilePath -> ShIO ()
+rm_f :: FilePath -> Sh ()
 rm_f = absPath >=> \f -> do
   trace $ "rm -f " `mappend` toTextIgnore f
   whenM (test_e f) $ canonic f >>= liftIO . removeFile
 
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
-rm :: FilePath -> ShIO ()
+rm :: FilePath -> Sh ()
 rm = absPath >=> \f -> do
   trace $ "rm" `mappend` toTextIgnore f
   canonic f >>= liftIO . removeFile
 
--- | Set an environment variable. The environment is maintained in ShIO
+-- | Set an environment variable. The environment is maintained in Sh
 -- internally, and is passed to any external commands to be executed.
-setenv :: Text -> Text -> ShIO ()
+setenv :: Text -> Text -> Sh ()
 setenv k v =
   let (kStr, vStr) = (LT.unpack k, LT.unpack v)
       wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
@@ -452,7 +452,7 @@ setenv k v =
 
 -- | add the filepath onto the PATH env variable
 -- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
-appendToPath :: FilePath -> ShIO ()
+appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- getenv path_env
@@ -462,55 +462,55 @@ appendToPath = absPath >=> \filepath -> do
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
-getenv :: Text -> ShIO Text
+getenv :: Text -> Sh Text
 getenv k = getenv_def k ""
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default value as a result
-getenv_def :: Text -> Text -> ShIO Text
+getenv_def :: Text -> Text -> Sh Text
 getenv_def k d = gets sEnvironment >>=
   return . LT.pack . fromMaybe (LT.unpack d) . lookup (LT.unpack k)
 
--- | Create a sub-ShIO in which external command outputs are not echoed and
+-- | Create a sub-Sh in which external command outputs are not echoed and
 -- commands are not printed.
 -- See 'sub'.
-silently :: ShIO a -> ShIO a
+silently :: Sh a -> Sh a
 silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = False }) >> a
 
--- | Create a sub-ShIO in which external command outputs are echoed and
+-- | Create a sub-Sh in which external command outputs are echoed and
 -- Executed commands are printed
 -- See 'sub'.
-verbosely :: ShIO a -> ShIO a
+verbosely :: Sh a -> Sh a
 verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
 
--- | Create a sub-ShIO with stdout printing on or off
+-- | Create a sub-Sh with stdout printing on or off
 -- Defaults to True.
-print_stdout :: Bool -> ShIO a -> ShIO a
+print_stdout :: Bool -> Sh a -> Sh a
 print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
 
 
--- | Create a sub-ShIO with command echoing on or off
+-- | Create a sub-Sh with command echoing on or off
 -- Defaults to False, set to True by 'verbosely'
-print_commands :: Bool -> ShIO a -> ShIO a
+print_commands :: Bool -> Sh a -> Sh a
 print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = shouldPrint }) >> a
 
--- | Enter a sub-ShIO that inherits the environment
--- The original state will be restored when the sub-ShIO completes.
+-- | Enter a sub-Sh that inherits the environment
+-- The original state will be restored when the sub-Sh completes.
 -- Exceptions are propagated normally.
-sub :: ShIO a -> ShIO a
+sub :: Sh a -> Sh a
 sub a = do
   oldState <- get
   modify $ \st -> st { sTrace = B.fromText "" }
-  a `finally_sh` (restoreState oldState)
+  a `finally_sh` restoreState oldState
   where
     restoreState oldState = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
--- | Create a sub-ShIO with shell character escaping on or off.
+-- | Create a sub-Sh with shell character escaping on or off.
 -- Defaults to True.
 -- Setting to False allows for shell wildcard such as * to be expanded by the shell along with any other special shell characters.
-escaping :: Bool -> ShIO a -> ShIO a
+escaping :: Bool -> Sh a -> Sh a
 escaping shouldEscape action = sub $ do
   modify $ \st -> st { sRun =
       if shouldEscape
@@ -519,11 +519,11 @@ escaping shouldEscape action = sub $ do
     }
   action
 
--- | Enter a ShIO from (Monad)IO. The environment and working directories are
+-- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
--- running ShIO.
-shelly :: MonadIO m => ShIO a -> m a
+-- running Sh.
+shelly :: MonadIO m => Sh a -> m a
 shelly action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
@@ -546,9 +546,9 @@ shelly action = do
               )
             , ShellyHandler (\(ex::SomeException) -> throwExplainedException ex)
           ]
-  liftIO $ runShIO caught stref
+  liftIO $ runSh caught stref
   where
-    throwExplainedException :: Exception exception => exception -> ShIO a
+    throwExplainedException :: Exception exception => exception -> Sh a
     throwExplainedException ex = get >>=
       liftIO . throwIO . ReThrownException ex . errorMsg . LT.unpack .  B.toLazyText . sTrace
     errorMsg trc = "Ran commands: \n" `mappend` trc
@@ -569,14 +569,15 @@ show_command :: FilePath -> [Text] -> Text
 show_command exe args =
     LT.intercalate " " $ map quote (toTextIgnore exe : args)
   where
-    quote t = if LT.any (== '\'') t then t
-      else if LT.any isSpace t then surround '\'' t else t
+    quote t | LT.any (== '\'') t = t
+    quote t | LT.any isSpace t = surround '\'' t
+    quote t | otherwise = t
 
 surround :: Char -> Text -> Text
 surround c t = LT.cons c $ LT.snoc t c
 
 -- | same as 'sshPairs', but returns ()
-sshPairs_ :: Text -> [(FilePath, [Text])] -> ShIO ()
+sshPairs_ :: Text -> [(FilePath, [Text])] -> Sh ()
 sshPairs_ _ [] = return ()
 sshPairs_ server cmds = sshPairs' run_ server cmds
 
@@ -590,17 +591,16 @@ sshPairs_ server cmds = sshPairs' run_ server cmds
 --
 -- Please note this sets 'escaping' to False: the commands will not be shell escaped.
 -- Internally the list of commands are combined with the string " && " before given to ssh.
-sshPairs :: Text -> [(FilePath, [Text])] -> ShIO Text
+sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
 sshPairs server cmds = sshPairs' run server cmds
 
-sshPairs' :: (FilePath -> [Text] -> ShIO a) -> Text -> [(FilePath, [Text])] -> ShIO a
-sshPairs' run' server actions = do
-  escaping False $ do
+sshPairs' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
+sshPairs' run' server actions = escaping False $ do
     let ssh_commands = surround '\'' $ foldl1
           (\memo next -> memo `mappend` " && " `mappend` next)
           (map toSSH actions)
-    run' "ssh" $ [server, ssh_commands]
+    run' "ssh" [server, ssh_commands]
   where
     toSSH (exe,args) = show_command exe args
 
@@ -622,7 +622,7 @@ instance Exception e => Show (ReThrownException e) where
 -- All of the stdout output will be loaded into memory
 -- You can avoid this but still consume the result by using "run_",
 -- If you want to avoid the memory and need to process the output then use "runFoldLines".
-run :: FilePath -> [Text] -> ShIO Text
+run :: FilePath -> [Text] -> Sh Text
 run exe args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder exe args
 
 foldBuilder :: (B.Builder, Text) -> B.Builder
@@ -631,34 +631,34 @@ foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\
 
 -- | bind some arguments to run for re-use
 -- Example: @monit = command "monit" ["-c", "monitrc"]@
-command :: FilePath -> [Text] -> [Text] -> ShIO Text
+command :: FilePath -> [Text] -> [Text] -> Sh Text
 command com args more_args = run com (args ++ more_args)
 
 -- | bind some arguments to "run_" for re-use
 -- Example: @monit_ = command_ "monit" ["-c", "monitrc"]@
-command_ :: FilePath -> [Text] -> [Text] -> ShIO ()
+command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ com args more_args = run_ com (args ++ more_args)
 
 -- | bind some arguments to run for re-use, and expect 1 argument
 -- Example: @git = command1 "git" []; git "pull" ["origin", "master"]@
-command1 :: FilePath -> [Text] -> Text -> [Text] -> ShIO Text
+command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 com args one_arg more_args = run com ([one_arg] ++ args ++ more_args)
 
 -- | bind some arguments to run for re-use, and expect 1 argument
 -- Example: @git_ = command1_ "git" []; git+ "pull" ["origin", "master"]@
-command1_ :: FilePath -> [Text] -> Text -> [Text] -> ShIO ()
+command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 
 -- the same as "run", but return () instead of the stdout content
-run_ :: FilePath -> [Text] -> ShIO ()
+run_ :: FilePath -> [Text] -> Sh ()
 run_ = runFoldLines () (\(_, _) -> ())
 
-liftIO_ :: IO a -> ShIO ()
+liftIO_ :: IO a -> Sh ()
 liftIO_ action = liftIO action >> return ()
 
 -- same as "run", but fold over stdout as it is read to avoid keeping it in memory
 -- stderr is still placed in memory (this could be changed in the future)
-runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> ShIO a
+runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args = do
     -- clear stdin before beginning command execution
     origstate <- get
@@ -702,22 +702,22 @@ runFoldLines start cb exe args = do
       ExitFailure n -> throwIO $ RunFailed exe args n errs
 
 -- | The output of last external command. See "run".
-lastStderr :: ShIO Text
+lastStderr :: Sh Text
 lastStderr = gets sStderr
 
 -- | set the stdin to be used and cleared by the next "run".
-setStdin :: Text -> ShIO ()
+setStdin :: Text -> Sh ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
 
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
-(-|-) :: ShIO Text -> ShIO b -> ShIO b
+(-|-) :: Sh Text -> Sh b -> Sh b
 one -|- two = do
-  res <- (print_stdout False) one
+  res <- print_stdout False one
   setStdin res
   two
 
 -- | Copy a file, or a directory recursively.
-cp_r :: FilePath -> FilePath -> ShIO ()
+cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
     fromDir <- absPath from'
     from_d <- (test_d fromDir)
@@ -735,7 +735,7 @@ cp_r from' to' = do
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
-cp :: FilePath -> FilePath -> ShIO ()
+cp :: FilePath -> FilePath -> Sh ()
 cp from' to' = do
   from <- absPath from'
   to <- absPath to'
@@ -752,9 +752,9 @@ cp from' to' = do
 (<$$>) :: (Functor m) => (b -> c) -> (a -> m b) -> a -> m c
 f <$$> v = fmap f . v
 
--- | Create a temporary directory and pass it as a parameter to a ShIO
+-- | Create a temporary directory and pass it as a parameter to a Sh
 -- computation. The directory is nuked afterwards.
-withTmpDir :: (FilePath -> ShIO a) -> ShIO a
+withTmpDir :: (FilePath -> Sh a) -> Sh a
 withTmpDir act = do
   trace "withTmpDir"
   dir <- liftIO getTemporaryDirectory
@@ -764,20 +764,20 @@ withTmpDir act = do
   liftIO $ hClose handle -- required on windows
   rm_f p
   mkdir p
-  act p `finally_sh` (rm_rf p)
+  act p `finally_sh` rm_rf p
 
 -- | Write a Lazy Text to a file.
-writefile :: FilePath -> Text -> ShIO ()
+writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = absPath f' >>= \f -> do
   trace $ "writefile " `mappend` toTextIgnore f
   liftIO (TIO.writeFile (unpack f) bits)
 
 -- | Update a file, creating (a blank file) if it does not exist.
-touchfile :: FilePath -> ShIO ()
+touchfile :: FilePath -> Sh ()
 touchfile = absPath >=> flip appendfile ""
 
 -- | Append a Lazy Text to a file.
-appendfile :: FilePath -> Text -> ShIO ()
+appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = absPath f' >>= \f -> do
   trace $ "appendfile " `mappend` toTextIgnore f
   liftIO (TIO.appendFile (unpack f) bits)
@@ -785,7 +785,7 @@ appendfile f' bits = absPath f' >>= \f -> do
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
-readfile :: FilePath -> ShIO Text
+readfile :: FilePath -> Sh Text
 readfile = absPath >=> \fp -> do
   trace $ "readfile " `mappend` toTextIgnore fp
   (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
@@ -794,13 +794,13 @@ readfile = absPath >=> \fp -> do
 hasExt :: Text -> FilePath -> Bool
 hasExt = flip hasExtension . LT.toStrict
 
--- | Run a ShIO computation and collect timing  information.
-time :: ShIO a -> ShIO (Double, a)
+-- | Run a Sh computation and collect timing  information.
+time :: Sh a -> Sh (Double, a)
 time what = sub $ do
   trace "time"
   t <- liftIO getCurrentTime
   res <- what
   t' <- liftIO getCurrentTime
-  return ((realToFrac $ diffUTCTime t' t), res)
+  return (realToFrac $ diffUTCTime t' t, res)
 
 

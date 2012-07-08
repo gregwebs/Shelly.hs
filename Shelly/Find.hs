@@ -19,31 +19,31 @@ import Filesystem (isDirectory)
 -- listing is relative if the path given is relative.
 -- If you want to filter out some results or fold over them you can do that with the returned files.
 -- A more efficient approach is to use one of the other find functions.
-find :: FilePath -> ShIO [FilePath]
+find :: FilePath -> Sh [FilePath]
 find = findFold (\paths fp -> return $ paths ++ [fp]) []
 
 -- | 'find' that filters the found files as it finds.
 -- Files must satisfy the given filter to be returned in the result.
-findWhen :: (FilePath -> ShIO Bool) -> FilePath -> ShIO [FilePath]
+findWhen :: (FilePath -> Sh Bool) -> FilePath -> Sh [FilePath]
 findWhen = findDirFilterWhen (const $ return True)
 
 -- | Fold an arbitrary folding function over files froma a 'find'.
 -- Like 'findWhen' but use a more general fold rather than a filter.
-findFold :: (a -> FilePath -> ShIO a) -> a -> FilePath -> ShIO a
+findFold :: (a -> FilePath -> Sh a) -> a -> FilePath -> Sh a
 findFold folder startValue = findFoldDirFilter folder startValue (const $ return True)
 
 -- | 'find' that filters out directories as it finds
 -- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
-findDirFilter :: (FilePath -> ShIO Bool) -> FilePath -> ShIO [FilePath]
+findDirFilter :: (FilePath -> Sh Bool) -> FilePath -> Sh [FilePath]
 findDirFilter filt = findDirFilterWhen filt (const $ return True)
 
 -- | similar 'findWhen', but also filter out directories
 -- Alternatively, similar to 'findDirFilter', but also filter out files
 -- Filtering out directories makes the find much more efficient
-findDirFilterWhen :: (FilePath -> ShIO Bool) -- ^ directory filter
-                  -> (FilePath -> ShIO Bool) -- ^ file filter
+findDirFilterWhen :: (FilePath -> Sh Bool) -- ^ directory filter
+                  -> (FilePath -> Sh Bool) -- ^ file filter
                   -> FilePath -- ^ directory
-                  -> ShIO [FilePath]
+                  -> Sh [FilePath]
 findDirFilterWhen dirFilt fileFilter = findFoldDirFilter filterIt [] dirFilt
   where
     filterIt paths fp = do
@@ -52,7 +52,7 @@ findDirFilterWhen dirFilt fileFilter = findFoldDirFilter filterIt [] dirFilt
 
 -- | like 'findDirFilterWhen' but use a folding function rather than a filter
 -- The most general finder: you likely want a more specific one
-findFoldDirFilter :: (a -> FilePath -> ShIO a) -> a -> (FilePath -> ShIO Bool) -> FilePath -> ShIO a
+findFoldDirFilter :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
 findFoldDirFilter folder startValue dirFilter dir = do
   absDir <- absPath dir
   trace ("find " `mappend` toTextIgnore absDir)
