@@ -1,7 +1,4 @@
-
 # Shelly
-
-I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/).
 
 Shelly provides a single module for convenient systems programming in Haskell.
 
@@ -13,16 +10,32 @@ Shelly provides a single module for convenient systems programming in Haskell.
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
 
-The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has some additional functionality.
+Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
+
+The focus of this library on convenience combined with good error messages should make shelly approachable for newer users of Haskell.
+I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/). There is a paid version in German from Linux Magazin.
+
+
+## More shelly packages
+
+The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has some additional functionality that requires additional dependencies, currently including a convenient concurrency/futures implementation. If you are following along the above article you need to install it.
+
 
 ## Examples
 
 * [Yesod development installer](https://github.com/yesodweb/scripts/blob/master/install.hs)
 * [cabal-meta, a haskell install tool](https://github.com/yesodweb/cabal-meta/blob/master/main.hs)
 
-## Testimonials
+
+### Blog Posts
+
+* [Shelly automation with Literate Haskell](http://www.scholarslab.org/dh-developer/shell-programming-in-haskell-converting-s5-slides-to-pdf/)
+
+
+### Testimonials
 
 * [a beginning Haskeller does automation](http://www.reddit.com/r/haskell/comments/w86gu/my_current_job_task_is_boring_so_i_wrote_a_simple/)
+
 
 ## Alternatives
 
@@ -87,6 +100,7 @@ This is in addition to the `verbosely` settings that will print out commands and
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
 If you make your own primitive functions that don't use the Shelly API, use `trace` or `tag` to log what they are doing.
+Note that you can turn tracing off (not generally recommended) by setting `tracing False`.
 
 
 ### Future plans
