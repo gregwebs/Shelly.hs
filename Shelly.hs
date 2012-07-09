@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
+         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing
 
          -- * Running external commands.
          , run, run_, cmd, (-|-), lastStderr, setStdin
@@ -389,10 +389,6 @@ which fp = do
   (trace . mappend "which " . toTextIgnore) fp
   (liftIO . findExecutable . unpack >=> return . fmap pack) fp
 
--- | A monadic-conditional version of the "when" guard.
-whenM :: Monad m => m Bool -> m () -> m ()
-whenM c a = c >>= \res -> when res a
-
 -- | A monadic-conditional version of the "unless" guard.
 unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM c a = c >>= \res -> unless res a
@@ -520,6 +516,14 @@ sub a = do
       newState <- get
       put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
 
+-- | Create a sub-Sh where commands are not traced
+-- Defaults to True.
+-- You should only set to False temporarily for very specific reasons
+tracing :: Bool -> Sh a -> Sh a
+tracing shouldTrace action = sub $ do
+  modify $ \st -> st { sTracing = shouldTrace }
+  action
+
 -- | Create a sub-Sh with shell character escaping on or off.
 -- Defaults to True.
 -- Setting to False allows for shell wildcard such as * to be expanded by the shell along with any other special shell characters.
@@ -547,6 +551,7 @@ shelly action = do
                    , sPrintCommands = False
                    , sRun = runCommand
                    , sEnvironment = environment
+                   , sTracing = True
                    , sTrace = B.fromText ""
                    , sDirectory = dir }
   stref <- liftIO $ newIORef def

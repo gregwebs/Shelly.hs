@@ -13,7 +13,8 @@ module Shelly.Base
     echo, echo_n, echo_err, echo_n_err, inspect, inspect_err,
     catchany,
     liftIO, (>=>),
-    eitherRelativeTo, relativeTo, maybeRelativeTo
+    eitherRelativeTo, relativeTo, maybeRelativeTo,
+    whenM
   ) where
 
 import Prelude hiding ( FilePath, catch )
@@ -21,7 +22,7 @@ import Data.Text.Lazy (Text)
 import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
-import Control.Monad ( (>=>) ) 
+import Control.Monad (when, (>=>) )
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
@@ -58,8 +59,13 @@ data State = State   { sCode :: Int
                      , sPrintCommands :: Bool -- ^ print command that is executed
                      , sRun :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
                      , sEnvironment :: [(String, String)]
+                     , sTracing :: Bool
                      , sTrace :: B.Builder
                      }
+
+-- | A monadic-conditional version of the "when" guard.
+whenM :: Monad m => m Bool -> m () -> m ()
+whenM c a = c >>= \res -> when res a
 
 -- | Makes a relative path relative to the current Sh working directory.
 -- An absolute path is returned as is.
@@ -174,7 +180,9 @@ modify f = do
 -- | internally log what occured.
 -- Log will be re-played on failure.
 trace :: Text -> Sh ()
-trace msg = modify $ \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
+trace msg =
+  whenM (gets sTracing) $ modify $
+    \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
