@@ -14,11 +14,11 @@ import System.IO.Error
 main :: IO ()
 main = hspecX spec
 
-with_dir :: FilePath -> ShIO a -> ShIO a
+with_dir :: FilePath -> Sh a -> Sh a
 with_dir d action =
   mkdir_p d >> (action `finally_sh` rm_rf d)
 
-within_dir :: FilePath -> ShIO a -> ShIO a
+within_dir :: FilePath -> Sh a -> Sh a
 within_dir d action =
   with_dir d $ chdir d action
 
