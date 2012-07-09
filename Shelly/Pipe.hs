@@ -1,31 +1,55 @@
--- | This module is a wrapper for module "Shelly". 
+{-# LANGUAGE 
+        FlexibleInstances, 
+        TypeSynonymInstances, 
+        TypeFamilies,
+        ExistentialQuantification #-}
+-- | This module is a wrapper for the module "Shelly". 
 -- The only difference is a main type "Sh". In this module 
--- "Sh" contains a list of results. 
+-- "Sh" contains a list of results. Actual definition of the type "Sh" is:
 --
 -- > import qualified Shelly as S
 -- >
--- > newtype Sh a = Sh { unSh :: S.ShIO [a] }
+-- > newtype Sh a = Sh { unSh :: S.Sh [a] }
 --
 -- This definition can simplify some filesystem commands. 
 -- A monad bind operator becomes a pipe operator and we can write
 --
--- > fun = do
--- >     findWhen "." (hasExt "hs") >>= flip cp "new"
--- >     findWhen "." (hasExt "c")  >>= rm_f
+-- > findExt ext = findWhen (pure . hasExt ext)
+-- >
+-- > main :: IO ()
+-- > main = shs $ do
+-- >     mkdir "new"
+-- >     findExt "hs"  "." >>= flip cp "new"
+-- >     findExt "cpp" "." >>= rm_f 
+-- >     liftIO $ putStrLn "done"
+--
+-- Monad methods "return" and ">>=" behave like methods for
+-- @ListT Shelly.Sh@, but ">>" forgets the number of 
+-- the empty effects. So the last line prints @\"done\"@ only once. 
+--
+-- I highly recommend putting the following at the top of your program,
+-- otherwise you will likely need either type annotations or type conversions
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE ExtendedDefaultRules #-}
+-- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- > import Shelly
+-- > import Data.Text.Lazy as LT
+-- > default (LT.Text)
 module Shelly.Pipe
        (
          -- * Entering Sh.
-         Sh, roll, unroll, shs, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
-
+         Sh, shs, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
+         -- * List functions
+         , roll, unroll, liftSh
          -- * Running external commands.
-         , run, run_
---         cmd, 
+         , run, run_, cmd
          , (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
  
          -- * Modifying and querying environment.
-         , setenv, getenv, getenv_def, appendToPath
+         , setenv, get_env, get_env_text, getenv_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -38,7 +62,7 @@ module Shelly.Pipe
          , ls, lsT, test_e, test_f, test_d, test_s, which
 
          -- * Filename helpers
-         , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path
+         , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo
          , hasExt
 
          -- * Manipulating filesystem.
@@ -47,12 +71,7 @@ module Shelly.Pipe
          -- * reading/writing Files
          , readfile, writefile, appendfile, touchfile, withTmpDir
 
-         -- * Search filesystem
-         -- | File finding utiliites for Shelly The basic find takes
-         -- a dir and gives back a list of files. If you don't just
-         -- want a list, use the folding variants like findFold. If
-         -- you want to avoid traversing certain directories, use
-         -- the directory filtering variants like findDirFilter
+         -- * find functions 
          , find, findWhen, findFold
          , findDirFilter, findDirFilterWhen, findFoldDirFilter
 
@@ -60,9 +79,8 @@ module Shelly.Pipe
          , exit, errorExit, terror
 
          -- * Exceptions
---         , catchany
-         , catch_sh, finally_sh 
--- ShellyHandler(..), catches_sh
+         , catchany, catch_sh, finally_sh 
+         , ShellyHandler(..), catches_sh
          , catchany_sh
 
          -- * convert between Text and FilePath
@@ -88,12 +106,11 @@ import Control.Exception hiding (handle)
 import Filesystem.Path(FilePath)
 
 import qualified Shelly as S
-import qualified Shelly.Find as S
 
 import Shelly(
       (</>), (<.>), hasExt
     , (<$$>), whenM, unlessM, toTextIgnore
-    , fromText)
+    , fromText, catchany)
 
 import Shelly.Base(State)
 
@@ -102,11 +119,9 @@ import Data.Text.Lazy as LT hiding (concat, all, find, cons)
 default (LT.Text)
 
 
-
-
--- | This type is a simple wrapper for a type "ShIO".
+-- | This type is a simple wrapper for a type "Shelly.Sh".
 -- "Sh" contains a list of results. 
-newtype Sh a = Sh { unSh :: S.ShIO [a] }
+newtype Sh a = Sh { unSh :: S.Sh [a] }
 
 instance Functor Sh where
     fmap f = Sh . fmap (fmap f) . unSh    
@@ -130,39 +145,39 @@ instance MonadIO Sh where
 -------------------------------------------------------
 -- converters
 
-sh0 :: S.ShIO a -> Sh a
+sh0 :: S.Sh a -> Sh a
 sh0 = Sh . fmap return
 
-sh1 :: (a -> S.ShIO b) -> (a -> Sh b) 
+sh1 :: (a -> S.Sh b) -> (a -> Sh b) 
 sh1 f = \a -> sh0 (f a)
 
-sh2 :: (a1 -> a2 -> S.ShIO b) -> (a1 -> a2 -> Sh b) 
+sh2 :: (a1 -> a2 -> S.Sh b) -> (a1 -> a2 -> Sh b) 
 sh2 f = \a b -> sh0 (f a b)
 
-sh3 :: (a1 -> a2 -> a3 -> S.ShIO b) -> (a1 -> a2 -> a3 -> Sh b) 
+sh3 :: (a1 -> a2 -> a3 -> S.Sh b) -> (a1 -> a2 -> a3 -> Sh b) 
 sh3 f = \a b c -> sh0 (f a b c)
 
-sh4 :: (a1 -> a2 -> a3 -> a4 -> S.ShIO b) -> (a1 -> a2 -> a3 -> a4 -> Sh b) 
+sh4 :: (a1 -> a2 -> a3 -> a4 -> S.Sh b) -> (a1 -> a2 -> a3 -> a4 -> Sh b) 
 sh4 f = \a b c d -> sh0 (f a b c d)
 
-sh0s :: S.ShIO [a] -> Sh a
+sh0s :: S.Sh [a] -> Sh a
 sh0s = Sh
 
-sh1s :: (a -> S.ShIO [b]) -> (a -> Sh b) 
+sh1s :: (a -> S.Sh [b]) -> (a -> Sh b) 
 sh1s f = \a -> sh0s (f a)
 
 {-  Just in case ...
-sh2s :: (a1 -> a2 -> S.ShIO [b]) -> (a1 -> a2 -> Sh b) 
+sh2s :: (a1 -> a2 -> S.Sh [b]) -> (a1 -> a2 -> Sh b) 
 sh2s f = \a b -> sh0s (f a b)
 
-sh3s :: (a1 -> a2 -> a3 -> S.ShIO [b]) -> (a1 -> a2 -> a3 -> Sh b) 
+sh3s :: (a1 -> a2 -> a3 -> S.Sh [b]) -> (a1 -> a2 -> a3 -> Sh b) 
 sh3s f = \a b c -> sh0s (f a b c)
 -}
 
-lift1 :: (S.ShIO a -> S.ShIO b) -> (Sh a -> Sh b)
+lift1 :: (S.Sh a -> S.Sh b) -> (Sh a -> Sh b)
 lift1 f = Sh . (mapM (f . return) =<< ) . unSh
 
-lift2 :: (S.ShIO a -> S.ShIO b -> S.ShIO c) -> (Sh a -> Sh b -> Sh c)
+lift2 :: (S.Sh a -> S.Sh b -> S.Sh c) -> (Sh a -> Sh b -> Sh c)
 lift2 f a b = Sh $ join $ liftA2 (mapM2 f') (unSh a) (unSh b)
     where f' = \x y -> f (return x) (return y)
 
@@ -179,6 +194,10 @@ unroll = Sh . fmap return . unSh
 roll :: Sh [a] -> Sh a
 roll = Sh . fmap concat . unSh
 
+-- | Transform result as list. It can be useful for filtering. 
+liftSh :: ([a] -> [b]) -> Sh a -> Sh b
+liftSh f = Sh . fmap f . unSh
+
 ------------------------------------------------------------------
 -- Entering Sh
 
@@ -191,7 +210,7 @@ shelly = S.shelly . unSh
 
 -- | Performs "shelly" and then an empty action @return ()@. 
 shs :: MonadIO m => Sh () -> m ()
-shs = (>> return ()) . shelly
+shs a = shelly a >> return ()
 
 -- | Enter a sub-Sh that inherits the environment
 -- The original state will be restored when the sub-Sh completes.
@@ -302,10 +321,15 @@ sshPairs_ = sh2 S.sshPairs_
 setenv :: Text -> Text -> Sh ()
 setenv = sh2 S.setenv
 
+-- | Fetch the current value of an environment variable.
+-- if non-existant or empty text, will be Nothing
+get_env :: Text -> Sh (Maybe Text)
+get_env = sh1 S.get_env
+
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
-getenv :: Text -> Sh Text
-getenv = sh1 S.getenv
+get_env_text :: Text -> Sh Text
+get_env_text = sh1 S.get_env_text
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default value as a result
@@ -436,9 +460,6 @@ relativeTo :: FilePath -- ^ anchor path, the prefix
            -> Sh FilePath
 relativeTo = sh2 S.relativeTo
 
-path :: FilePath -> Sh FilePath
-path = sh1 S.path
-
 -------------------------------------------------------------
 -- Manipulating filesystem
 
@@ -517,38 +538,39 @@ find = sh1s S.find
 
 -- | 'find' that filters the found files as it finds.
 -- Files must satisfy the given filter to be returned in the result.
-findWhen :: FilePath -> (FilePath -> Sh Bool) -> Sh FilePath
-findWhen a p = Sh $ S.findWhen a (fmap and . unSh . p)
+findWhen :: (FilePath -> Sh Bool) -> FilePath -> Sh FilePath
+findWhen p a = Sh $ S.findWhen (fmap and . unSh . p) a
 
 -- | Fold an arbitrary folding function over files froma a 'find'.
 -- Like 'findWhen' but use a more general fold rather than a filter.
-findFold :: FilePath -> a -> (a -> FilePath -> Sh a) -> Sh a
-findFold a nil cons = Sh $ S.findFold a nil' cons' 
+findFold :: (a -> FilePath -> Sh a) -> a -> FilePath -> Sh a
+findFold cons nil a = Sh $ S.findFold cons' nil' a
     where nil'  = return nil
           cons' as dir = unSh $ roll $ mapM (flip cons dir) as
 
 -- | 'find' that filters out directories as it finds
 -- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
-findDirFilter :: FilePath -> (FilePath -> Sh Bool) -> Sh FilePath
-findDirFilter a p = Sh $ S.findDirFilter a (fmap and . unSh . p)
+findDirFilter :: (FilePath -> Sh Bool) -> FilePath -> Sh FilePath
+findDirFilter p a = Sh $ S.findDirFilter (fmap and . unSh . p) a
     
 -- | similar 'findWhen', but also filter out directories
 -- Alternatively, similar to 'findDirFilter', but also filter out files
 -- Filtering out directories makes the find much more efficient
-findDirFilterWhen :: FilePath -- ^ directory
-                  -> (FilePath -> Sh Bool) -- ^ directory filter
+findDirFilterWhen :: (FilePath -> Sh Bool) -- ^ directory filter
                   -> (FilePath -> Sh Bool) -- ^ file filter
+                  -> FilePath -- ^ directory
                   -> Sh FilePath
-findDirFilterWhen a dirPred filePred = 
-    Sh $ S.findDirFilterWhen a 
+findDirFilterWhen dirPred filePred a = 
+    Sh $ S.findDirFilterWhen  
             (fmap and . unSh . dirPred) 
             (fmap and . unSh . filePred)
+            a
 
 
 -- | like 'findDirFilterWhen' but use a folding function rather than a filter
 -- The most general finder: you likely want a more specific one
-findFoldDirFilter :: FilePath -> (FilePath -> Sh Bool) -> a -> (a -> FilePath -> Sh a) -> Sh a
-findFoldDirFilter a p nil cons = Sh $ S.findFoldDirFilter a p' nil' cons'
+findFoldDirFilter :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
+findFoldDirFilter cons nil p a = Sh $ S.findFoldDirFilter cons' nil' p' a
     where p'    = fmap and . unSh . p
           nil'  = return nil
           cons' as dir = unSh $ roll $ mapM (flip cons dir) as
@@ -586,6 +608,15 @@ finally_sh = lift2 S.finally_sh
 time :: Sh a -> Sh (Double, a)
 time = lift1 S.time
 
+-- | You need this when using 'catches_sh'.
+data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
+
+-- | Catch multiple exceptions in the Sh monad.
+catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
+catches_sh a hs = Sh $ S.catches_sh (unSh a) (fmap convert hs)
+    where convert :: ShellyHandler a -> S.ShellyHandler [a]
+          convert (ShellyHandler f) = S.ShellyHandler (unSh . f)
+
 ------------------------------------------------------------
 -- convert between Text and FilePath 
 
@@ -601,6 +632,45 @@ get = sh0 S.get
 put :: State -> Sh ()
 put = sh1 S.put
 
+--------------------------------------------------------
+-- polyvariadic vodoo
+
+-- | Converter for the variadic argument version of 'run' called 'cmd'.
+class ShellArg a where toTextArg :: a -> Text
+instance ShellArg Text     where toTextArg = id
+instance ShellArg FilePath where toTextArg = toTextIgnore
 
 
+-- Voodoo to create the variadic function 'cmd'
+class ShellCommand t where
+    cmdAll :: FilePath -> [Text] -> t
+
+instance ShellCommand (Sh Text) where
+    cmdAll fp args = run fp args
+
+instance (s ~ Text, Show s) => ShellCommand (Sh s) where
+    cmdAll fp args = run fp args
+
+-- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
+instance ShellCommand (Sh ()) where
+    cmdAll fp args = run_ fp args
+
+instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
+    cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
+
+-- | variadic argument version of run.
+-- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
+-- So an argument can be a Text or a FilePath.
+-- a FilePath is converted to Text with 'toTextIgnore'.
+-- You will need to add the following to your module:
+--
+-- > {-# LANGUAGE OverloadedStrings #-}
+-- > {-# LANGUAGE ExtendedDefaultRules #-}
+-- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+-- > import Shelly
+-- > import Data.Text.Lazy as LT
+-- > default (LT.Text)
+--
+cmd :: (ShellCommand result) => FilePath -> result
+cmd fp = cmdAll fp []
 

@@ -156,6 +156,7 @@ instance ShellCommand (Sh ()) where
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
     cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
 
+
 -- | variadic argument version of run.
 -- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
 -- So an argument can be a Text or a FilePath.
