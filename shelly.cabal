@@ -33,7 +33,7 @@ Cabal-version:       >=1.8
 
 
 Library
-  Exposed-modules: Shelly
+  Exposed-modules: Shelly, Shelly.Pipe
   other-modules:   Shelly.Base, Shelly.Find
 
   Build-depends: base >= 4 && < 5, time, directory, text, mtl

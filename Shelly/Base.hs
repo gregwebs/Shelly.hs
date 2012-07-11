@@ -23,6 +23,7 @@ import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
 import Control.Monad (when, (>=>) )
+import Control.Applicative(Applicative)
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
@@ -46,7 +47,7 @@ type ShIO a = Sh a
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
-  } deriving (Monad, MonadIO, MonadReader (IORef State), Functor)
+  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
