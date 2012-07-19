@@ -109,6 +109,7 @@ import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
+import Data.Char (isDigit)
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
@@ -327,6 +328,9 @@ chdir dir action = do
   cd dir
   action `finally_sh` cd d
 
+-- | chdir, but first create the directory if it does not exit
+chdir_p d action = mkdir_p d >> chdir d action
+
   
 -- | apply a String IO operations to a Text FilePath
 {-
@@ -437,6 +441,7 @@ rm_f = absPath >=> \f -> do
 rm :: FilePath -> Sh ()
 rm = absPath >=> \f -> do
   trace $ "rm" `mappend` toTextIgnore f
+  -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in Sh
@@ -568,9 +573,32 @@ shelly action = do
   liftIO $ runSh caught stref
   where
     throwExplainedException :: Exception exception => exception -> Sh a
-    throwExplainedException ex = get >>=
-      liftIO . throwIO . ReThrownException ex . errorMsg . LT.unpack .  B.toLazyText . sTrace
-    errorMsg trc = "Ran commands: \n" `mappend` trc
+    throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
+    errorMsg st = do
+      let trc = B.toLazyText . sTrace $ st
+      d <- pwd
+      sf <- shellyFile
+      let f = d</>shelly_dir</>sf
+      (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
+        `catchany_sh` (\_ -> return $ "Ran commands: \n" `mappend` LT.unpack trc)
+
+    shelly_dir = ".shelly"
+    shellyFile = chdir_p shelly_dir $ do
+      fs <- ls "."
+      return $ pack $ show (nextNum fs) `mappend` ".txt"
+
+    nextNum :: [FilePath] -> Int
+    nextNum [] = 1
+    nextNum fs = (+ 1) . maximum . map (readDef 1 . filter isDigit . unpack . filename) $ fs
+
+-- from safe package
+readDef :: Read a => a -> String -> a
+readDef def = fromMaybe def . readMay
+  where
+    readMay :: Read a => String -> Maybe a
+    readMay s = case [x | (x,t) <- reads s, ("","") <- lex t] of
+                  [x] -> Just x
+                  _ -> Nothing
 
 data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
 
