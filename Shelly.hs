@@ -317,7 +317,7 @@ catchany_sh = catch_sh
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> Sh ()
-cd = absPath >=> \dir -> do
+cd = canonic >=> \dir -> do
             trace $ "cd " `mappend` toTextIgnore dir
             modify $ \st -> st { sDirectory = dir }
 
@@ -365,6 +365,7 @@ exit :: Int -> Sh ()
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
 
+-- | echo a message and exit with status 1
 errorExit :: Text -> Sh ()
 errorExit msg = echo msg >> exit 1
 
