@@ -317,9 +317,14 @@ catchany_sh = catch_sh
 -- repercussions if you are doing hundreds of thousands of filesystem
 -- operations. You will want to handle these issues differently in those cases.
 cd :: FilePath -> Sh ()
-cd = canonic >=> \dir -> do
-            trace $ "cd " `mappend` toTextIgnore dir
-            modify $ \st -> st { sDirectory = dir }
+cd = canonic >=> cd'
+  where
+    cd' dir = do
+        trace $ "cd " `mappend` tdir
+        unlessM (test_d dir) $ errorExit $ "not a directory: " `mappend` tdir
+        modify $ \st -> st { sDirectory = dir }
+      where
+        tdir = toTextIgnore dir
 
 -- | "cd", execute a Sh action in the new directory and then pop back to the original directory
 chdir :: FilePath -> Sh a -> Sh a
@@ -329,6 +334,7 @@ chdir dir action = do
   action `finally_sh` cd d
 
 -- | chdir, but first create the directory if it does not exit
+chdir_p :: FilePath -> Sh a -> Sh a
 chdir_p d action = mkdir_p d >> chdir d action
 
   
