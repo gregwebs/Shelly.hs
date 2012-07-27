@@ -19,7 +19,7 @@ Description: Shelly provides convenient systems programming in Haskell,
              .
              See the shelly-extra package for additional functionality.
              .
-             An overview is available in the README: <https://github.com/yesodweb/Shelly.hs>
+             An overview is available in the README: <https://github.com/yesodweb/Shelly.hs/blob/master/README.md>
 
 
 Homepage:            https://github.com/yesodweb/Shelly.hs
