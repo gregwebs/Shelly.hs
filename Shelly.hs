@@ -773,19 +773,21 @@ one -|- two = do
 -- | Copy a file, or a directory recursively.
 cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
-    fromDir <- absPath from'
-    from_d <- (test_d fromDir)
-    if not from_d then cp from' to' else do
+    from <- absPath from'
+    fromIsDir <- (test_d from)
+    if not fromIsDir then cp from' to' else do
        to <- absPath to'
-       trace $ "cp -r " `mappend` toTextIgnore fromDir `mappend` " " `mappend` toTextIgnore to
+       trace $ "cp -r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
        toIsDir <- test_d to
-       toDir <- if toIsDir
-               then return $ fromDir </> to
-               else mkdir to >> return to
-       when (fromDir == toDir) $ liftIO $ throwIO $ userError $ LT.unpack $ "cp_r: " `mappend`
-         toTextIgnore fromDir `mappend` " and " `mappend` toTextIgnore toDir `mappend` " are identical"
 
-       ls fromDir >>= mapM_ (\item -> cp_r (fromDir FP.</> filename item) (toDir FP.</> filename item))
+       when (from == to) $ liftIO $ throwIO $ userError $ LT.unpack $ "cp_r: " `mappend`
+         toTextIgnore from `mappend` " and " `mappend` toTextIgnore to `mappend` " are identical"
+
+       finalTo <- if not toIsDir then mkdir to >> return to else do
+                   let d = to </> dirname (addTrailingSlash from)
+                   mkdir_p d >> return d 
+
+       ls from >>= mapM_ (\item -> cp_r (from FP.</> filename item) (finalTo FP.</> filename item))
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.

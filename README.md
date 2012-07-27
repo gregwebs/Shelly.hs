@@ -95,12 +95,12 @@ All of the Shelly API takes this into account, internally shelly converts all pa
 Haskell's #1 weakness for IO code is a lack of stack traces.
 Shelly gives you something different: detailed logging.
 In most cases this should be more useful than a stack trace.
-Shelly keeps a log of API usage and prints it out on failure.
+Shelly keeps a log of API usage and saves it to a .shelly directory on failure.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
 If you make your own primitive functions that don't use the Shelly API, use `trace` or `tag` to log what they are doing.
-Note that you can turn tracing off (not generally recommended) by setting `tracing False`.
+You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 
 ### Future plans

@@ -15,6 +15,8 @@ module Shelly.Base
     liftIO, (>=>),
     eitherRelativeTo, relativeTo, maybeRelativeTo,
     whenM
+    -- * utitlities not yet exported
+    , addTrailingSlash
   ) where
 
 import Prelude hiding ( FilePath, catch )
@@ -118,6 +120,7 @@ maybeRelativeTo relativeFP fp = do
              Left _ -> Nothing
 
 
+-- | add a trailing slash to ensure the path indicates a directory
 addTrailingSlash :: FilePath -> FilePath
 addTrailingSlash p =
   if FP.null (FP.filename p) then p else

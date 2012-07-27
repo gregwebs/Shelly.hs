@@ -47,7 +47,7 @@ spec = do
         res @?= "testing"
 
   describe "cp dir" $ do
-    it "creates a dir at the same level" $ do
+    it "to dir does not exist: create the to dir" $ do
       res <- shelly $ do
         within_dir "test/a" $ do
           mkdir b
@@ -58,13 +58,27 @@ spec = do
           test_f "c/d"
       assert res
 
-    it "creates a to dir at a different level" $ do
+    it "to dir exists: creates a nested directory, full to path given" $ do
       res <- shelly $ do
         within_dir "test/a" $ do
           mkdir b
           mkdir c
           writefile "b/d" ""
           cp_r b $ c</>b
+          cIsDir <- test_d c
+          liftIO $ assert $ cIsDir
+          bIsDir <- test_d $ c</>b
+          liftIO $ assert $ bIsDir
+          test_f "c/b/d"
+      assert res
+
+    it "to dir exists: creates a nested directory, partial to path given" $ do
+      res <- shelly $ do
+        within_dir "test/a" $ do
+          mkdir b
+          mkdir c
+          writefile "b/d" ""
+          cp_r b $ c
           cIsDir <- test_d c
           liftIO $ assert $ cIsDir
           bIsDir <- test_d $ c</>b
