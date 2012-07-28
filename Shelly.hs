@@ -28,10 +28,10 @@ module Shelly
          Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing
 
          -- * Running external commands.
-         , run, run_, cmd, (-|-), lastStderr, setStdin
+         , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
- 
+
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, getenv, getenv_def, appendToPath
 
@@ -108,7 +108,7 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable ) 
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable )
 import Data.Char (isDigit)
 
 {- GHC won't default to Text with this, even with extensions!
@@ -238,7 +238,7 @@ tag action msg = do
 
 put :: State -> Sh ()
 put newState = do
-  stateVar <- ask 
+  stateVar <- ask
   liftIO (writeIORef stateVar newState)
 
 -- FIXME: find the full path to the exe from PATH
@@ -253,7 +253,7 @@ runCommandNoEscape exe args = do
   st <- get
   shellyProcess st $
     ShellCommand $ LT.unpack $ LT.intercalate " " (toTextIgnore exe : args)
-    
+
 
 shellyProcess :: State -> CmdSpec -> Sh (Handle, Handle, Handle, ProcessHandle)
 shellyProcess st cmdSpec =  do
@@ -337,7 +337,7 @@ chdir dir action = do
 chdir_p :: FilePath -> Sh a -> Sh a
 chdir_p d action = mkdir_p d >> chdir d action
 
-  
+
 -- | apply a String IO operations to a Text FilePath
 {-
 liftStringIO :: (String -> IO String) -> FilePath -> Sh FilePath
@@ -671,7 +671,7 @@ instance Exception e => Show (ReThrownException e) where
 --
 -- "stdout" and "stderr" are collected. The "stdout" is returned as
 -- a result of "run", and complete stderr output is available after the fact using
--- "lastStderr" 
+-- "lastStderr"
 --
 -- All of the stdout output will be loaded into memory
 -- You can avoid this but still consume the result by using "run_",
@@ -785,7 +785,7 @@ cp_r from' to' = do
 
        finalTo <- if not toIsDir then mkdir to >> return to else do
                    let d = to </> dirname (addTrailingSlash from)
-                   mkdir_p d >> return d 
+                   mkdir_p d >> return d
 
        ls from >>= mapM_ (\item -> cp_r (from FP.</> filename item) (finalTo FP.</> filename item))
 
@@ -858,5 +858,3 @@ time what = sub $ do
   res <- what
   t' <- liftIO getCurrentTime
   return (realToFrac $ diffUTCTime t' t, res)
-
-
