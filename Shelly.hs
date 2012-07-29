@@ -56,7 +56,7 @@ module Shelly
          , readfile, writefile, appendfile, touchfile, withTmpDir
 
          -- * exiting the program
-         , exit, errorExit, terror
+         , exit, errorExit, quietExit, terror
 
          -- * Exceptions
          , catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
@@ -367,6 +367,7 @@ lsT = ls >=> mapM toTextWarn
 pwd :: Sh FilePath
 pwd = gets sDirectory `tag` "pwd"
 
+-- | exit 0 means no errors, all other codes are error conditions
 exit :: Int -> Sh ()
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
@@ -374,6 +375,11 @@ exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (sho
 -- | echo a message and exit with status 1
 errorExit :: Text -> Sh ()
 errorExit msg = echo msg >> exit 1
+
+-- | for exiting with status > 0 without printing debug information
+quietExit :: Int -> Sh ()
+quietExit 0 = exit 0
+quietExit n = throw $ QuietExit n
 
 -- | fail that takes a Text
 terror :: Text -> Sh a
@@ -575,6 +581,8 @@ shelly action = do
                   ExitSuccess   -> liftIO $ throwIO ex
                   ExitFailure _ -> throwExplainedException ex
               )
+            , ShellyHandler (\ex -> case ex of
+                                     QuietExit n -> liftIO $ throwIO $ ExitFailure n)
             , ShellyHandler (\(ex::SomeException) -> throwExplainedException ex)
           ]
   liftIO $ runSh caught stref
@@ -658,6 +666,9 @@ sshPairs' run' server actions = escaping False $ do
   where
     toSSH (exe,args) = show_command exe args
 
+
+data QuietExit = QuietExit Int deriving (Show, Typeable)
+instance Exception QuietExit
 
 data ReThrownException e = ReThrownException e String deriving (Typeable)
 instance Exception e => Exception (ReThrownException e)
