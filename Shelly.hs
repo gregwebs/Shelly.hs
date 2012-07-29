@@ -703,15 +703,16 @@ command1 com args one_arg more_args = run com ([one_arg] ++ args ++ more_args)
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 
--- the same as "run", but return () instead of the stdout content
+-- | the same as "run", but return () instead of the stdout content
+-- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
 run_ = runFoldLines () (\(_, _) -> ())
 
 liftIO_ :: IO a -> Sh ()
 liftIO_ action = liftIO action >> return ()
 
--- same as "run", but fold over stdout as it is read to avoid keeping it in memory
--- stderr is still placed in memory (this could be changed in the future)
+-- | used by "run". fold over stdout line-by-line as it is read to avoid keeping it in memory
+-- stderr is still being placed in memory under the assumption it is always relatively small
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args = do
     -- clear stdin before beginning command execution
