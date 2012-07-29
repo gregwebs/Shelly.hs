@@ -57,15 +57,16 @@ findFoldDirFilter folder startValue dirFilter dir = do
   absDir <- absPath dir
   trace ("find " `mappend` toTextIgnore absDir)
   filt <- dirFilter absDir
-  if filt
+  if not filt then return startValue
     -- use possible relative path, not absolute so that listing will remain relative
-    then ls dir >>= foldM traverse startValue
-    else return startValue
+    else do
+      (rPaths, aPaths) <- lsRelAbs dir 
+      foldM traverse startValue (zip rPaths aPaths)
   where
-    traverse acc x = do
+    traverse acc (relPath, absPath) = do
       -- optimization: don't use Shelly API since our path is already good
-      isDir <- liftIO $ isDirectory x
-      sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (unpack x)
+      isDir <- liftIO $ isDirectory absPath
+      sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (unpack absPath)
       if isDir && not sym
-        then findFold folder acc x
-        else folder acc x
+        then findFold folder acc relPath
+        else folder acc relPath

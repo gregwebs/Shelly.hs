@@ -33,6 +33,15 @@ spec = do
       res <- shelly $ relativeTo "test" "/Users/gweber/proj/hs/Shelly.hs/test/drain.hs"
       res @?= "drain.hs"
 
+  describe "relative listing" $ do
+    it "lists relative files" $ do
+      res <- shelly $ cd "test" >> ls "."
+      res @?= ["./CopySpec.hs", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./WriteSpec.hs"]
+
+    it "finds relative files" $ do
+      res <- shelly $ cd "test" >> find "."
+      res @?= ["./CopySpec.hs", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./WriteSpec.hs"]
+
   describe "find" $ do
     it "empty list for empty dir" $ do
       let d = "deleteme"

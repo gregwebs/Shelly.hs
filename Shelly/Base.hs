@@ -8,7 +8,7 @@ module Shelly.Base
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
-    ls,
+    ls, lsRelAbs,
     toTextIgnore,
     echo, echo_n, echo_err, echo_n_err, inspect, inspect_err,
     catchany,
@@ -192,14 +192,19 @@ trace msg =
 -- include (other) hidden files.
 ls :: FilePath -> Sh [FilePath]
 -- it is important to use path and not absPath so that the listing can remain relative
-ls f = absPath f >>= \fp -> do
+ls fp = do
   trace $ "ls " `mappend` toTextIgnore fp
-  filt <- if not (relative f) then return (return)
+  fmap fst $ lsRelAbs fp
+
+lsRelAbs :: FilePath -> Sh ([FilePath], [FilePath])
+lsRelAbs f = absPath f >>= \fp -> do
+  filt <- if not (relative f) then return return
              else do
                wd <- gets sDirectory
                return (relativeTo wd)
-  contents <- liftIO $ listDirectory fp
-  mapM filt contents
+  absolute <- liftIO $ listDirectory fp
+  relativized <- mapM filt absolute
+  return (relativized, absolute)
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextIgnore :: FilePath -> Text
