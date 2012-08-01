@@ -64,6 +64,7 @@ data State = State   { sCode :: Int
                      , sEnvironment :: [(String, String)]
                      , sTracing :: Bool
                      , sTrace :: B.Builder
+                     , sErrExit :: Bool
                      }
 
 -- | A monadic-conditional version of the "when" guard.

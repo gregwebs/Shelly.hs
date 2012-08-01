@@ -25,10 +25,10 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing
+         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
-         , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin
+         , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
 
@@ -555,6 +555,14 @@ escaping shouldEscape action = sub $ do
     }
   action
 
+-- | named after bash -e errexit. Defaults to True.
+-- When True, throw an exception on a non-zero exit code.
+-- Not recommended to set to False unless you are specifically checking the error code with 'lastExitCode'.
+errExit :: Bool -> Sh a -> Sh a
+errExit shouldExit action = sub $ do
+  modify $ \st -> st { sErrExit = shouldExit }
+  action
+
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
@@ -572,7 +580,9 @@ shelly action = do
                    , sEnvironment = environment
                    , sTracing = True
                    , sTrace = B.fromText ""
-                   , sDirectory = dir }
+                   , sDirectory = dir
+                   , sErrExit = True
+                   }
   stref <- liftIO $ newIORef def
   let caught =
         action `catches_sh` [
@@ -763,13 +773,18 @@ runFoldLines start cb exe args = do
 
     put $ state { sStderr = errs , sCode = code }
 
-    liftIO $ case ex of
-      ExitSuccess   -> takeMVar outV
-      ExitFailure n -> throwIO $ RunFailed exe args n errs
+    liftIO $ case (sErrExit state, ex) of
+      (True,  ExitFailure n) -> throwIO $ RunFailed exe args n errs
+      _                      -> takeMVar outV
 
 -- | The output of last external command. See "run".
 lastStderr :: Sh Text
 lastStderr = gets sStderr
+
+-- | The exit code from the last command.
+-- Unless you set 'errExit' to False you won't get a chance to use this: a non-zero exit code will throw an exception.
+lastExitCode :: Sh Int
+lastExitCode = gets sCode
 
 -- | set the stdin to be used and cleared by the next "run".
 setStdin :: Text -> Sh ()
