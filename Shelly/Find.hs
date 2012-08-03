@@ -67,6 +67,7 @@ findFoldDirFilter folder startValue dirFilter dir = do
       -- optimization: don't use Shelly API since our path is already good
       isDir <- liftIO $ isDirectory absolutePath
       sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (unpack absolutePath)
+      newAcc <- folder acc relativePath
       if isDir && not sym
-        then findFold folder acc relativePath
-        else folder acc relativePath
+        then findFold folder newAcc relativePath
+        else return newAcc
