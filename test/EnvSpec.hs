@@ -1,0 +1,44 @@
+{-# Language OverloadedStrings #-}
+{-# Language ExtendedDefaultRules #-}
+{-# OPTIONS_GHC -fno-warn-type-defaults #-}
+module EnvSpec (main, spec) where
+
+import Test.Hspec.HUnit ()
+import Test.HUnit hiding (path)
+import Test.Hspec.Monadic
+import Prelude hiding (catch, FilePath)
+import Shelly
+import qualified Data.ByteString as BS
+import qualified Data.Text.Lazy as LT
+import Data.Maybe
+
+main :: IO ()
+main = hspecX spec
+
+spec :: Specs
+spec = do
+  let b = "b" 
+  let c = "c"
+  describe "getting unset env variables" $ do
+    it "get_env" $ do
+      res <- shelly $ get_env "FOOBARSHELLY"
+      assert $ isNothing res
+
+    it "get_env_text" $ do
+      res <- shelly $ get_env_text "FOOBARSHELLY"
+      assert $ res == ""
+
+  describe "with SHELLY var set" $ do
+    it "get_env" $ do
+      res <- shelly $ do
+        set_env "SHELLY" "test"
+        get_env "SHELLY"
+      assert $ res == Just "test"
+
+    it "get_env_text" $ do
+      res <- shelly $ do
+        set_env "SHELLY" "test"
+        get_env_text "SHELLY"
+      assert $ res == "test"
+ 
+
