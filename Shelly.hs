@@ -33,7 +33,7 @@ module Shelly
          , sshPairs, sshPairs_
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv, getenv_def, appendToPath
+         , setenv, get_env, get_env_text, getenv, get_env_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -489,13 +489,13 @@ get_env k = do
 
 -- | deprecated
 getenv :: Text -> Sh Text
-getenv k = getenv_def k ""
+getenv k = get_env_def k ""
 {-# DEPRECATED getenv "use get_env or get_env_text" #-}
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
 get_env_text :: Text -> Sh Text
-get_env_text = getenv_def ""
+get_env_text = get_env_def ""
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default Text value as a result

@@ -49,7 +49,7 @@ module Shelly.Pipe
          , sshPairs, sshPairs_
  
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv_def, appendToPath
+         , setenv, get_env, get_env_text, get_env_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -333,8 +333,8 @@ get_env_text = sh1 S.get_env_text
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default value as a result
-getenv_def :: Text -> Text -> Sh Text
-getenv_def = sh2 S.getenv_def
+get_env_def :: Text -> Text -> Sh Text
+get_env_def = sh2 S.get_env_def
 
 -- | add the filepath onto the PATH env variable
 -- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
