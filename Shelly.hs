@@ -33,7 +33,7 @@ module Shelly
          , sshPairs, sshPairs_
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv, getenv_def, appendToPath
+         , setenv, set_env, get_env, get_env_text, getenv, getenv_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -460,10 +460,15 @@ rm = absPath >=> \f -> do
   -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
+-- | deprecated in favor of 'set_env'
+setenv :: Text -> Text -> Sh ()
+setenv = set_env
+{-# DEPRECATED setenv "use set_env" #-}
+
 -- | Set an environment variable. The environment is maintained in Sh
 -- internally, and is passed to any external commands to be executed.
-setenv :: Text -> Text -> Sh ()
-setenv k v =
+set_env :: Text -> Text -> Sh ()
+set_env k v =
   let (kStr, vStr) = (LT.unpack k, LT.unpack v)
       wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
@@ -473,8 +478,8 @@ setenv k v =
 appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
-  pe <- getenv path_env
-  setenv path_env $ pe `mappend` ":" `mappend` tp
+  pe <- get_env_text path_env
+  set_env path_env $ pe `mappend` ":" `mappend` tp
   where
     path_env = "PATH"
 
@@ -487,6 +492,7 @@ get_env k = do
     Nothing -> Nothing
     j@(Just val) -> if LT.null val then Nothing else j
 
+-- | deprecated
 getenv :: Text -> Sh Text
 getenv k = getenv_def k ""
 {-# DEPRECATED getenv "use get_env or get_env_text" #-}
@@ -494,7 +500,7 @@ getenv k = getenv_def k ""
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give empty string as a result.
 get_env_text :: Text -> Sh Text
-get_env_text k = getenv_def k ""
+get_env_text = getenv_def ""
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default Text value as a result
