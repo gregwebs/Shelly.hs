@@ -53,7 +53,7 @@ module Shelly
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
 
          -- * reading/writing Files
-         , readfile, writefile, appendfile, touchfile, withTmpDir
+         , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
 
          -- * exiting the program
          , exit, errorExit, quietExit, terror
@@ -95,13 +95,16 @@ import Control.Concurrent
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.Lazy.IO as TIO
-import qualified Data.Text.IO as STIO
+import qualified Data.Text.Encoding as TE
+import qualified Data.Text.Encoding.Error as TE
 import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text.Lazy as LT
 import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text as T
+import qualified Data.ByteString as BS
+import Data.ByteString (ByteString)
 import Data.Monoid (mappend)
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
@@ -867,11 +870,16 @@ appendfile f' bits = absPath f' >>= \f -> do
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
--- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
+-- Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> Sh Text
 readfile = absPath >=> \fp -> do
   trace $ "readfile " `mappend` toTextIgnore fp
-  (fmap LT.fromStrict . liftIO . STIO.readFile . unpack) fp
+  readBinary fp >>=
+    return . LT.fromStrict . TE.decodeUtf8With TE.lenientDecode
+
+-- | wraps ByteSting readFile
+readBinary :: FilePath -> Sh ByteString
+readBinary = absPath >=> liftIO . BS.readFile . unpack
 
 -- | flipped hasExtension for Text
 hasExt :: Text -> FilePath -> Bool

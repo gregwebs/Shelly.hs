@@ -36,11 +36,11 @@ spec = do
   describe "relative listing" $ do
     it "lists relative files" $ do
       res <- shelly $ cd "test" >> ls "."
-      res @?= ["./CopySpec.hs", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./WriteSpec.hs"]
+      res @?= ["./CopySpec.hs", "./data", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./ReadFileSpec.hs", "./WriteSpec.hs"]
 
     it "finds relative files" $ do
       res <- shelly $ cd "test" >> find "."
-      res @?= ["./CopySpec.hs", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./WriteSpec.hs"]
+      res @?= ["./CopySpec.hs", "./data", "./data/zshrc", "./drain.hs", "./drain.sh", "./FindSpec.hs", "./main.hs", "./ReadFileSpec.hs", "./WriteSpec.hs"]
 
   describe "find" $ do
     it "empty list for empty dir" $ do
@@ -54,8 +54,8 @@ spec = do
 
     it "lists relative files" $ do
       res <- shelly $ find "test"
-      res @?= ["test/CopySpec.hs", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs", "test/WriteSpec.hs"]
+      res @?= ["test/CopySpec.hs", "test/data/zshrc", "test/drain.hs", "test/drain.sh", "test/FindSpec.hs", "test/main.hs", "test/ReadFileSpec.hs", "test/WriteSpec.hs"]
 
     it "lists absolute files" $ do
       res <- shelly $ relPath "test" >>= find >>= mapM (relativeTo "test")
-      res @?= ["CopySpec.hs", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs", "WriteSpec.hs"]
+      res @?= ["CopySpec.hs", "data/zshrc", "drain.hs", "drain.sh", "FindSpec.hs", "main.hs", "ReadFileSpec.hs", "WriteSpec.hs"]

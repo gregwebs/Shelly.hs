@@ -41,6 +41,7 @@ Library
                , unix-compat < 0.4
                , system-filepath < 0.5
                , system-fileio < 0.4
+               , bytestring
 
   ghc-options: -Wall
 
@@ -54,6 +55,7 @@ test-suite test
                  , unix-compat < 0.4
                  , system-filepath < 0.5
                  , system-fileio < 0.4
+                 , bytestring
                  , hspec-discover
                  , hspec >= 1.1
                  , HUnit
