@@ -33,7 +33,7 @@ module Shelly
          , sshPairs, sshPairs_
 
          -- * Modifying and querying environment.
-         , setenv, set_env, get_env, get_env_text, getenv, getenv_def, appendToPath
+         , setenv, get_env, get_env_text, getenv, getenv_def, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -460,15 +460,10 @@ rm = absPath >=> \f -> do
   -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
--- | deprecated in favor of 'set_env'
-setenv :: Text -> Text -> Sh ()
-setenv = set_env
-{-# DEPRECATED setenv "use set_env" #-}
-
 -- | Set an environment variable. The environment is maintained in Sh
 -- internally, and is passed to any external commands to be executed.
-set_env :: Text -> Text -> Sh ()
-set_env k v =
+setenv :: Text -> Text -> Sh ()
+setenv k v =
   let (kStr, vStr) = (LT.unpack k, LT.unpack v)
       wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
