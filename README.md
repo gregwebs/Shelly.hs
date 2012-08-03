@@ -40,7 +40,9 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 ## Alternatives
 
 * [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
-* [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has more extensive shell capabilities.
+* [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
+
+Both of these libraries (unlike Shelly currently) also implement very efficient mechanisms for piping/redirecting.
 
 
 ## Usage
@@ -108,3 +110,4 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 * improved SSH API
 * Switch from lazy text to strict
 * fix PATH/which implementation
+* more efficient piping/redirecting (issue #18)
