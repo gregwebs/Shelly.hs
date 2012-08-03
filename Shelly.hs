@@ -474,7 +474,7 @@ appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
-  set_env path_env $ pe `mappend` ":" `mappend` tp
+  setenv path_env $ pe `mappend` ":" `mappend` tp
   where
     path_env = "PATH"
 
