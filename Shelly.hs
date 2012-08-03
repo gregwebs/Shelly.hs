@@ -499,8 +499,8 @@ get_env_text = getenv_def ""
 
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default Text value as a result
-getenv_def :: Text -> Text -> Sh Text
-getenv_def d = get_env >=> return . fromMaybe d
+get_env_def :: Text -> Text -> Sh Text
+get_env_def d = get_env >=> return . fromMaybe d
 
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
