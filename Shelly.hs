@@ -501,6 +501,7 @@ get_env_text = get_env_def ""
 -- non-existent variables give the default Text value as a result
 get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
+{-# DEPRECATED get_env_def "use fromMaybe def get_env" #-}
 
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
