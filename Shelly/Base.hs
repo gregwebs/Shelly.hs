@@ -15,7 +15,7 @@ module Shelly.Base
     liftIO, (>=>),
     eitherRelativeTo, relativeTo, maybeRelativeTo,
     whenM
-    -- * utitlities not yet exported
+    -- * utilities not yet exported
     , addTrailingSlash
   ) where
 
@@ -25,13 +25,12 @@ import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
 import Control.Monad (when, (>=>) )
-import Control.Applicative(Applicative)
+import Control.Applicative (Applicative, (<$>))
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
 import qualified Filesystem.Path.CurrentOS as FP
 import qualified Filesystem as FS
-import Control.Applicative ((<$>))
 import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text.Lazy as LT
@@ -128,7 +127,7 @@ addTrailingSlash p =
     p FP.</> FP.empty
 
 -- | makes an absolute path.
--- Like 'canonicalize', but on an exception returns 'path'
+-- Like 'canonicalize', but on an exception returns 'absPath'
 canonic :: FilePath -> Sh FilePath
 canonic fp = do
   p <- absPath fp
@@ -147,11 +146,12 @@ canonicalizePath p = let was_dir = FP.null (FP.filename p) in
 
 -- | Make a relative path absolute by combining with the working directory.
 -- An absolute path is returned as is.
--- To create a relative path, use 'path'.
+-- To create a relative path, use 'relPath'.
 absPath :: FilePath -> Sh FilePath
 absPath p | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
 
+-- | deprecated
 path :: FilePath -> Sh FilePath
 path = absPath
 {-# DEPRECATED path "use absPath, canonic, or relPath instead" #-}
@@ -182,7 +182,7 @@ modify f = do
   state <- ask 
   liftIO (modifyIORef state f)
 
--- | internally log what occured.
+-- | internally log what occurred.
 -- Log will be re-played on failure.
 trace :: Text -> Sh ()
 trace msg =
