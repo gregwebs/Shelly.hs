@@ -39,10 +39,26 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 ## Alternatives
 
+### Haskell shell scripting libarires
+
 * [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
 * [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
 
 Both of these libraries (unlike Shelly currently) also implement very efficient mechanisms for piping/redirecting.
+
+### Haskell supplements
+
+* [FileManip](hackage.haskell.org/package/FileManip) - more efficient file finding code (uses Lazy IO). Shelly's finders are currently being re-worked
+
+### Shell commands with richer input/output
+
+Shelly does not change the nature of shell scripting (text in, text out).
+If you want something more revolutionary you might try these:
+
+* PowerShell is proably the best known.
+* [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
+* [untyped JSON](https://github.com/benbernard/RecordStream)
+* [TermKit](https://github.com/unconed/TermKit/) which uses mime types and has a nice GUI
 
 
 ## Usage
