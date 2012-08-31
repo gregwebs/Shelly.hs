@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
@@ -568,12 +568,20 @@ errExit shouldExit action = sub $ do
   modify $ \st -> st { sErrExit = shouldExit }
   action
 
+-- | The same as 'shelly' but does not create a @.shelly@ directory in the case
+-- of failure. Instead logs directly into the standard error stream (@stderr@).
+shellyNoDir :: MonadIO m => Sh a -> m a
+shellyNoDir = shelly' False
+
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running Sh.
 shelly :: MonadIO m => Sh a -> m a
-shelly action = do
+shelly = shelly' True
+
+shelly' :: MonadIO m => Bool -> Sh a -> m a
+shelly' logToDir action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
@@ -606,12 +614,16 @@ shelly action = do
     throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
     errorMsg st = do
       let trc = B.toLazyText . sTrace $ st
-      d <- pwd
-      sf <- shellyFile
-      let f = d</>shelly_dir</>sf
-      (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
-        `catchany_sh` (\_ -> return $ "Ran commands: \n" `mappend` LT.unpack trc)
+      if logToDir
+        then do
+          d <- pwd
+          sf <- shellyFile
+          let f = d</>shelly_dir</>sf
+          (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
+            `catchany_sh` (\_ -> ranCommands trc)
+        else ranCommands trc
 
+    ranCommands = return . mappend "Ran commands: \n" . LT.unpack
     shelly_dir = ".shelly"
     shellyFile = chdir_p shelly_dir $ do
       fs <- ls "."
