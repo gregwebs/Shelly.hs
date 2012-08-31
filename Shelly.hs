@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
@@ -329,7 +329,7 @@ cd = canonic >=> cd'
       where
         tdir = toTextIgnore dir
 
--- | "cd", execute a Sh action in the new directory and then pop back to the original directory
+-- | 'cd', execute a Sh action in the new directory and then pop back to the original directory
 chdir :: FilePath -> Sh a -> Sh a
 chdir dir action = do
   d <- gets sDirectory
@@ -354,8 +354,8 @@ asString f = pack . f . unpack
 pack :: String -> FilePath
 pack = decodeString
 
--- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
--- move. TODO: Support directory paths in the second parameter, like in "cp".
+-- | Currently a 'renameFile' wrapper. TODO: Support cross-filesystem
+-- move. TODO: Support directory paths in the second parameter, like in 'cp'.
 mv :: FilePath -> FilePath -> Sh ()
 mv a b = do a' <- absPath a
             b' <- absPath b
@@ -410,7 +410,7 @@ which fp = do
   (trace . mappend "which " . toTextIgnore) fp
   (liftIO . findExecutable . unpack >=> return . fmap pack) fp
 
--- | A monadic-conditional version of the "unless" guard.
+-- | A monadic-conditional version of the 'unless' guard.
 unlessM :: Monad m => m Bool -> m () -> m ()
 unlessM c a = c >>= \res -> unless res a
 
@@ -568,12 +568,20 @@ errExit shouldExit action = sub $ do
   modify $ \st -> st { sErrExit = shouldExit }
   action
 
+-- | The same as 'shelly' but does not create a @.shelly@ directory in the case
+-- of failure. Instead logs directly into the standard error stream (@stderr@).
+shellyNoDir :: MonadIO m => Sh a -> m a
+shellyNoDir = shelly' False
+
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running Sh.
 shelly :: MonadIO m => Sh a -> m a
-shelly action = do
+shelly = shelly' True
+
+shelly' :: MonadIO m => Bool -> Sh a -> m a
+shelly' logToDir action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
@@ -606,12 +614,16 @@ shelly action = do
     throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
     errorMsg st = do
       let trc = B.toLazyText . sTrace $ st
-      d <- pwd
-      sf <- shellyFile
-      let f = d</>shelly_dir</>sf
-      (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
-        `catchany_sh` (\_ -> return $ "Ran commands: \n" `mappend` LT.unpack trc)
+      if logToDir
+        then do
+          d <- pwd
+          sf <- shellyFile
+          let f = d</>shelly_dir</>sf
+          (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
+            `catchany_sh` (\_ -> ranCommands trc)
+        else ranCommands trc
 
+    ranCommands = return . mappend "Ran commands: \n" . LT.unpack
     shelly_dir = ".shelly"
     shellyFile = chdir_p shelly_dir $ do
       fs <- ls "."
@@ -667,7 +679,7 @@ sshPairs_ server cmds = sshPairs' run_ server cmds
 -- This interface is crude, but it works for now.
 --
 -- Please note this sets 'escaping' to False: the commands will not be shell escaped.
--- Internally the list of commands are combined with the string " && " before given to ssh.
+-- Internally the list of commands are combined with the string @&&@ before given to ssh.
 sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
 sshPairs server cmds = sshPairs' run server cmds
@@ -695,13 +707,13 @@ instance Exception e => Show (ReThrownException e) where
 -- just a name of something that can be found via @PATH@; FIXME: setenv'd
 -- @PATH@ is not taken into account when finding the exe name)
 --
--- "stdout" and "stderr" are collected. The "stdout" is returned as
--- a result of "run", and complete stderr output is available after the fact using
--- "lastStderr"
+-- 'stdout' and 'stderr' are collected. The 'stdout' is returned as
+-- a result of 'run', and complete stderr output is available after the fact using
+-- 'lastStderr'
 --
 -- All of the stdout output will be loaded into memory
--- You can avoid this but still consume the result by using "run_",
--- If you want to avoid the memory and need to process the output then use "runFoldLines".
+-- You can avoid this but still consume the result by using 'run_',
+-- If you want to avoid the memory and need to process the output then use 'runFoldLines'.
 run :: FilePath -> [Text] -> Sh Text
 run exe args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder exe args
 
@@ -709,27 +721,31 @@ foldBuilder :: (B.Builder, Text) -> B.Builder
 foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\n'
 
 
--- | bind some arguments to run for re-use
--- Example: @monit = command "monit" ["-c", "monitrc"]@
+-- | bind some arguments to run for re-use. Example:
+--
+-- > monit = command "monit" ["-c", "monitrc"]
 command :: FilePath -> [Text] -> [Text] -> Sh Text
 command com args more_args = run com (args ++ more_args)
 
--- | bind some arguments to "run_" for re-use
--- Example: @monit_ = command_ "monit" ["-c", "monitrc"]@
+-- | bind some arguments to 'run_' for re-use. Example:
+--
+-- > monit_ = command_ "monit" ["-c", "monitrc"]
 command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ com args more_args = run_ com (args ++ more_args)
 
--- | bind some arguments to run for re-use, and expect 1 argument
--- Example: @git = command1 "git" []; git "pull" ["origin", "master"]@
+-- | bind some arguments to run for re-use, and expect 1 argument. Example:
+--
+-- > git = command1 "git" []; git "pull" ["origin", "master"]
 command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 com args one_arg more_args = run com ([one_arg] ++ args ++ more_args)
 
--- | bind some arguments to run for re-use, and expect 1 argument
--- Example: @git_ = command1_ "git" []; git+ "pull" ["origin", "master"]@
+-- | bind some arguments to run for re-use, and expect 1 argument. Example:
+--
+-- > git_ = command1_ "git" []; git+ "pull" ["origin", "master"]
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 
--- | the same as "run", but return () instead of the stdout content
+-- | the same as 'run', but return @()@ instead of the stdout content
 -- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
 run_ = runFoldLines () (\(_, _) -> ())
@@ -737,7 +753,7 @@ run_ = runFoldLines () (\(_, _) -> ())
 liftIO_ :: IO a -> Sh ()
 liftIO_ action = liftIO action >> return ()
 
--- | used by "run". fold over stdout line-by-line as it is read to avoid keeping it in memory
+-- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
 -- stderr is still being placed in memory under the assumption it is always relatively small
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args = do
@@ -782,7 +798,7 @@ runFoldLines start cb exe args = do
       (True,  ExitFailure n) -> throwIO $ RunFailed exe args n errs
       _                      -> takeMVar outV
 
--- | The output of last external command. See "run".
+-- | The output of last external command. See 'run'.
 lastStderr :: Sh Text
 lastStderr = gets sStderr
 
@@ -791,7 +807,7 @@ lastStderr = gets sStderr
 lastExitCode :: Sh Int
 lastExitCode = gets sCode
 
--- | set the stdin to be used and cleared by the next "run".
+-- | set the stdin to be used and cleared by the next 'run'.
 setStdin :: Text -> Sh ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
 
