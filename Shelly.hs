@@ -470,6 +470,7 @@ setenv k v =
 
 -- | add the filepath onto the PATH env variable
 -- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
+-- TODO: use cross-platform searchPathSeparator
 appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
