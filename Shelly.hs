@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, ShIO, shelly, shellyOpts, ShellyOpts(..), defaultOpts, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
@@ -502,7 +502,7 @@ get_env_text = get_env_def ""
 -- non-existent variables give the default Text value as a result
 get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
-{-# DEPRECATED get_env_def "use fromMaybe def get_env" #-}
+{-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
@@ -561,28 +561,34 @@ escaping shouldEscape action = sub $ do
     }
   action
 
--- | named after bash -e errexit. Defaults to True.
--- When True, throw an exception on a non-zero exit code.
--- Not recommended to set to False unless you are specifically checking the error code with 'lastExitCode'.
+-- | named after bash -e errexit. Defaults to @True@.
+-- When @True@, throw an exception on a non-zero exit code.
+-- When @False@, ignore a non-zero exit code.
+-- Not recommended to set to @False@ unless you are specifically checking the error code with 'lastExitCode'.
 errExit :: Bool -> Sh a -> Sh a
 errExit shouldExit action = sub $ do
   modify $ \st -> st { sErrExit = shouldExit }
   action
 
--- | The same as 'shelly' but does not create a @.shelly@ directory in the case
--- of failure. Instead logs directly into the standard error stream (@stderr@).
-shellyNoDir :: MonadIO m => Sh a -> m a
-shellyNoDir = shelly' False
+data ShellyOpts = ShellyOpts { failToDir :: Bool }
+
+-- avoid data-default dependency for now
+-- instance Default ShellyOpts where 
+defaultOpts :: ShellyOpts
+defaultOpts = ShellyOpts { failToDir = True }
 
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running Sh.
 shelly :: MonadIO m => Sh a -> m a
-shelly = shelly' True
+shelly = shellyOpts defaultOpts
 
-shelly' :: MonadIO m => Bool -> Sh a -> m a
-shelly' logToDir action = do
+-- | The same as 'shelly' but supports one option: 'failToDir', which defaults to @True@.
+-- Setting this to @False@ does not create a @.shelly@ directory in the case
+-- of failure. Instead logs directly into the standard error stream (@stderr@).
+shellyOpts :: MonadIO m => ShellyOpts -> Sh a -> m a
+shellyOpts opts action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
@@ -613,18 +619,18 @@ shelly' logToDir action = do
   where
     throwExplainedException :: Exception exception => exception -> Sh a
     throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
-    errorMsg st = do
-      let trc = B.toLazyText . sTrace $ st
-      if logToDir
-        then do
+    errorMsg st =
+      if not (failToDir opts) then ranCommands else do
           d <- pwd
           sf <- shellyFile
-          let f = d</>shelly_dir</>sf
-          (writefile f trc >> return ("log of commands saved to: " `mappend` encodeString f))
-            `catchany_sh` (\_ -> ranCommands trc)
-        else ranCommands trc
+          let logFile = d</>shelly_dir</>sf
+          (writefile logFile trc >> return ("log of commands saved to: " `mappend` encodeString logFile))
+            `catchany_sh` (\_ -> ranCommands)
 
-    ranCommands = return . mappend "Ran commands: \n" . LT.unpack
+      where
+        trc = B.toLazyText . sTrace $ st
+        ranCommands = return . mappend "Ran commands: \n" . LT.unpack $ trc
+
     shelly_dir = ".shelly"
     shellyFile = chdir_p shelly_dir $ do
       fs <- ls "."

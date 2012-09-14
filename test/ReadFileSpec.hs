@@ -16,8 +16,6 @@ main = hspecX spec
 
 spec :: Specs
 spec = do
-  let b = "b" 
-  let c = "c"
   describe "file with invalid encoding" $ do
     it "readBinary" $ do
       res <- shelly $ readBinary "test/data/zshrc"
