@@ -1,5 +1,5 @@
-{-# OPTIONS_GHC -F -pgmF hspec-discover -optF --nested #-}
+{- # OPTIONS_GHC -F -pgmF hspec-discover -optF --nested #-}
 {-import qualified CopySpec-}
 {-main = CopySpec.main-}
--- import qualified FindSpec
--- main = FindSpec.main
+import qualified FailureSpec
+main = FailureSpec.main

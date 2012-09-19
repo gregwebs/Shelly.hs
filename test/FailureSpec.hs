@@ -10,22 +10,30 @@ import Test.Hspec.Monadic
 import Shelly
 
 main :: IO ()
-main = hspecX spec
+main = hspec spec
 
 spec :: Specs
 spec = do
+  let discardException action = shelly $ catchany_sh action (\_ -> return ())
+
   describe "failure set to stderr" $
     it "writes a failure message to stderr" $ do
-      hasD <- shelly $ do
-        test_d ".shelly" >>= liftIO . assert . not
-        _<- shellyNoDir (error "bam!") `catchany_sh` \_ -> return ()
-        test_d ".shelly"
-      assert $ not hasD
+      shelly $ discardException $
+        liftIO $ shellyNoDir $ do
+          test_d ".shelly" >>= liftIO . assert . not
+          echo "testing"
+          error "bam!"
+      assert . not =<< shelly (test_d ".shelly")
 
   describe "failure set to directory" $
     it "writes a failure message to a .shelly directory" $ do
-      hasD <- shelly $ do
-        test_d ".shelly" >>= liftIO . assert . not
-        _<- shellyNoDir (error "bam!") `catchany_sh` \_ -> return ()
-        test_d ".shelly"
-      assert hasD
+      shelly $ discardException $
+        shelly $ do
+          test_d ".shelly" >>= liftIO . assert . not
+          echo "testing"
+          error "bam!"
+      assert =<< shelly ( do
+          exists <- test_d ".shelly"
+          rm_rf ".shelly"
+          return exists
+        )
