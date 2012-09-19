@@ -212,8 +212,10 @@ printGetContent :: Handle -> Handle -> IO Text
 printGetContent rH wH =
     fmap B.toLazyText $ printFoldHandleLines (B.fromText "") foldBuilder rH wH
 
+{-
 getContent :: Handle -> IO Text
 getContent h = fmap B.toLazyText $ foldHandleLines (B.fromText "") foldBuilder h
+-}
 
 type FoldCallback a = ((a, Text) -> a)
 
@@ -539,7 +541,15 @@ sub a = do
   where
     restoreState oldState = do
       newState <- get
-      put oldState { sTrace = sTrace oldState `mappend` sTrace newState  }
+      put oldState {
+         -- avoid losing the log
+         sTrace  = sTrace oldState `mappend` sTrace newState
+         -- latest command execution: not make sense to restore these to old settings
+       , sCode   = sCode newState
+       , sStderr = sStderr newState
+         -- it is questionable what the behavior of stdin should be
+       , sStdin  = sStdin newState
+       }
 
 -- | Create a sub-Sh where commands are not traced
 -- Defaults to True.
@@ -784,12 +794,13 @@ runFoldLines start cb exe args = do
 
     errV <- liftIO newEmptyMVar
     outV <- liftIO newEmptyMVar
+
+    liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
+    -- liftIO_ $ forkIO $ getContent errH >>= putMVar errV
     if sPrintStdout state
-      then do
-        liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
+      then
         liftIO_ $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
-      else do
-        liftIO_ $ forkIO $ getContent errH >>= putMVar errV
+      else
         liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
 
     errs <- liftIO $ takeMVar errV
@@ -819,6 +830,8 @@ setStdin :: Text -> Sh ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
 
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
+-- This does not create a shell-level pipe, but hopefully it will in the future.
+-- To create a shell level pipe you can always set @escaping False@ and use a pipe @|@ character in a command.
 (-|-) :: Sh Text -> Sh b -> Sh b
 one -|- two = do
   res <- print_stdout False one
