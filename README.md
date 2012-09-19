@@ -87,11 +87,15 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
       echo "monit reloaded"
 ~~~~~
 
-Yes, you can write variadic functions in Haskell quite easily, you just can't compose them.
+Yes, you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
 I find `cmd` to be more convenient, but I use `run` when I am building up abstractions.
+
+### Escaping
 
 By default, all commands are shell escaped.
 If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...` 
+
+### Using Text and FilePath together
 
 Shelly's usage of system-filepath means you may need to convert between Text and FilePath sometimes.
 This should be infrequent though because
@@ -114,6 +118,7 @@ Haskell's #1 weakness for IO code is a lack of stack traces.
 Shelly gives you something different: detailed logging.
 In most cases this should be more useful than a stack trace.
 Shelly keeps a log of API usage and saves it to a .shelly directory on failure.
+If you use `shellyNoDir`, the log will instead be printed to stderr.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
@@ -121,7 +126,7 @@ If you make your own primitive functions that don't use the Shelly API, use `tra
 You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 
-### Future plans
+## Future plans
 
 * improved SSH API
 * Switch from lazy text to strict
