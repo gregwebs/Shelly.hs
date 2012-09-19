@@ -14,7 +14,6 @@ main = hspecX spec
 
 spec :: Specs
 spec = do
-  let shellyNoDir = shellyOpts defaultOpts { failToDir = False }
   describe "failure set to stderr" $
     it "writes a failure message to stderr" $ do
       hasD <- shelly $ do

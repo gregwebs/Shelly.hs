@@ -25,7 +25,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyOpts, ShellyOpts(..), defaultOpts, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
@@ -543,7 +543,7 @@ sub a = do
       newState <- get
       put oldState {
          -- avoid losing the log
-         sTrace  = sTrace oldState `mappend` sTrace newState
+         sTrace  = sTrace oldState `mappend` sTrace newState 
          -- latest command execution: not make sense to restore these to old settings
        , sCode   = sCode newState
        , sStderr = sStderr newState
@@ -584,21 +584,23 @@ data ShellyOpts = ShellyOpts { failToDir :: Bool }
 
 -- avoid data-default dependency for now
 -- instance Default ShellyOpts where 
-defaultOpts :: ShellyOpts
-defaultOpts = ShellyOpts { failToDir = True }
+shellyOpts :: ShellyOpts
+shellyOpts = ShellyOpts { failToDir = True }
+
+-- | Using this entry point does not create a @.shelly@ directory in the case
+-- of failure. Instead it logs directly into the standard error stream (@stderr@).
+shellyNoDir :: MonadIO m => Sh a -> m a
+shellyNoDir = shelly' shellyOpts { failToDir = False }
 
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running Sh.
 shelly :: MonadIO m => Sh a -> m a
-shelly = shellyOpts defaultOpts
+shelly = shelly' shellyOpts
 
--- | The same as 'shelly' but supports one option: 'failToDir', which defaults to @True@.
--- Setting this to @False@ does not create a @.shelly@ directory in the case
--- of failure. Instead logs directly into the standard error stream (@stderr@).
-shellyOpts :: MonadIO m => ShellyOpts -> Sh a -> m a
-shellyOpts opts action = do
+shelly' :: MonadIO m => ShellyOpts -> Sh a -> m a
+shelly' opts action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
