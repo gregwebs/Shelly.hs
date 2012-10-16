@@ -285,23 +285,23 @@ run_sudo :: Text -> [Text] -> Sudo Text
 run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 -}
 
--- | Catch an exception in the Sh monad.
+-- | Same as a normal 'catch' but specialized for the Sh monad.
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh action handle = do
     ref <- ask
     liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
 
--- | Catch an exception in the Sh monad.
+-- | Same as a normal 'finally' but specialized for the 'Sh' monad.
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
     ref <- ask
     liftIO $ finally (runSh action ref) (runSh handle ref)
 
 
--- | You need this when using 'catches_sh'.
+-- | You need to wrap exception handlers with this when using 'catches_sh'.
 data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
 
--- | Catch multiple exceptions in the Sh monad.
+-- | Same as a normal 'catches', but specialized for the 'Sh' monad.
 catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
 catches_sh action handlers = do
     ref <- ask
