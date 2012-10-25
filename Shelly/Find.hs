@@ -69,5 +69,6 @@ findFoldDirFilter folder startValue dirFilter dir = do
       sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (unpack absolutePath)
       newAcc <- folder acc relativePath
       if isDir && not sym
-        then findFold folder newAcc relativePath
+        then findFoldDirFilter folder newAcc 
+                dirFilter relativePath
         else return newAcc
