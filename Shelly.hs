@@ -812,7 +812,7 @@ runFoldLines start cb exe args = do
                  ExitSuccess -> 0
                  ExitFailure n -> n
 
-    put $ state { sStderr = errs , sCode = code }
+    modify $ \state' -> state' { sStderr = errs , sCode = code }
 
     liftIO $ case (sErrExit state, ex) of
       (True,  ExitFailure n) -> throwIO $ RunFailed exe args n errs
