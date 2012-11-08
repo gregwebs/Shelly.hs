@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.14.2.1
+Version:     0.14.2.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -38,7 +38,7 @@ Library
 
   Build-depends: base >= 4 && < 5, time, directory, text, mtl
                , process >= 1.0
-               , unix-compat < 0.4
+               , unix-compat < 0.5
                , system-filepath < 0.5
                , system-fileio < 0.4
                , bytestring
