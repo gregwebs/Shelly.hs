@@ -67,7 +67,7 @@ module Shelly.Pipe
          , hasExt
 
          -- * Manipulating filesystem.
-         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
+         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
          , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
@@ -117,6 +117,8 @@ import Shelly(
 import Data.Maybe(fromMaybe)
 import Shelly.Base(State)
 import Data.ByteString (ByteString)
+
+import Data.Tree(Tree)
 
 import Data.Text.Lazy as LT hiding (concat, all, find, cons)
 
@@ -540,6 +542,23 @@ mkdir = sh1 S.mkdir
 -- already exists).
 mkdir_p :: FilePath -> Sh ()
 mkdir_p = sh1 S.mkdir_p
+
+-- | Create a new directory tree. You can describe a bunch of directories as 
+-- a tree and this function will create all subdirectories. An example:
+--
+-- > exec = mkTree $
+-- >           "package" # [
+-- >                "src" # [
+-- >                    "Data" # leaves ["Tree", "List", "Set", "Map"] 
+-- >                ],
+-- >                "test" # leaves ["QuickCheck", "HUnit"],
+-- >                "dist/doc/html" # []
+-- >            ]
+-- >         where (#) = Node
+-- >               leaves = map (# []) 
+--
+mkdirTree :: Tree FilePath -> Sh ()
+mkdirTree = sh1 S.mkdirTree
 
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.

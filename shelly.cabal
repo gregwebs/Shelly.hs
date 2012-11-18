@@ -42,6 +42,7 @@ Library
                , system-filepath < 0.5
                , system-fileio < 0.4
                , bytestring
+               , containers
 
   ghc-options: -Wall
 
