@@ -28,6 +28,7 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
+         , FoldCallback
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
