@@ -36,7 +36,8 @@ Library
   Exposed-modules: Shelly, Shelly.Pipe
   other-modules:   Shelly.Base, Shelly.Find
 
-  Build-depends: base >= 4 && < 5, time, directory, text, mtl
+  Build-depends: base >= 4 && < 5, containers
+               , time, directory, text, mtl
                , process >= 1.0
                , unix-compat < 0.5
                , system-filepath < 0.5
@@ -52,7 +53,8 @@ test-suite test
     hs-source-dirs: ., test
     ghc-options: -Wall
 
-    Build-depends: base >= 4 && < 5, time, directory, text, mtl, process
+    Build-depends: base >= 4 && < 5, containers
+                 , time, directory, text, mtl, process
                  , unix-compat < 0.5
                  , system-filepath < 0.5
                  , system-fileio < 0.4

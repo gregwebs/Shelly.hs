@@ -12,7 +12,7 @@ import Shelly
 main :: IO ()
 main = hspecX spec
 
-spec :: Specs
+spec :: Spec
 spec = do
   describe "relativeTo" $ do
     it "relative to non-existent dir" $ do

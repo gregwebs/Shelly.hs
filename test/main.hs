@@ -2,4 +2,5 @@
 {-import qualified CopySpec-}
 {-main = CopySpec.main-}
 import qualified FailureSpec
+main :: IO ()
 main = FailureSpec.main
