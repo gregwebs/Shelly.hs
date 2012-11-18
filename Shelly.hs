@@ -28,6 +28,7 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
+         , FoldCallback
          , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
@@ -50,7 +51,7 @@ module Shelly
          , hasExt
 
          -- * Manipulating filesystem.
-         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
+         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
          , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
@@ -113,6 +114,8 @@ import qualified Filesystem.Path.CurrentOS as FP
 
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable )
 import Data.Char (isDigit)
+
+import Data.Tree(Tree(..))
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
@@ -402,6 +405,33 @@ mkdir_p :: FilePath -> Sh ()
 mkdir_p = absPath >=> \fp -> do
   trace $ "mkdir -p " `mappend` toTextIgnore fp
   liftIO $ createTree fp
+
+-- | Create a new directory tree. You can describe a bunch of directories as 
+-- a tree and this function will create all subdirectories. An example:
+--
+-- > exec = mkTree $
+-- >           "package" # [
+-- >                "src" # [
+-- >                    "Data" # leaves ["Tree", "List", "Set", "Map"] 
+-- >                ],
+-- >                "test" # leaves ["QuickCheck", "HUnit"],
+-- >                "dist/doc/html" # []
+-- >            ]
+-- >         where (#) = Node
+-- >               leaves = map (# []) 
+--
+mkdirTree :: Tree FilePath -> Sh ()
+mkdirTree = mk . unrollPath 
+    where mk :: Tree FilePath -> Sh ()
+          mk (Node a ts) = do
+            b <- test_d a
+            unless b $ mkdir a
+            chdir a $ mapM_ mkdirTree ts
+            
+          unrollPath :: Tree FilePath -> Tree FilePath
+          unrollPath (Node v ts) = unrollRoot v $ map unrollPath ts
+              where unrollRoot x = foldr1 phi $ map Node $ splitDirectories x
+                    phi a b = a . return . b
 
 -- | Get a full path to an executable on @PATH@, if exists. FIXME does not
 -- respect setenv'd environment and uses @findExecutable@ which uses the @PATH@ inherited from the process
