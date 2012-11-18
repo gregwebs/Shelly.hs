@@ -39,12 +39,13 @@
 module Shelly.Pipe
        (
          -- * Entering Sh.
-         Sh, shs, shelly, sub, silently, verbosely, escaping, print_stdout, print_commands
+         Sh, shs, shelly,shellyNoDir, shsNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
          -- * List functions
          , roll, unroll, liftSh
          -- * Running external commands.
-         , run, run_, cmd
-         , (-|-), lastStderr, setStdin
+         , FoldCallback
+         , run, run_, runFoldLines, cmd
+         , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
  
@@ -66,17 +67,13 @@ module Shelly.Pipe
          , hasExt
 
          -- * Manipulating filesystem.
-         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p
+         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
-         , readfile, writefile, appendfile, touchfile, withTmpDir
-
-         -- * find functions 
-         , find, findWhen, findFold
-         , findDirFilter, findDirFilterWhen, findFoldDirFilter
+         , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
 
          -- * exiting the program
-         , exit, errorExit, terror
+         , exit, errorExit, quietExit, terror
 
          -- * Exceptions
          , catchany, catch_sh, finally_sh 
@@ -94,6 +91,10 @@ module Shelly.Pipe
 
          -- * internal functions for writing extensions
          , get, put
+
+         -- * find functions 
+         , find, findWhen, findFold
+         , findDirFilter, findDirFilterWhen, findFoldDirFilter
          ) where
 
 import Prelude hiding (FilePath)
@@ -110,9 +111,14 @@ import qualified Shelly as S
 import Shelly(
       (</>), (<.>), hasExt
     , (<$$>), whenM, unlessM, toTextIgnore
-    , fromText, catchany)
+    , fromText, catchany
+    , FoldCallback)
 
+import Data.Maybe(fromMaybe)
 import Shelly.Base(State)
+import Data.ByteString (ByteString)
+
+import Data.Tree(Tree)
 
 import Data.Text.Lazy as LT hiding (concat, all, find, cons)
 
@@ -212,6 +218,15 @@ shelly = S.shelly . unSh
 shs :: MonadIO m => Sh () -> m ()
 shs a = shelly a >> return ()
 
+-- | Using this entry point does not create a @.shelly@ directory in the case
+-- of failure. Instead it logs directly into the standard error stream (@stderr@).
+shellyNoDir :: MonadIO m => Sh a -> m [a]
+shellyNoDir = S.shellyNoDir . unSh
+
+-- | Performs "shellyNoDir" and then an empty action @return ()@.
+shsNoDir :: MonadIO m => Sh () -> m ()
+shsNoDir a = shellyNoDir a >> return ()
+
 -- | Enter a sub-Sh that inherits the environment
 -- The original state will be restored when the sub-Sh completes.
 -- Exceptions are propagated normally.
@@ -242,6 +257,20 @@ print_stdout b = lift1 (S.print_stdout b)
 print_commands :: Bool -> Sh a -> Sh a
 print_commands b = lift1 (S.print_commands b)
 
+-- | Create a sub-Sh where commands are not traced
+-- Defaults to True.
+-- You should only set to False temporarily for very specific reasons
+tracing :: Bool -> Sh a -> Sh a
+tracing b = lift1 (S.tracing b)
+
+-- | named after bash -e errexit. Defaults to @True@.
+-- When @True@, throw an exception on a non-zero exit code.
+-- When @False@, ignore a non-zero exit code.
+-- Not recommended to set to @False@ unless you are specifically checking the error code with 'lastExitCode'.
+errExit :: Bool -> Sh a -> Sh a
+errExit b = lift1 (S.errExit b)
+
+
 ------------------------------------------------------------------
 -- Running external commands. 
 
@@ -263,6 +292,11 @@ run a b = sh0 $ S.run a b
 run_ :: FilePath -> [Text] -> Sh ()
 run_ a b = sh0 $ S.run_ a b
 
+-- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
+-- stderr is still being placed in memory under the assumption it is always relatively small
+runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
+runFoldLines a cb fp ts = sh0 $ S.runFoldLines a cb fp ts
+
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
 (-|-) :: Sh Text -> Sh b -> Sh b
 (-|-) = lift2 (S.-|-)
@@ -274,6 +308,11 @@ lastStderr = sh0 S.lastStderr
 -- | set the stdin to be used and cleared by the next "run".
 setStdin :: Text -> Sh ()
 setStdin = sh1 S.setStdin 
+
+-- | The exit code from the last command.
+-- Unless you set 'errExit' to False you won't get a chance to use this: a non-zero exit code will throw an exception.
+lastExitCode :: Sh Int
+lastExitCode = sh0 S.lastExitCode
 
 -- | bind some arguments to run for re-use
 -- Example: @monit = command "monit" ["-c", "monitrc"]@
@@ -334,7 +373,8 @@ get_env_text = sh1 S.get_env_text
 -- | Fetch the current value of an environment variable. Both empty and
 -- non-existent variables give the default value as a result
 get_env_def :: Text -> Text -> Sh Text
-get_env_def = sh2 S.get_env_def
+get_env_def a d = sh0 $ fmap (fromMaybe d) $ S.get_env a
+{-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
 -- | add the filepath onto the PATH env variable
 -- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
@@ -503,11 +543,32 @@ mkdir = sh1 S.mkdir
 mkdir_p :: FilePath -> Sh ()
 mkdir_p = sh1 S.mkdir_p
 
+-- | Create a new directory tree. You can describe a bunch of directories as 
+-- a tree and this function will create all subdirectories. An example:
+--
+-- > exec = mkTree $
+-- >           "package" # [
+-- >                "src" # [
+-- >                    "Data" # leaves ["Tree", "List", "Set", "Map"] 
+-- >                ],
+-- >                "test" # leaves ["QuickCheck", "HUnit"],
+-- >                "dist/doc/html" # []
+-- >            ]
+-- >         where (#) = Node
+-- >               leaves = map (# []) 
+--
+mkdirTree :: Tree FilePath -> Sh ()
+mkdirTree = sh1 S.mkdirTree
+
 -- | (Strictly) read file into a Text.
 -- All other functions use Lazy Text.
 -- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> Sh Text
 readfile = sh1 S.readfile
+
+-- | wraps ByteSting readFile
+readBinary :: FilePath -> Sh ByteString
+readBinary = sh1 S.readBinary
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> Text -> Sh ()
@@ -583,6 +644,10 @@ exit = sh1 S.exit
 
 errorExit :: Text -> Sh ()
 errorExit = sh1 S.errorExit
+
+-- | for exiting with status > 0 without printing debug information
+quietExit :: Int -> Sh ()
+quietExit = sh1 S.quietExit
 
 -- | fail that takes a Text
 terror :: Text -> Sh a
