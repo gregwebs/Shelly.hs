@@ -59,8 +59,7 @@ test-suite test
                  , system-filepath < 0.5
                  , system-fileio < 0.4
                  , bytestring
-                 , hspec-discover
-                 , hspec >= 1.3
+                 , hspec >= 1.4
                  , HUnit
 
 -- demonstarated that command output in Shellish was not shown until after the command finished
