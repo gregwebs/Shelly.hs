@@ -109,7 +109,7 @@ Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 ### Thread-safe working directory
 
 `cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
-All of the Shelly API takes this into account, internally shelly converts all paths to absolute paths. You can get turn a relative path into an absolute with `absPath` or `canonic` or you can make a path relative to the Shelly working directory with `relPath`.
+All of the Shelly API takes this into account, internally shelly converts all paths to absolute paths. You can turn a relative path into an absolute with `absPath` or `canonic` or you can make a path relative to the Shelly working directory with `relPath`.
 
 
 ### Good error messages
