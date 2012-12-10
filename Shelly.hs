@@ -66,7 +66,7 @@ module Shelly
          , toTextIgnore, toTextWarn, fromText
 
          -- * Utilities.
-         , (<$>), (<$$>), whenM, unlessM, time
+         , (<$>), whenM, unlessM, time
 
          -- * Re-exported for your convenience
          , liftIO, when, unless, FilePath
@@ -906,9 +906,7 @@ cp from' to' = do
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
--- | A functor-lifting function composition.
-(<$$>) :: (Functor m) => (b -> c) -> (a -> m b) -> a -> m c
-f <$$> v = fmap f . v
+
 
 -- | Create a temporary directory and pass it as a parameter to a Sh
 -- computation. The directory is nuked afterwards.

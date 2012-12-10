@@ -84,7 +84,7 @@ module Shelly.Pipe
          , toTextIgnore, toTextWarn, fromText
 
          -- * Utilities.
-         , (<$>), (<$$>), whenM, unlessM, time
+         , (<$>), whenM, unlessM, time
 
          -- * Re-exported for your convenience
          , liftIO, when, unless, FilePath
@@ -110,7 +110,7 @@ import qualified Shelly as S
 
 import Shelly(
       (</>), (<.>), hasExt
-    , (<$$>), whenM, unlessM, toTextIgnore
+    , whenM, unlessM, toTextIgnore
     , fromText, catchany
     , FoldCallback)
 
