@@ -29,7 +29,9 @@ spec = do
       res2 @?= "drain.hs"
 
     it "abs path relative to existing dir" $ do
-      res  <- shelly $ relativeTo "test/" "/Users/gweber/proj/hs/Shelly.hs/test/drain.hs"
+      res  <- shelly $ do
+        d <- pwd
+        relativeTo "test/" $ d </> "test/drain.hs"
       res @?= "drain.hs"
 
   describe "relative listing" $ do
