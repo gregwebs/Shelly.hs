@@ -359,8 +359,8 @@ asString f = pack . f . unpack
 pack :: String -> FilePath
 pack = decodeString
 
--- | Currently a 'renameFile' wrapper. TODO: Support cross-filesystem
--- move. TODO: Support directory paths in the second parameter, like in 'cp'.
+-- | Currently a 'rename' wrapper.
+-- TODO: Support directory paths in the second parameter, like in 'cp'.
 mv :: FilePath -> FilePath -> Sh ()
 mv a b = do a' <- absPath a
             b' <- absPath b
