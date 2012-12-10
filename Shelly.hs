@@ -376,16 +376,16 @@ pwd :: Sh FilePath
 pwd = gets sDirectory `tag` "pwd"
 
 -- | exit 0 means no errors, all other codes are error conditions
-exit :: Int -> Sh ()
+exit :: Int -> Sh a
 exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
 
 -- | echo a message and exit with status 1
-errorExit :: Text -> Sh ()
+errorExit :: Text -> Sh a
 errorExit msg = echo msg >> exit 1
 
 -- | for exiting with status > 0 without printing debug information
-quietExit :: Int -> Sh ()
+quietExit :: Int -> Sh a
 quietExit 0 = exit 0
 quietExit n = throw $ QuietExit n
 
