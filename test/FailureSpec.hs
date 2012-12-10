@@ -5,14 +5,14 @@ module FailureSpec (main, spec) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit
-import Test.Hspec.Monadic
+import Test.Hspec
 
 import Shelly
 
 main :: IO ()
 main = hspec spec
 
-spec :: Specs
+spec :: Spec
 spec = do
   let discardException action = shelly $ catchany_sh action (\_ -> return ())
 

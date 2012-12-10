@@ -5,16 +5,16 @@ module ReadFileSpec (main, spec) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit hiding (path)
-import Test.Hspec.Monadic
+import Test.Hspec
 import Prelude hiding (catch, FilePath)
 import Shelly
 import qualified Data.ByteString as BS
 import qualified Data.Text.Lazy as LT
 
 main :: IO ()
-main = hspecX spec
+main = hspec spec
 
-spec :: Specs
+spec :: Spec
 spec = do
   describe "file with invalid encoding" $ do
     it "readBinary" $ do

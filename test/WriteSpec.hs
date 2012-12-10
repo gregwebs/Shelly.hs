@@ -5,7 +5,7 @@ module WriteSpec (main, spec) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit
-import Test.Hspec.Monadic
+import Test.Hspec
 
 import Prelude hiding (FilePath)
 import Shelly
@@ -14,7 +14,7 @@ import Data.Text.Lazy (Text)
 default (Text)
 
 main :: IO ()
-main = hspecX spec
+main = hspec spec
 
 creates_file :: FilePath -> (FilePath -> IO ()) -> IO ()
 creates_file f action = do
@@ -25,7 +25,7 @@ creates_file f action = do
   return ()
 
 
-spec :: Specs
+spec :: Spec
 spec = do
   describe "writefile" $ do
     it "creates and overwites a file" $ creates_file "foo" $ \f -> do

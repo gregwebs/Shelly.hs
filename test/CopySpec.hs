@@ -5,14 +5,14 @@ module CopySpec (main, spec) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit hiding (path)
-import Test.Hspec.Monadic
+import Test.Hspec
 import Prelude hiding (catch, FilePath)
 import Shelly
 import Control.Monad (forM_)
 import System.IO.Error
 
 main :: IO ()
-main = hspecX spec
+main = hspec spec
 
 with_dir :: FilePath -> Sh a -> Sh a
 with_dir d action =
@@ -22,7 +22,7 @@ within_dir :: FilePath -> Sh a -> Sh a
 within_dir d action =
   with_dir d $ chdir d action
 
-spec :: Specs
+spec :: Spec
 spec = do
   let b = "b" 
   let c = "c"

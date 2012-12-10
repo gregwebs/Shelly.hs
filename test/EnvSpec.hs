@@ -5,15 +5,15 @@ module EnvSpec (main, spec) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit hiding (path)
-import Test.Hspec.Monadic
+import Test.Hspec
 import Prelude hiding (catch, FilePath)
 import Shelly
 import Data.Maybe
 
 main :: IO ()
-main = hspecX spec
+main = hspec spec
 
-spec :: Specs
+spec :: Spec
 spec = do
   describe "getting unset env variables" $ do
     it "get_env" $ do
