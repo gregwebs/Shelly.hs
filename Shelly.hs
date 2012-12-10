@@ -773,24 +773,26 @@ foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\
 -- | bind some arguments to run for re-use. Example:
 --
 -- > monit = command "monit" ["-c", "monitrc"]
+-- > monit ["stop", "program"]
 command :: FilePath -> [Text] -> [Text] -> Sh Text
 command com args more_args = run com (args ++ more_args)
 
 -- | bind some arguments to 'run_' for re-use. Example:
 --
 -- > monit_ = command_ "monit" ["-c", "monitrc"]
+-- > monit_ ["stop", "program"]
 command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ com args more_args = run_ com (args ++ more_args)
 
--- | bind some arguments to run for re-use, and expect 1 argument. Example:
+-- | bind some arguments to run for re-use, and require 1 argument. Example:
 --
 -- > git = command1 "git" []; git "pull" ["origin", "master"]
 command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 com args one_arg more_args = run com ([one_arg] ++ args ++ more_args)
 
--- | bind some arguments to run for re-use, and expect 1 argument. Example:
+-- | bind some arguments to run for re-use, and require 1 argument. Example:
 --
--- > git_ = command1_ "git" []; git+ "pull" ["origin", "master"]
+-- > git_ = command1_ "git" []; git "pull" ["origin", "master"]
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 
