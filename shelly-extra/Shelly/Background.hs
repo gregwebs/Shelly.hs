@@ -46,7 +46,7 @@ getBgResult (BgResult mvar) = liftIO $ takeMVar mvar
 -- | Run the `ShIO` task asynchronously in the background, returns
 -- the `BgResult a`, a promise immediately. Run "getBgResult" to wait for the result.
 -- The background task will inherit the current ShIO context
--- The 'BjJobManager' ensures the max jobs limit must be sufficient for the parent and all children.
+-- The 'BgJobManager' ensures the max jobs limit must be sufficient for the parent and all children.
 background :: BgJobManager -> ShIO a -> ShIO (BgResult a)
 background (BgJobManager manager) proc = do
   state <- get
