@@ -14,7 +14,9 @@ Haskell lets us use the `do` notation for any monad, so shelly gets a DSL syntax
 
 Lets talk about the last point first. For scripting, we are focused on executing OS commands. But mostly we want to be able to execute external commands. So we can define a `run` command that takes a command and a list of arguments, executes them in `IO`, and returns the stdout.
 
+~~~~~~~~ {.hs}
     runIt :: FilePath -> [Text] -> IO Text
+~~~~~~~~
 
 This works well for the most common case. But what if we want to print the command to stdout when it executes, continue or exit the program if the command fails, or if we want stderr combined with stdout. Instead of defining new functions for the different possible parameters and return values, we can embed these options in the `Sh` monad.
 
