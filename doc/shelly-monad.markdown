@@ -119,15 +119,17 @@ With this new defintiion of `run`, we have a single interface.
 Under the hood we have `State` that we are carefully mutating, but we will expose a nice interface to the user so they never directly modify `State`. Most modifications are made for the duration of a function. We can write `verbosely ...`, where only commands executing in `verbosely` have the verbose configuration
 
 ~~~~~~~~ {.hs}
-verbosely :: ShIO a -> ShIO a
-verbosely action = do
-  stateVar <- ask
-  sub $ do
-    put stateVar { printStdout = True, printCommands = True }
-    action
+verbosely :: Sh a -> Sh a
+verbosely a = sub $ modify (λx → x { sPrintStdout = True, sPrintCommands = True }) » a
+
+modify :: (State -> State) -> Sh ()
+modify f = do
+  state ← ask
+    liftIO (modifyIORef state f)
 ~~~~~~~~
 
-`verbosely` uses the `sub` function. This function restores the original state when it is completed.
+`verbosely` uses the `sub` function, and modify, which is similar to `put`.
+This function restores the original state when it is completed.
 
 ~~~~~~~~ {.hs}
 sub :: ShIO a -> ShIO a
