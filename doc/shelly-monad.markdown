@@ -171,4 +171,6 @@ shelly = do
 
 Petr Rockai originally wrote the Shellish library with basically the same monad.
 Shelly is a fork with lots of changes and improvements, but the Monad operates exactly the same.
-I hope this shows you how easy it is to create a custom environment/DSL with a Monad.
+
+I don't know much about designing a monad. I should probably take the time to make some improvements to it, such as using a real State monad.
+I hope this shows you how easy it is to create a custom environment/DSL with a Monad and that it doesn't need to be perfect.
