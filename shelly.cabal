@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.15.0
+Version:     0.15.1
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -40,7 +40,7 @@ Library
                , time, directory, text, mtl
                , process >= 1.0
                , unix-compat < 0.5
-               , system-filepath < 0.5
+               , system-filepath >= 0.4.7 && < 0.5
                , system-fileio < 0.4
                , bytestring
                , containers
@@ -56,7 +56,7 @@ test-suite test
     Build-depends: base >= 4 && < 5, containers
                  , time, directory, text, mtl, process
                  , unix-compat < 0.5
-                 , system-filepath < 0.5
+                 , system-filepath >= 0.4.7 && < 0.5
                  , system-fileio < 0.4
                  , bytestring
                  , hspec >= 1.4
