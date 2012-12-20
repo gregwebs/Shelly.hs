@@ -70,6 +70,12 @@ There are 2 main entry points for running arbitrary commands: `run` and `cmd`.
 They take a FilePath as their first argument. `run` takes a [Text] as its second argument.
 `cmd` takes a variadic number of arguments, and they can be either Text or FilePath.
 
+Fun Example: shows an infectious script: it uploads itself to a server and runs itself over ssh.
+I actually do this for a deployment.
+Of course, the development machine may need to be exactly the same OS as the server.
+
+I recommend using the boilerplate at the top of this example in your projects.
+
 ~~~~~ {.haskell}
     {-# LANGUAGE OverloadedStrings #-}
     {-# LANGUAGE ExtendedDefaultRules #-}
@@ -78,17 +84,27 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
     import Data.Text.Lazy as LT
     default (LT.Text)
 
-    monit_ = command_ "monit" ["-c", ".monitrc"]
-
     main = shelly $ verbosely $ do
-      listing <- cmd "ls" "-a" "foo"
+      host <- run "uname" ["-n"]
+      if LT.stripEnd host === "local-machine"
+        then do d <- cmd "date"
+                c <- escaping False $ cmd "git" "log -1 | head -1 | awk '{print $2}'"
+                appendfile "log/deploy.log" $ LT.intercalate " - " [LT.stripEnd d, c]
+                uploads ["deploy"]
+                shPairs_ "my-server" [("./deploy", [])]
+      else do
+              cmd "./script/angel"
 
-      monit_ ["reload"]
-      echo "monit reloaded"
+    -- same path on remote host
+    -- will create directories
+    uploads :: [Text] -> ShIO ()
+    uploads locals login = rsync $ ["--relative"] ++ locals ++ [login]
+
+    rsync   = command_ "rsync" ["--delete", "-avz", "--no-g"]
 ~~~~~
 
 Yes, you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
-I find `cmd` to be more convenient, but I use `run` when I am building up abstractions.
+I find `cmd` to be more convenient, but I often use `run` and `command` variants when I am building up abstractions.
 
 ### Escaping
 
