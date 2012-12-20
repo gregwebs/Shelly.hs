@@ -360,13 +360,22 @@ asString f = pack . f . unpack
 pack :: String -> FilePath
 pack = decodeString
 
--- | Currently a 'rename' wrapper.
--- TODO: Support directory paths in the second parameter, like in 'cp'.
+-- | Move a file. The second path could be a directory, in which case the
+-- original file is moved into that directory.
+-- wraps system-fileio 'FileSystem.rename', which may not work across FS boundaries
 mv :: FilePath -> FilePath -> Sh ()
-mv a b = do a' <- absPath a
-            b' <- absPath b
-            trace $ "mv " `mappend` toTextIgnore a' `mappend` " " `mappend` toTextIgnore b'
-            liftIO $ rename a' b'
+mv from' to' = do
+  from <- absPath from'
+  to <- absPath to'
+  trace $ "mv " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
+  to_dir <- test_d to
+  let to_loc = if not to_dir then to else to FP.</> filename from
+  liftIO $ rename from to_loc
+    `catchany` (\e -> throwIO $
+	  ReThrownException e (extraMsg to_loc from)
+	)
+  where
+    extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
 -- | Get back [Text] instead of [FilePath]
 lsT :: FilePath -> Sh [Text]
@@ -378,7 +387,7 @@ pwd = gets sDirectory `tag` "pwd"
 
 -- | exit 0 means no errors, all other codes are error conditions
 exit :: Int -> Sh a
-exit 0 = liftIO (exitWith ExitSuccess) `tag` "exit 0"
+exit 0 = liftIO exitSuccess `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
 
 -- | echo a message and exit with status 1
@@ -874,6 +883,7 @@ one -|- two = do
   two
 
 -- | Copy a file, or a directory recursively.
+-- uses 'cp'
 cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
     from <- absPath from'
