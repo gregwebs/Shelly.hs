@@ -144,6 +144,7 @@ cmd fp args = run fp $ toTextArgs args
 class ShellArg a where toTextArg :: a -> Text
 instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
+instance ShellArg String   where toTextArg = LT.pack
 
 
 -- Voodoo to create the variadic function 'cmd'
@@ -151,22 +152,22 @@ class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
 
 instance ShellCommand (Sh Text) where
-    cmdAll fp args = run fp args
+    cmdAll = run
 
 instance (s ~ Text, Show s) => ShellCommand (Sh s) where
-    cmdAll fp args = run fp args
+    cmdAll = run
 
 -- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
 instance ShellCommand (Sh ()) where
-    cmdAll fp args = run_ fp args
+    cmdAll = run_
 
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
-    cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
+    cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
 
 
 -- | variadic argument version of run.
 -- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
--- So an argument can be a Text or a FilePath.
+-- So an argument can be a Text or a FilePath without manual conversions.
 -- a FilePath is converted to Text with 'toTextIgnore'.
 -- You will need to add the following to your module:
 --
