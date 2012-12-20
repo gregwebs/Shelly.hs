@@ -1,7 +1,8 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
--- | prevent circular dependencies
--- needed by multiple exposed modules
+-- | I started exposing multiple module (starting with one for finding)
+-- Base prevented circular dependencies
+-- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
     ShIO, Sh, unSh, runSh, State(..), FilePath, Text,

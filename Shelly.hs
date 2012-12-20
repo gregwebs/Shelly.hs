@@ -866,7 +866,7 @@ setStdin input = modify $ \st -> st { sStdin = Just input }
 
 -- | Pipe operator. set the stdout the first command as the stdin of the second.
 -- This does not create a shell-level pipe, but hopefully it will in the future.
--- To create a shell level pipe you can always set @escaping False@ and use a pipe @|@ character in a command.
+-- To create a shell level pipe you can set @escaping False@ and use a pipe @|@ character in a command.
 (-|-) :: Sh Text -> Sh b -> Sh b
 one -|- two = do
   res <- print_stdout False one
