@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.15.2
+Version:     0.15.3
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -43,7 +43,6 @@ Library
                , system-filepath >= 0.4.7 && < 0.5
                , system-fileio < 0.4
                , bytestring
-               , containers
 
   ghc-options: -Wall
 
@@ -61,6 +60,18 @@ test-suite test
                  , bytestring
                  , hspec >= 1.4
                  , HUnit
+
+-- test out kiling while sleeping
+test-suite sleep
+  type:           exitcode-stdio-1.0
+  main-is: test/sleep.hs
+  Build-depends: base >= 4 && < 5, containers
+               , time, directory, text, mtl
+               , process >= 1.0
+               , unix-compat < 0.5
+               , system-filepath >= 0.4.7 && < 0.5
+               , system-fileio < 0.4
+               , bytestring
 
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore

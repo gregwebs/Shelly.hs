@@ -65,14 +65,15 @@ module Shelly
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, fromText
 
-         -- * Utilities.
-         , (<$>), whenM, unlessM, time
+         -- * Utility Functions
+         , whenM, unlessM, time, sleep 
 
          -- * Re-exported for your convenience
-         , liftIO, when, unless, FilePath
+         , liftIO, when, unless, FilePath, (<$>)
 
          -- * internal functions for writing extensions
          , get, put
+
          -- * find functions
          , find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
          ) where
@@ -974,3 +975,7 @@ time what = sub $ do
   res <- what
   t' <- liftIO getCurrentTime
   return (realToFrac $ diffUTCTime t' t, res)
+
+-- | threadDelay wrapper that uses seconds
+sleep :: Int -> Sh ()
+sleep = liftIO . threadDelay . (1000 * 1000 *)
