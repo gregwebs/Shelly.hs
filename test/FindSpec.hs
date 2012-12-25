@@ -37,11 +37,11 @@ spec = do
   describe "relative listing" $ do
     it "lists relative files" $ do
       res <- shelly $ cd "test" >> ls "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs"]
+      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs", "./sleep.hs"]
 
     it "finds relative files" $ do
       res <- shelly $ cd "test" >> find "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs", "./data/zshrc"]
+      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs", "./sleep.hs", "./data/zshrc"]
 
   describe "find" $ do
     it "empty list for empty dir" $ do
@@ -55,8 +55,8 @@ spec = do
 
     it "lists relative files" $ do
       res <- shelly $ find "test"
-      sort res @?= ["test/CopySpec.hs", "test/EnvSpec.hs", "test/FailureSpec.hs", "test/FindSpec.hs", "test/Help.hs", "test/MoveSpec.hs", "test/ReadFileSpec.hs", "test/WriteSpec.hs", "test/data", "test/drain.hs", "test/drain.sh", "test/main.hs", "test/data/zshrc"]
+      sort res @?= ["test/CopySpec.hs", "test/EnvSpec.hs", "test/FailureSpec.hs", "test/FindSpec.hs", "test/Help.hs", "test/MoveSpec.hs", "test/ReadFileSpec.hs", "test/WriteSpec.hs", "test/data", "test/drain.hs", "test/drain.sh", "test/main.hs", "test/sleep.hs", "test/data/zshrc"]
 
     it "lists absolute files" $ do
       res <- shelly $ relPath "test" >>= find >>= mapM (relativeTo "test")
-      sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs", "Help.hs", "MoveSpec.hs", "ReadFileSpec.hs", "WriteSpec.hs", "data", "drain.hs", "drain.sh", "main.hs", "data/zshrc"]
+      sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs", "Help.hs", "MoveSpec.hs", "ReadFileSpec.hs", "WriteSpec.hs", "data", "drain.hs", "drain.sh", "main.hs", "sleep.hs", "data/zshrc"]

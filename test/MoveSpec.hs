@@ -8,7 +8,6 @@ import Test.HUnit hiding (path)
 import Test.Hspec
 import Prelude hiding (catch, FilePath)
 import Shelly
-import System.IO.Error
 import Help
 
 main :: IO ()

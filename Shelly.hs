@@ -99,7 +99,7 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.Lazy.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, ProcessHandle )
+import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text.Lazy as LT
@@ -252,23 +252,18 @@ put newState = do
   liftIO (writeIORef stateVar newState)
 
 -- FIXME: find the full path to the exe from PATH
-runCommand :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
-runCommand exe args = do
-  st <- get
-  shellyProcess st $
+runCommand :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
+runCommand st exe args = shellyProcess st $
     RawCommand (unpack exe) (map LT.unpack args)
 
-runCommandNoEscape :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
-runCommandNoEscape exe args = do
-  st <- get
-  shellyProcess st $
+runCommandNoEscape :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape st exe args = shellyProcess st $
     ShellCommand $ LT.unpack $ LT.intercalate " " (toTextIgnore exe : args)
 
 
-shellyProcess :: State -> CmdSpec -> Sh (Handle, Handle, Handle, ProcessHandle)
+shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess st cmdSpec =  do
-  (Just hin, Just hout, Just herr, pHandle) <- liftIO $
-    createProcess $ CreateProcess {
+  (Just hin, Just hout, Just herr, pHandle) <- createProcess CreateProcess {
         cmdspec = cmdSpec
       , cwd = Just $ unpack $ sDirectory st
       , env = Just $ sEnvironment st
@@ -829,37 +824,46 @@ runFoldLines start cb exe args = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
-    (inH,outH,errH,procH) <- sRun state exe args
+    (ex, errs, outV) <- liftIO $ bracketOnWindowsError (sRun state state exe args)
+      (\(_,_,_,procH) -> (terminateProcess procH))
+      (\(inH,outH,errH,procH) -> do
+        case mStdin of
+          Just input ->
+            TIO.hPutStr inH input >> hClose inH
+            -- stdin is cleared from state below
+          Nothing -> return ()
 
-    case mStdin of
-      Just input ->
-        liftIO $ TIO.hPutStr inH input >> hClose inH
-        -- stdin is cleared from state below
-      Nothing -> return ()
+        errV <- newEmptyMVar
+        outV' <- newEmptyMVar
 
-    errV <- liftIO newEmptyMVar
-    outV <- liftIO newEmptyMVar
+        _ <- forkIO $ printGetContent errH stderr >>= putMVar errV
+        -- liftIO_ $ forkIO $ getContent errH >>= putMVar errV
+        _ <- if sPrintStdout state
+          then
+            forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV'
+          else
+            forkIO $ foldHandleLines start cb outH >>= putMVar outV'
 
-    liftIO_ $ forkIO $ printGetContent errH stderr >>= putMVar errV
-    -- liftIO_ $ forkIO $ getContent errH >>= putMVar errV
-    if sPrintStdout state
-      then
-        liftIO_ $ forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV
-      else
-        liftIO_ $ forkIO $ foldHandleLines start cb outH >>= putMVar outV
-
-    errs <- liftIO $ takeMVar errV
-    ex <- liftIO $ waitForProcess procH
+        errs' <- takeMVar errV
+        ex' <- waitForProcess procH
+        return (ex', errs', outV')
+      )
 
     let code = case ex of
                  ExitSuccess -> 0
                  ExitFailure n -> n
-
     modify $ \state' -> state' { sStderr = errs , sCode = code }
-
     liftIO $ case (sErrExit state, ex) of
       (True,  ExitFailure n) -> throwIO $ RunFailed exe args n errs
       _                      -> takeMVar outV
+
+  where -- Windows does not terminate spawned processes, so we must bracket.
+#if !defined(mingw32_HOST_OS)
+    bracketOnWindowsError = bracketOnError
+#else
+    bracketOnWindowsError acquire _ main = acquire >> main
+#endif
+
 
 -- | The output of last external command. See 'run'.
 lastStderr :: Sh Text

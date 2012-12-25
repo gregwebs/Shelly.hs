@@ -54,18 +54,19 @@ newtype Sh a = Sh {
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
 
-data State = State   { sCode :: Int
-                     , sStdin :: Maybe Text -- ^ stdin for the command to be run
-                     , sStderr :: Text
-                     , sDirectory :: FilePath
-                     , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
-                     , sPrintCommands :: Bool -- ^ print command that is executed
-                     , sRun :: FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
-                     , sEnvironment :: [(String, String)]
-                     , sTracing :: Bool
-                     , sTrace :: B.Builder
-                     , sErrExit :: Bool
-                     }
+data State = State 
+   { sCode :: Int -- ^ exit code for command that ran
+   , sStdin :: Maybe Text -- ^ stdin for the command to be run
+   , sStderr :: Text -- ^ stderr for command that ran
+   , sDirectory :: FilePath -- ^ working directory
+   , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+   , sPrintCommands :: Bool -- ^ print command that is executed
+   , sRun :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
+   , sEnvironment :: [(String, String)]
+   , sTracing :: Bool -- ^ should we trace command execution
+   , sTrace :: B.Builder -- ^ the trace of command execution
+   , sErrExit :: Bool -- ^ should we exit immediately on any error
+   }
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
