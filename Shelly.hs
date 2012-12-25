@@ -824,7 +824,8 @@ runFoldLines start cb exe args = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
-    (ex, errs, outV) <- liftIO $ bracketOnWindowsError (sRun state state exe args)
+    (ex, errs, outV) <- liftIO $ bracketOnWindowsError
+      (sRun state state exe args)
       (\(_,_,_,procH) -> (terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         case mStdin of
@@ -858,10 +859,10 @@ runFoldLines start cb exe args = do
       _                      -> takeMVar outV
 
   where -- Windows does not terminate spawned processes, so we must bracket.
-#if !defined(mingw32_HOST_OS)
+#if defined(mingw32_HOST_OS)
     bracketOnWindowsError = bracketOnError
 #else
-    bracketOnWindowsError acquire _ main = acquire >> main
+    bracketOnWindowsError acquire _ main = acquire >>= main
 #endif
 
 
