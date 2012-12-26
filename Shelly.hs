@@ -28,10 +28,11 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
-         , FoldCallback
-         , run, run_, runFoldLines, cmd, (-|-), lastStderr, setStdin, lastExitCode
+         , run, run_, runFoldLines, cmd, FoldCallback
+         , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
+         , ShellArg (..)
 
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, getenv, get_env_def, appendToPath
@@ -141,14 +142,15 @@ cmd :: (ShellArgs args) => FilePath -> args -> Sh Text
 cmd fp args = run fp $ toTextArgs args
 -}
 
--- | Converter for the variadic argument version of 'run' called 'cmd'.
+-- | Argument converter for the variadic argument version of 'run' called 'cmd'.
+-- Useful for a type signature of a function that uses 'cmd'
 class ShellArg a where toTextArg :: a -> Text
 instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
 instance ShellArg String   where toTextArg = LT.pack
 
 
--- Voodoo to create the variadic function 'cmd'
+-- | used to create the variadic function 'cmd'
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
 
@@ -166,10 +168,10 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
     cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
 
 
--- | variadic argument version of run.
+-- | variadic argument version of 'run'.
 -- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
 -- So an argument can be a Text or a FilePath without manual conversions.
--- a FilePath is converted to Text with 'toTextIgnore'.
+-- a FilePath is automatically converted to Text with 'toTextIgnore'.
 -- You will need to add the following to your module:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
