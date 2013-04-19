@@ -448,6 +448,7 @@ mkdirTree = mk . unrollPath
 which :: FilePath -> Sh (Maybe FilePath)
 which fp = do
   (trace . mappend "which " . toTextIgnore) fp
+  -- should look at Plush's PATH finding code
   (liftIO . findExecutable . unpack >=> return . fmap pack) fp
 
 -- | A monadic-conditional version of the 'unless' guard.

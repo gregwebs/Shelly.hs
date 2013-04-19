@@ -58,7 +58,7 @@ If you want something more revolutionary you might try these:
 * PowerShell is proably the best known.
 * [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
 * [untyped JSON](https://github.com/benbernard/RecordStream)
-* [TermKit](https://github.com/unconed/TermKit/) which uses mime types and has a nice GUI
+* [Plush](https://github.com/mzero/plush) shell with nice GUI. Written in Haskell. Actively developed, unlike [TermKit](https://github.com/unconed/TermKit/)
 
 
 ## Usage
