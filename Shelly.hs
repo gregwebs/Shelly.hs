@@ -4,7 +4,7 @@
              GADTs
              #-}
 
--- | A module for shell-like / perl-like programming in Haskell.
+-- | A module for shell-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
 -- However, it also tries to use modern libraries and techniques to keep things efficient.
 --
@@ -13,14 +13,14 @@
 -- thread-safe: each Sh maintains its own environment and its own working
 -- directory.
 --
--- I highly recommend putting the following at the top of your program,
+-- Recommended usage includes putting the following at the top of your program,
 -- otherwise you will likely need either type annotations or type conversions
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import Data.Text.Lazy as LT
+-- > import qualified Data.Text.Lazy as LT
 -- > default (LT.Text)
 module Shelly
        (
@@ -172,13 +172,13 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 -- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
 -- So an argument can be a Text or a FilePath without manual conversions.
 -- a FilePath is automatically converted to Text with 'toTextIgnore'.
--- You will need to add the following to your module:
+-- Convenient usage of 'cmd' requires the following:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import Data.Text.Lazy as LT
+-- > import qualified Data.Text.Lazy as LT
 -- > default (LT.Text)
 --
 cmd :: (ShellCommand result) => FilePath -> result
