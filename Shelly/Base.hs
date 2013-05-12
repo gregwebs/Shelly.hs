@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    ShIO, Sh, unSh, runSh, State(..), FilePath, Text,
+    Sh, unSh, runSh, State(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -21,7 +21,7 @@ module Shelly.Base
     , addTrailingSlash
   ) where
 
-#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 760
 import Prelude hiding (FilePath, catch)
 #else
 import Prelude hiding (FilePath)
@@ -46,11 +46,6 @@ import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
-
--- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
-type ShIO a = Sh a
-{- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
- - # DEPRECATED ShIO, "Use Sh instead of ShIO" # -}
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
