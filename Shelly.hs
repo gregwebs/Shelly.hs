@@ -1,5 +1,4 @@
 {-# LANGUAGE CPP #-}
-{-# LANGUAGE BangPatterns #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, IncoherentInstances, GADTs #-}
@@ -775,7 +774,7 @@ run :: FilePath -> [Text] -> Sh Text
 run = runFoldLines T.empty foldText
 
 foldText :: (Text, Text) -> Text
-foldText !(t, line) = t <> line <> T.singleton '\n'
+foldText (t, line) = t <> line <> T.singleton '\n'
 
 
 -- | bind some arguments to run for re-use. Example:
