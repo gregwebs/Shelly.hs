@@ -24,7 +24,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, FoldCallback
@@ -83,7 +83,7 @@ import Shelly.Find
 import Control.Monad ( when, unless, void )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
-#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding ( readFile, FilePath, catch)
 #else
 import Prelude hiding ( readFile, FilePath)
