@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.15.4.1
+Version:     0.15.4.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -36,15 +36,29 @@ Library
   Exposed-modules: Shelly, Shelly.Pipe
   other-modules:   Shelly.Base, Shelly.Find
 
-  Build-depends: base >= 4 && < 5, containers
-               , time, directory, text, mtl >= 2
-               , process >= 1.0
-               , unix-compat < 0.5
-               , system-filepath >= 0.4.7 && < 0.5
-               , system-fileio < 0.4
-               , bytestring
+  Build-depends:
+    containers,
+    time,
+    directory,
+    text,
+    mtl >= 2,
+    process >= 1.0,
+    unix-compat < 0.5,
+    system-filepath >= 0.4.7 && < 0.5,
+    system-fileio < 0.4,
+    bytestring
+
+  if impl(ghc >= 7.6.1)
+    build-depends:
+        base >= 4.6 && < 5
+  else
+    build-depends:
+      base >= 4 && < 5
 
   ghc-options: -Wall
+
+  if impl(ghc >= 7.6.1)
+      CPP-Options: -DNO_PRELUDE_CATCH
 
 test-suite test
     type:           exitcode-stdio-1.0

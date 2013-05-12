@@ -20,8 +20,8 @@ module Shelly.Base
     , addTrailingSlash
   ) where
 
-import Prelude hiding ( FilePath, catch )
-import Data.Text.Lazy (Text)
+import Prelude hiding (FilePath)
+import Data.Text (Text)
 import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
@@ -34,9 +34,8 @@ import qualified Filesystem.Path.CurrentOS as FP
 import qualified Filesystem as FS
 import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
-import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.Builder as B
-import qualified Data.Text.Lazy.IO as TIO
+import qualified Data.Text as T
+import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
@@ -64,7 +63,7 @@ data State = State
    , sRun :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]
    , sTracing :: Bool -- ^ should we trace command execution
-   , sTrace :: B.Builder -- ^ the trace of command execution
+   , sTrace :: Text -- ^ the trace of command execution
    , sErrExit :: Bool -- ^ should we exit immediately on any error
    }
 
@@ -189,7 +188,7 @@ modify f = do
 trace :: Text -> Sh ()
 trace msg =
   whenM (gets sTracing) $ modify $
-    \st -> st { sTrace = sTrace st `mappend` B.fromLazyText msg `mappend` "\n" }
+    \st -> st { sTrace = sTrace st `mappend` msg `mappend` "\n" }
 
 -- | List directory contents. Does *not* include \".\" and \"..\", but it does
 -- include (other) hidden files.
@@ -211,20 +210,20 @@ lsRelAbs f = absPath f >>= \fp -> do
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextIgnore :: FilePath -> Text
-toTextIgnore fp = LT.fromStrict $ case FP.toText fp of
-                                    Left  f -> f
-                                    Right f -> f
+toTextIgnore fp = case FP.toText fp of
+                    Left  f -> f
+                    Right f -> f
 
 -- | a print lifted into 'Sh'
 inspect :: (Show s) => s -> Sh ()
 inspect x = do
-  (trace . LT.pack . show) x
+  (trace . T.pack . show) x
   liftIO $ print x
 
 -- | a print lifted into 'Sh' using stderr
 inspect_err :: (Show s) => s -> Sh ()
 inspect_err x = do
-  let shown = LT.pack $ show x
+  let shown = T.pack $ show x
   trace shown
   echo_err shown
 

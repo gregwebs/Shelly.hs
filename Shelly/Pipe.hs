@@ -1,8 +1,5 @@
-{-# LANGUAGE 
-        FlexibleInstances, 
-        TypeSynonymInstances, 
-        TypeFamilies,
-        ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, 
+             TypeFamilies, ExistentialQuantification #-}
 -- | This module is a wrapper for the module "Shelly". 
 -- The only difference is a main type "Sh". In this module 
 -- "Sh" contains a list of results. Actual definition of the type "Sh" is:
@@ -120,9 +117,9 @@ import Data.ByteString (ByteString)
 
 import Data.Tree(Tree)
 
-import Data.Text.Lazy as LT hiding (concat, all, find, cons)
+import Data.Text as T hiding (concat, all, find, cons)
 
-default (LT.Text)
+default (T.Text)
 
 
 -- | This type is a simple wrapper for a type "Shelly.Sh".

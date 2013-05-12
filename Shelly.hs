@@ -1,8 +1,7 @@
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances, TypeFamilies, IncoherentInstances,
-             GADTs
-             #-}
+             MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances,
+             TypeFamilies, IncoherentInstances, GADTs #-}
 
 -- | A module for shell-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -81,11 +80,11 @@ module Shelly
 
 import Shelly.Base
 import Shelly.Find
-import Control.Monad ( when, unless )
+import Control.Monad ( when, unless, void )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
-import Prelude hiding ( catch, readFile, FilePath )
-import Data.Char( isAlphaNum, isSpace )
+import Prelude hiding ( readFile, FilePath )
+import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
@@ -97,18 +96,16 @@ import Control.Exception hiding (handle)
 import Control.Concurrent
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
-import qualified Data.Text.Lazy.IO as TIO
+import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
 import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
-import qualified Data.Text.Lazy as LT
-import qualified Data.Text.Lazy.Builder as B
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
-import Data.Monoid (mappend)
+import Data.Monoid ( mappend, (<>) )
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
@@ -147,7 +144,7 @@ cmd fp args = run fp $ toTextArgs args
 class ShellArg a where toTextArg :: a -> Text
 instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
-instance ShellArg String   where toTextArg = LT.pack
+instance ShellArg String   where toTextArg = T.pack
 
 
 -- | used to create the variadic function 'cmd'
@@ -189,8 +186,7 @@ class ToFilePath a where
   toFilePath :: a -> FilePath
 
 instance ToFilePath FilePath where toFilePath = id
-instance ToFilePath Text     where toFilePath = fromText
-instance ToFilePath T.Text   where toFilePath = FP.fromText
+instance ToFilePath Text     where toFilePath = FP.fromText
 instance ToFilePath String   where toFilePath = FP.fromText . T.pack
 
 
@@ -200,24 +196,22 @@ x </> y = toFilePath x FP.</> toFilePath y
 
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
 (<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
-x <.> y = toFilePath x FP.<.> LT.toStrict y
+x <.> y = toFilePath x FP.<.> y
 
 
 
 toTextWarn :: FilePath -> Sh Text
-toTextWarn efile = fmap lazy $ case toText efile of
+toTextWarn efile = case toText efile of
     Left f -> encodeError f >> return f
     Right f -> return f
   where
-    encodeError f = echo ("Invalid encoding for file: " `mappend` lazy f)
-    lazy = LT.fromStrict
+    encodeError f = echo ("Invalid encoding for file: " <> f)
 
 fromText :: Text -> FilePath
-fromText = FP.fromText . LT.toStrict
+fromText = FP.fromText
 
 printGetContent :: Handle -> Handle -> IO Text
-printGetContent rH wH =
-    fmap B.toLazyText $ printFoldHandleLines (B.fromText "") foldBuilder rH wH
+printGetContent = printFoldHandleLines T.empty foldText
 
 {-
 getContent :: Handle -> IO Text
@@ -256,11 +250,11 @@ put newState = do
 -- FIXME: find the full path to the exe from PATH
 runCommand :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
 runCommand st exe args = shellyProcess st $
-    RawCommand (unpack exe) (map LT.unpack args)
+    RawCommand (unpack exe) (map T.unpack args)
 
 runCommandNoEscape :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
 runCommandNoEscape st exe args = shellyProcess st $
-    ShellCommand $ LT.unpack $ LT.intercalate " " (toTextIgnore exe : args)
+    ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
 
 
 shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
@@ -327,8 +321,8 @@ cd :: FilePath -> Sh ()
 cd = canonic >=> cd'
   where
     cd' dir = do
-        trace $ "cd " `mappend` tdir
-        unlessM (test_d dir) $ errorExit $ "not a directory: " `mappend` tdir
+        trace $ "cd " <> tdir
+        unlessM (test_d dir) $ errorExit $ "not a directory: " <> tdir
         modify $ \st -> st { sDirectory = dir }
       where
         tdir = toTextIgnore dir
@@ -365,7 +359,7 @@ mv :: FilePath -> FilePath -> Sh ()
 mv from' to' = do
   from <- absPath from'
   to <- absPath to'
-  trace $ "mv " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
+  trace $ "mv " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
   let to_loc = if not to_dir then to else to FP.</> filename from
   liftIO $ rename from to_loc
@@ -386,7 +380,7 @@ pwd = gets sDirectory `tag` "pwd"
 -- | exit 0 means no errors, all other codes are error conditions
 exit :: Int -> Sh a
 exit 0 = liftIO exitSuccess `tag` "exit 0"
-exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " `mappend` LT.pack (show n))
+exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " <> T.pack (show n))
 
 -- | echo a message and exit with status 1
 errorExit :: Text -> Sh a
@@ -399,19 +393,19 @@ quietExit n = throw $ QuietExit n
 
 -- | fail that takes a Text
 terror :: Text -> Sh a
-terror = fail . LT.unpack
+terror = fail . T.unpack
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> Sh ()
 mkdir = absPath >=> \fp -> do
-  trace $ "mkdir " `mappend` toTextIgnore fp
+  trace $ "mkdir " <> toTextIgnore fp
   liftIO $ createDirectory False fp
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> Sh ()
 mkdir_p = absPath >=> \fp -> do
-  trace $ "mkdir -p " `mappend` toTextIgnore fp
+  trace $ "mkdir -p " <> toTextIgnore fp
   liftIO $ createTree fp
 
 -- | Create a new directory tree. You can describe a bunch of directories as 
@@ -472,7 +466,7 @@ test_f = absPath >=> liftIO . isFile
 -- Uses 'removeTree'
 rm_rf :: FilePath -> Sh ()
 rm_rf = absPath >=> \f -> do
-  trace $ "rm -rf " `mappend` toTextIgnore f
+  trace $ "rm -rf " <> toTextIgnore f
   isDir <- (test_d f)
   if not isDir then whenM (test_f f) $ rm_f f
     else
@@ -490,14 +484,14 @@ rm_rf = absPath >=> \f -> do
 -- Does fail if the file is not a file.
 rm_f :: FilePath -> Sh ()
 rm_f = absPath >=> \f -> do
-  trace $ "rm -f " `mappend` toTextIgnore f
+  trace $ "rm -f " <> toTextIgnore f
   whenM (test_e f) $ canonic f >>= liftIO . removeFile
 
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> Sh ()
 rm = absPath >=> \f -> do
-  trace $ "rm" `mappend` toTextIgnore f
+  trace $ "rm" <> toTextIgnore f
   -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
@@ -505,7 +499,7 @@ rm = absPath >=> \f -> do
 -- internally, and is passed to any external commands to be executed.
 setenv :: Text -> Text -> Sh ()
 setenv k v =
-  let (kStr, vStr) = (LT.unpack k, LT.unpack v)
+  let (kStr, vStr) = (T.unpack k, T.unpack v)
       wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
    in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
 
@@ -516,7 +510,7 @@ appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
-  setenv path_env $ pe `mappend` ":" `mappend` tp
+  setenv path_env $ pe <> ":" <> tp
   where
     path_env = "PATH"
 
@@ -524,10 +518,10 @@ appendToPath = absPath >=> \filepath -> do
 -- if non-existant or empty text, will be Nothing
 get_env :: Text -> Sh (Maybe Text)
 get_env k = do
-  mval <- return . fmap LT.pack . lookup (LT.unpack k) =<< gets sEnvironment
+  mval <- return . fmap T.pack . lookup (T.unpack k) =<< gets sEnvironment
   return $ case mval of
     Nothing -> Nothing
-    j@(Just val) -> if LT.null val then Nothing else j
+    j@(Just val) -> if T.null val then Nothing else j
 
 -- | deprecated
 getenv :: Text -> Sh Text
@@ -575,14 +569,14 @@ print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = should
 sub :: Sh a -> Sh a
 sub a = do
   oldState <- get
-  modify $ \st -> st { sTrace = B.fromText "" }
+  modify $ \st -> st { sTrace = T.empty }
   a `finally_sh` restoreState oldState
   where
     restoreState oldState = do
       newState <- get
       put oldState {
          -- avoid losing the log
-         sTrace  = sTrace oldState `mappend` sTrace newState 
+         sTrace  = sTrace oldState <> sTrace newState 
          -- latest command execution: not make sense to restore these to old settings
        , sCode   = sCode newState
        , sStderr = sStderr newState
@@ -644,13 +638,13 @@ shelly' opts action = do
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
                    , sStdin = Nothing
-                   , sStderr = LT.empty
+                   , sStderr = T.empty
                    , sPrintStdout = True
                    , sPrintCommands = False
                    , sRun = runCommand
                    , sEnvironment = environment
                    , sTracing = True
-                   , sTrace = B.fromText ""
+                   , sTrace = T.empty
                    , sDirectory = dir
                    , sErrExit = True
                    }
@@ -675,17 +669,17 @@ shelly' opts action = do
           d <- pwd
           sf <- shellyFile
           let logFile = d</>shelly_dir</>sf
-          (writefile logFile trc >> return ("log of commands saved to: " `mappend` encodeString logFile))
+          (writefile logFile trc >> return ("log of commands saved to: " <> encodeString logFile))
             `catchany_sh` (\_ -> ranCommands)
 
       where
-        trc = B.toLazyText . sTrace $ st
-        ranCommands = return . mappend "Ran commands: \n" . LT.unpack $ trc
+        trc = sTrace st
+        ranCommands = return . mappend "Ran commands: \n" . T.unpack $ trc
 
     shelly_dir = ".shelly"
     shellyFile = chdir_p shelly_dir $ do
       fs <- ls "."
-      return $ pack $ show (nextNum fs) `mappend` ".txt"
+      return $ pack $ show (nextNum fs) <> ".txt"
 
     nextNum :: [FilePath] -> Int
     nextNum [] = 1
@@ -707,21 +701,21 @@ instance Show RunFailed where
     let codeMsg = case code of
           127 -> ". exit code 127 usually means the command does not exist (in the PATH)"
           _ -> ""
-    in "error running: " ++ LT.unpack (show_command exe args) ++
-         "\nexit status: " ++ show code ++ codeMsg ++ "\nstderr: " ++ LT.unpack errs
+    in "error running: " ++ T.unpack (show_command exe args) ++
+         "\nexit status: " ++ show code ++ codeMsg ++ "\nstderr: " ++ T.unpack errs
 
 instance Exception RunFailed
 
 show_command :: FilePath -> [Text] -> Text
 show_command exe args =
-    LT.intercalate " " $ map quote (toTextIgnore exe : args)
+    T.intercalate " " $ map quote (toTextIgnore exe : args)
   where
-    quote t | LT.any (== '\'') t = t
-    quote t | LT.any isSpace t = surround '\'' t
+    quote t | T.any (== '\'') t = t
+    quote t | T.any isSpace t = surround '\'' t
     quote t | otherwise = t
 
 surround :: Char -> Text -> Text
-surround c t = LT.cons c $ LT.snoc t c
+surround c t = T.cons c $ T.snoc t c
 
 -- | same as 'sshPairs', but returns ()
 sshPairs_ :: Text -> [(FilePath, [Text])] -> Sh ()
@@ -745,7 +739,7 @@ sshPairs server cmds = sshPairs' run server cmds
 sshPairs' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
 sshPairs' run' server actions = escaping False $ do
     let ssh_commands = surround '\'' $ foldl1
-          (\memo next -> memo `mappend` " && " `mappend` next)
+          (\memo next -> memo <> " && " <> next)
           (map toSSH actions)
     run' "ssh" [server, ssh_commands]
   where
@@ -773,10 +767,10 @@ instance Exception e => Show (ReThrownException e) where
 -- You can avoid this but still consume the result by using 'run_',
 -- If you want to avoid the memory and need to process the output then use 'runFoldLines'.
 run :: FilePath -> [Text] -> Sh Text
-run exe args = fmap B.toLazyText $ runFoldLines (B.fromText "") foldBuilder exe args
+run = runFoldLines T.empty foldText
 
-foldBuilder :: (B.Builder, Text) -> B.Builder
-foldBuilder (b, line) = b `mappend` B.fromLazyText line `mappend` B.singleton '\n'
+foldText :: (Text, Text) -> Text
+foldText (t, line) = t <> line <> T.singleton '\n'
 
 
 -- | bind some arguments to run for re-use. Example:
@@ -811,7 +805,7 @@ run_ :: FilePath -> [Text] -> Sh ()
 run_ = runFoldLines () (\(_, _) -> ())
 
 liftIO_ :: IO a -> Sh ()
-liftIO_ action = liftIO action >> return ()
+liftIO_ action = void (liftIO action)
 
 -- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
 -- stderr is still being placed in memory under the assumption it is always relatively small
@@ -820,7 +814,7 @@ runFoldLines start cb exe args = do
     -- clear stdin before beginning command execution
     origstate <- get
     let mStdin = sStdin origstate
-    put $ origstate { sStdin = Nothing, sCode = 0, sStderr = LT.empty }
+    put $ origstate { sStdin = Nothing, sCode = 0, sStderr = T.empty }
     state <- get
 
     let cmdString = show_command exe args
@@ -899,11 +893,11 @@ cp_r from' to' = do
     fromIsDir <- (test_d from)
     if not fromIsDir then cp from' to' else do
        to <- absPath to'
-       trace $ "cp -r " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
+       trace $ "cp -r " <> toTextIgnore from <> " " <> toTextIgnore to
        toIsDir <- test_d to
 
-       when (from == to) $ liftIO $ throwIO $ userError $ LT.unpack $ "cp_r: " `mappend`
-         toTextIgnore from `mappend` " and " `mappend` toTextIgnore to `mappend` " are identical"
+       when (from == to) $ liftIO $ throwIO $ userError $ show $ "cp_r: " <>
+         toTextIgnore from <> " and " <> toTextIgnore to <> " are identical"
 
        finalTo <- if not toIsDir then mkdir to >> return to else do
                    let d = to </> dirname (addTrailingSlash from)
@@ -917,7 +911,7 @@ cp :: FilePath -> FilePath -> Sh ()
 cp from' to' = do
   from <- absPath from'
   to <- absPath to'
-  trace $ "cp " `mappend` toTextIgnore from `mappend` " " `mappend` toTextIgnore to
+  trace $ "cp " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
   liftIO $ copyFile from to_loc `catchany` (\e -> throwIO $
@@ -945,7 +939,7 @@ withTmpDir act = do
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = absPath f' >>= \f -> do
-  trace $ "writefile " `mappend` toTextIgnore f
+  trace $ "writefile " <> toTextIgnore f
   liftIO (TIO.writeFile (unpack f) bits)
 
 -- | Update a file, creating (a blank file) if it does not exist.
@@ -955,7 +949,7 @@ touchfile = absPath >=> flip appendfile ""
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = absPath f' >>= \f -> do
-  trace $ "appendfile " `mappend` toTextIgnore f
+  trace $ "appendfile " <> toTextIgnore f
   liftIO (TIO.appendFile (unpack f) bits)
 
 -- | (Strictly) read file into a Text.
@@ -963,9 +957,9 @@ appendfile f' bits = absPath f' >>= \f -> do
 -- Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> Sh Text
 readfile = absPath >=> \fp -> do
-  trace $ "readfile " `mappend` toTextIgnore fp
+  trace $ "readfile " <> toTextIgnore fp
   readBinary fp >>=
-    return . LT.fromStrict . TE.decodeUtf8With TE.lenientDecode
+    return . TE.decodeUtf8With TE.lenientDecode
 
 -- | wraps ByteSting readFile
 readBinary :: FilePath -> Sh ByteString
@@ -973,7 +967,7 @@ readBinary = absPath >=> liftIO . BS.readFile . unpack
 
 -- | flipped hasExtension for Text
 hasExt :: Text -> FilePath -> Bool
-hasExt = flip hasExtension . LT.toStrict
+hasExt = flip hasExtension
 
 -- | Run a Sh computation and collect timing  information.
 time :: Sh a -> Sh (Double, a)
