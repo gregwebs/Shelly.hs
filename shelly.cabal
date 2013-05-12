@@ -61,31 +61,57 @@ Library
       CPP-Options: -DNO_PRELUDE_CATCH
 
 test-suite test
-    type:           exitcode-stdio-1.0
-    main-is:        main.hs
-    hs-source-dirs: ., test
-    ghc-options: -Wall
+  type:           exitcode-stdio-1.0
+  main-is:        main.hs
+  hs-source-dirs: ., test
+  ghc-options: -Wall
 
-    Build-depends: base >= 4 && < 5, containers
-                 , time, directory, text, mtl, process
-                 , unix-compat < 0.5
-                 , system-filepath >= 0.4.7 && < 0.5
-                 , system-fileio < 0.4
-                 , bytestring
-                 , hspec >= 1.4
-                 , HUnit
+  Build-depends:
+    containers,
+    time, directory, text, mtl, process,
+    unix-compat < 0.5,
+    system-filepath >= 0.4.7 && < 0.5,
+    system-fileio < 0.4,
+    bytestring,
+    hspec >= 1.4,
+    HUnit
+
+  if impl(ghc >= 7.6.1)
+    build-depends:
+        base >= 4.6 && < 5
+  else
+    build-depends:
+      base >= 4 && < 5
+
+  ghc-options: -Wall
+
+  if impl(ghc >= 7.6.1)
+      CPP-Options: -DNO_PRELUDE_CATCH
 
 -- test out kiling while sleeping
 test-suite sleep
   type:           exitcode-stdio-1.0
   main-is: test/sleep.hs
-  Build-depends: base >= 4 && < 5, containers
-               , time, directory, text, mtl
-               , process >= 1.0
-               , unix-compat < 0.5
-               , system-filepath >= 0.4.7 && < 0.5
-               , system-fileio < 0.4
-               , bytestring
+  Build-depends:
+    containers,
+    time, directory, text, mtl,
+    process >= 1.0,
+    unix-compat < 0.5,
+    system-filepath >= 0.4.7 && < 0.5,
+    system-fileio < 0.4,
+    bytestring
+
+  if impl(ghc >= 7.6.1)
+    build-depends:
+        base >= 4.6 && < 5
+  else
+    build-depends:
+      base >= 4 && < 5
+
+  ghc-options: -Wall
+
+  if impl(ghc >= 7.6.1)
+      CPP-Options: -DNO_PRELUDE_CATCH
 
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore

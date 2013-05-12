@@ -1,4 +1,5 @@
 {-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
 -- | I started exposing multiple module (starting with one for finding)
 -- Base prevented circular dependencies
@@ -20,7 +21,12 @@ module Shelly.Base
     , addTrailingSlash
   ) where
 
+#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+import Prelude hiding (FilePath, catch)
+#else
 import Prelude hiding (FilePath)
+#endif
+
 import Data.Text (Text)
 import System.Process( ProcessHandle )
 import System.IO ( Handle, hFlush, stderr, stdout )

@@ -83,7 +83,11 @@ import Shelly.Find
 import Control.Monad ( when, unless, void )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
-import Prelude hiding ( readFile, FilePath )
+#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+import Prelude hiding ( readFile, FilePath, catch)
+#else
+import Prelude hiding ( readFile, FilePath)
+#endif
 import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
