@@ -92,7 +92,7 @@ import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile )
+import System.IO ( hClose, stderr, stdin, stdout, openTempFile )
 import System.Exit
 import System.Environment
 import Control.Applicative
@@ -103,7 +103,8 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
+import System.Process( CmdSpec(..), StdStream(CreatePipe, Inherit), CreateProcess(..),
+                       createProcess, waitForProcess, terminateProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text as T
@@ -263,17 +264,17 @@ runCommandNoEscape st exe args = shellyProcess st $
 
 shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess st cmdSpec =  do
-  (Just hin, Just hout, Just herr, pHandle) <- createProcess CreateProcess {
+  (Nothing, Nothing, Just herr, pHandle) <- createProcess CreateProcess {
         cmdspec = cmdSpec
       , cwd = Just $ unpack $ sDirectory st
       , env = Just $ sEnvironment st
-      , std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe
+      , std_in = Inherit, std_out = Inherit, std_err = CreatePipe
       , close_fds = False
 #if MIN_VERSION_process(1,1,0)
       , create_group = False
 #endif
       }
-  return (hin, hout, herr, pHandle)
+  return (stdin, stdout, herr, pHandle)
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.

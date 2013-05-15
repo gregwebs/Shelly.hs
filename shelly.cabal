@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     0.1.0.0
+Version:     1.0.0.0
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -55,7 +55,7 @@ Library
     build-depends:
       base >= 4 && < 5
 
-  ghc-options: -Wall
+  ghc-options: -Wall -threaded
 
   if impl(ghc >= 7.6.1)
       CPP-Options: -DNO_PRELUDE_CATCH
