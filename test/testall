@@ -1,0 +1,44 @@
+#!/bin/sh
+
+set -e
+
+if [ -z "$DEBUG" ]; then
+    export DEBUG=shelly-testsuite
+fi
+
+SUITE=./dist/build/shelly-testsuite/shelly-testsuite
+
+rm -f shelly-testsuite.tix
+cabal install
+
+if [ ! -f $SUITE ]; then
+    cat <<EOF
+Testsuite executable not found, please run:
+    cabal configure
+then
+    cabal build
+EOF
+    exit;
+fi
+
+$SUITE $*
+
+DIR=dist/hpc
+
+rm -Rf $DIR
+mkdir -p $DIR
+
+EXCLUDES='Main
+'
+
+EXCL=""
+
+for m in $EXCLUDES; do
+    EXCL="$EXCL --exclude=$m"
+done
+
+hpc markup $EXCL --destdir=$DIR shelly-testsuite >/dev/null 2>&1
+
+cat <<EOF
+Test coverage report written to $DIR.
+EOF
