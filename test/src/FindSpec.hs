@@ -1,20 +1,14 @@
-{-# Language OverloadedStrings #-}
-{-# Language ExtendedDefaultRules #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module FindSpec (main, spec) where
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+module FindSpec ( findSpec ) where
 
-import Test.Hspec.HUnit ()
 import Test.HUnit
 import Test.Hspec
 import Data.List (sort)
-
 import Shelly
 
-main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec = do
+findSpec :: Spec
+findSpec = do
   describe "relativeTo" $ do
     it "relative to non-existent dir" $ do
       res <- shelly $ relativeTo "rel/" "rel/foo"
@@ -36,12 +30,18 @@ spec = do
 
   describe "relative listing" $ do
     it "lists relative files" $ do
-      res <- shelly $ cd "test" >> ls "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs", "./sleep.hs"]
+      res <- shelly $ cd "src" >> ls "."
+      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
+                    "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs",
+                    "./ReadFileSpec.hs", "./TestMain.hs",
+                    "./WriteSpec.hs", "./drain.hs", "./drain.sh", "./sleep.hs"]
 
     it "finds relative files" $ do
-      res <- shelly $ cd "test" >> find "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs", "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs", "./ReadFileSpec.hs", "./WriteSpec.hs", "./data", "./drain.hs", "./drain.sh", "./main.hs", "./sleep.hs", "./data/zshrc"]
+      res <- shelly $ cd "src" >> find "."
+      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
+                    "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs",
+                    "./ReadFileSpec.hs", "./TestMain.hs",
+                    "./WriteSpec.hs", "./drain.hs", "./drain.sh", "./sleep.hs"]
 
   describe "find" $ do
     it "empty list for empty dir" $ do
@@ -54,9 +54,14 @@ spec = do
       res @?= []
 
     it "lists relative files" $ do
-      res <- shelly $ find "test"
-      sort res @?= ["test/CopySpec.hs", "test/EnvSpec.hs", "test/FailureSpec.hs", "test/FindSpec.hs", "test/Help.hs", "test/MoveSpec.hs", "test/ReadFileSpec.hs", "test/WriteSpec.hs", "test/data", "test/drain.hs", "test/drain.sh", "test/main.hs", "test/sleep.hs", "test/data/zshrc"]
+      res <- shelly $ find "src"
+      sort res @?= ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
+                    "src/FindSpec.hs", "src/Help.hs", "src/MoveSpec.hs", "src/ReadFileSpec.hs",
+                    "src/TestMain.hs", "src/WriteSpec.hs", "src/drain.hs",
+                    "src/drain.sh", "src/sleep.hs"]
 
     it "lists absolute files" $ do
-      res <- shelly $ relPath "test" >>= find >>= mapM (relativeTo "test")
-      sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs", "Help.hs", "MoveSpec.hs", "ReadFileSpec.hs", "WriteSpec.hs", "data", "drain.hs", "drain.sh", "main.hs", "sleep.hs", "data/zshrc"]
+      res <- shelly $ relPath "src" >>= find >>= mapM (relativeTo "src")
+      sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs",
+                    "Help.hs", "MoveSpec.hs", "ReadFileSpec.hs", "TestMain.hs",
+                    "WriteSpec.hs", "drain.hs", "drain.sh", "sleep.hs"]

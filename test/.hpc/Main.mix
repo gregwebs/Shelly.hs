@@ -1,1 +1,1 @@
-Mix "src/TestMain.hs" 2013-05-15 14:48:00 UTC 4106009913 8 [(8:8-8:12,ExpBox False),(9:5-9:16,ExpBox False),(8:16-9:16,ExpBox False),(8:8-9:16,ExpBox False),(8:1-9:16,TopLevelBox ["main"])]
+Mix "src/TestMain.hs" 2013-05-15 15:12:50 UTC 2890621438 8 [(11:8-11:12,ExpBox False),(12:5-12:16,ExpBox False),(13:5-13:13,ExpBox False),(14:5-14:12,ExpBox False),(15:5-15:12,ExpBox False),(11:16-15:12,ExpBox False),(11:8-15:12,ExpBox False),(11:1-15:12,TopLevelBox ["main"])]
