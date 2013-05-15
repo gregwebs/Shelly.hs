@@ -1,0 +1,1 @@
+readfile /Users/adinapoli/programming/haskell/shelly/Shelly.hs/test/test/data/zshrc
