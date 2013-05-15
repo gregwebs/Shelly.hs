@@ -5,6 +5,10 @@ import ReadFileSpec
 import WriteSpec
 import MoveSpec
 import FindSpec
+import EnvSpec
+import FailureSpec
+import CopySpec
+
 import Test.Hspec
 
 main :: IO ()
@@ -13,3 +17,6 @@ main = hspec $ do
     writeSpec
     moveSpec
     findSpec
+    envSpec
+    failureSpec
+    copySpec

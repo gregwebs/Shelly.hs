@@ -1,20 +1,21 @@
-{-# Language OverloadedStrings #-}
-{-# Language ExtendedDefaultRules #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module EnvSpec (main, spec) where
+{-# LANGUAGE CPP #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+module EnvSpec ( envSpec ) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit hiding (path)
 import Test.Hspec
-import Prelude hiding (catch, FilePath)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
+import Prelude hiding ( FilePath, catch)
+#else
+import Prelude hiding ( FilePath)
+#endif
 import Shelly
 import Data.Maybe
 
-main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec = do
+envSpec :: Spec
+envSpec = do
   describe "getting unset env variables" $ do
     it "get_env" $ do
       res <- shelly $ get_env "FOOBARSHELLY"
