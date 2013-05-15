@@ -9,19 +9,18 @@ import Test.Hspec
 import Prelude hiding (catch, FilePath)
 import Shelly
 import qualified Data.ByteString as BS
-import qualified Data.Text.Lazy as LT
+import qualified Data.Text as T
 
 main :: IO ()
 main = hspec spec
 
 spec :: Spec
-spec = do
-  describe "file with invalid encoding" $ do
+spec = describe "file with invalid encoding" $ do
     it "readBinary" $ do
       res <- shelly $ readBinary "test/data/zshrc"
       assert (BS.length res > 0)
  
     it "readfile" $ do
       res <- shelly $ readfile "test/data/zshrc"
-      assert (LT.length res > 0)
+      assert (T.length res > 0)
  
