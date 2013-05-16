@@ -28,7 +28,9 @@ DIR=dist/hpc
 rm -Rf $DIR
 mkdir -p $DIR
 
-EXCLUDES='Main
+EXCLUDES='TestMain
+CopySpec
+EnvSpec
 '
 
 EXCL=""

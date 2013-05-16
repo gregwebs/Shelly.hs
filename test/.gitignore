@@ -1,4 +1,5 @@
 dist/*
 *.tix
 .hpc/*
-.shelly
+.shelly/
+.DS_Store
