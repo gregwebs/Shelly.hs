@@ -264,17 +264,17 @@ runCommandNoEscape st exe args = shellyProcess st $
 
 shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess st cmdSpec =  do
-  (Nothing, Nothing, Just herr, pHandle) <- createProcess CreateProcess {
+  (Nothing, Nothing, Nothing, pHandle) <- createProcess CreateProcess {
         cmdspec = cmdSpec
       , cwd = Just $ unpack $ sDirectory st
       , env = Just $ sEnvironment st
-      , std_in = Inherit, std_out = Inherit, std_err = CreatePipe
+      , std_in = Inherit, std_out = Inherit, std_err = Inherit
       , close_fds = False
 #if MIN_VERSION_process(1,1,0)
       , create_group = False
 #endif
       }
-  return (stdin, stdout, herr, pHandle)
+  return (stdin, stdout, stderr, pHandle)
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
