@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, IncoherentInstances, GADTs #-}
