@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, IncoherentInstances, GADTs #-}
@@ -103,7 +102,7 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe, Inherit), CreateProcess(..),
+import System.Process( CmdSpec(..), StdStream(Inherit), CreateProcess(..),
                        createProcess, waitForProcess, terminateProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
@@ -270,10 +269,8 @@ shellyProcess st cmdSpec =  do
       , env = Just $ sEnvironment st
       , std_in = Inherit, std_out = Inherit, std_err = Inherit
       , close_fds = False
-#if MIN_VERSION_process(1,1,0)
       , create_group = False
-#endif
-      }
+    }
   return (stdin, stdout, stderr, pHandle)
 
 {-
