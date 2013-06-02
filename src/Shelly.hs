@@ -378,8 +378,8 @@ mv from' to' = do
   let to_loc = if not to_dir then to else to FP.</> filename from
   liftIO $ rename from to_loc
     `catchany` (\e -> throwIO $
-	  ReThrownException e (extraMsg to_loc from)
-	)
+      ReThrownException e (extraMsg to_loc from)
+    )
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
@@ -951,8 +951,8 @@ cp from' to' = do
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
   liftIO $ copyFile from to_loc `catchany` (\e -> throwIO $
-	  ReThrownException e (extraMsg to_loc from)
-	)
+      ReThrownException e (extraMsg to_loc from)
+    )
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
