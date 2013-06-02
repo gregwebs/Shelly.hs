@@ -79,7 +79,7 @@ module Shelly
 
 import Shelly.Base
 import Shelly.Find
-import Control.Monad ( when, unless, void )
+import Control.Monad ( when, unless, void, forM, filterM )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
@@ -122,10 +122,19 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, findExecutable )
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory )
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
+import qualified Data.Set as S
+import qualified Data.List as L
+
+searchPathSeparator :: Char
+#if defined(mingw32_HOST_OS)
+searchPathSeparator = ';'
+#else
+searchPathSeparator = ':'
+#endif
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
@@ -258,14 +267,36 @@ put newState = do
   stateVar <- ask
   liftIO (writeIORef stateVar newState)
 
--- FIXME: find the full path to the exe from PATH
-runCommand :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
-runCommand mstdin st exe args = shellyProcess mstdin st $
-    RawCommand (unpack exe) (map T.unpack args)
-
-runCommandNoEscape :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
-runCommandNoEscape mstdin st exe args = shellyProcess mstdin st $
+runCommandNoEscape :: (Maybe Handle) -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape mstdin st exe args = liftIO $ shellyProcess mstdin st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
+
+runCommand :: (Maybe Handle) -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommand mstdin st exe args = findExe exe >>= \fullExe ->
+  liftIO $ shellyProcess mstdin st $
+    RawCommand (unpack fullExe) (map T.unpack args)
+  where
+    findExe :: FilePath -> Sh FilePath
+    findExe fp = do
+#if defined(mingw32_HOST_OS)
+        let exe = case extension fp of
+                    Nothing -> fp <.> "exe"
+                    Just f -> f
+        mExe <- which exe
+        case mExe of
+          Just execFp -> execFp
+          -- windows looks in extra places besides the PATH, so just give
+          -- up even if the behavior is not properly specified anymore
+          Nothing -> fp
+#else
+        mExe <- which exe
+        case mExe of
+          Just execFp -> return execFp
+          Nothing -> liftIO $ throwIO $ userError $
+            "shelly did not find " ++ encodeString fp ++ " in the PATH"
+#endif
+
+
 
 
 shellyProcess :: (Maybe Handle) -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
@@ -328,16 +359,14 @@ catchany_sh = catch_sh
 -- | Change current working directory of Sh. This does *not* change the
 -- working directory of the process we are running it. Instead, Sh keeps
 -- track of its own working directory and builds absolute paths internally
--- instead of passing down relative paths. This may have performance
--- repercussions if you are doing hundreds of thousands of filesystem
--- operations. You will want to handle these issues differently in those cases.
+-- instead of passing down relative paths.
 cd :: FilePath -> Sh ()
 cd = canonic >=> cd'
   where
     cd' dir = do
         trace $ "cd " <> tdir
         unlessM (test_d dir) $ errorExit $ "not a directory: " <> tdir
-        modify $ \st -> st { sDirectory = dir }
+        modify $ \st -> st { sDirectory = dir, sPathExecutables = Nothing }
       where
         tdir = toTextIgnore dir
 
@@ -348,7 +377,7 @@ chdir dir action = do
   cd dir
   action `finally_sh` cd d
 
--- | chdir, but first create the directory if it does not exit
+-- | 'chdir', but first create the directory if it does not exit
 chdir_p :: FilePath -> Sh a -> Sh a
 chdir_p d action = mkdir_p d >> chdir d action
 
@@ -449,15 +478,35 @@ mkdirTree = mk . unrollPath
               where unrollRoot x = foldr1 phi $ map Node $ splitDirectories x
                     phi a b = a . return . b
 
--- | Get a full path to an executable on @PATH@, if exists. FIXME does not
--- respect setenv'd environment and uses @findExecutable@ which uses the @PATH@ inherited from the process
--- environment.
--- FIXME: findExecutable does not maintain a hash of existing commands and does a ton of file stats
+-- | Get a full path to an executable by looking at the @PATH@ environement
+-- variable. Windows normally looks in additional places besides the
+-- @PATH@: this does not duplicate that behavior.
 which :: FilePath -> Sh (Maybe FilePath)
 which fp = do
   (trace . mappend "which " . toTextIgnore) fp
-  -- should look at Plush's PATH finding code
-  (liftIO . findExecutable . unpack >=> return . fmap pack) fp
+  pathExecutables <- cachedPathExecutables
+  return $ fmap (flip (</>) fp . fst) $ L.find (S.member fp . snd) pathExecutables 
+
+cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
+cachedPathExecutables = do
+  mPathExecutables <- gets sPathExecutables
+  case mPathExecutables of
+      Just pExecutables -> return pExecutables
+      Nothing -> do
+        dirs <- mapM absPath =<< ((map fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
+        executables <- forM dirs (\dir -> do
+            files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
+            exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
+              map (\f -> (encodeString f, f)) files
+            return $ S.fromList exes
+                
+          )
+        let cachedExecutables = zip dirs executables
+        modify $ \x -> x { sPathExecutables = Just cachedExecutables }
+        return $ cachedExecutables
+  where
+    isExecutable fp = executable `fmap` getPermissions fp
+
 
 -- | A monadic-conditional version of the 'unless' guard.
 unlessM :: Monad m => m Bool -> m () -> m ()
@@ -513,20 +562,25 @@ rm = absPath >=> \f -> do
 -- internally, and is passed to any external commands to be executed.
 setenv :: Text -> Text -> Sh ()
 setenv k v =
-  let (kStr, vStr) = (T.unpack k, T.unpack v)
-      wibble environment = (kStr, vStr) : filter ((/=kStr).fst) environment
-   in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
+  if k == path_env then setPath v else do
+      let (kStr, vStr) = (T.unpack k, T.unpack v)
+          wibble environment = (kStr, vStr) : filter ((/=kStr) . fst) environment
+       in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
+
+setPath :: Text -> Sh ()
+setPath newPath = do
+  modify $ \x -> x{ sPathExecutables = Nothing }
+  setenv path_env newPath
+
+path_env :: Text
+path_env = "PATH"
 
 -- | add the filepath onto the PATH env variable
--- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
--- TODO: use cross-platform searchPathSeparator
 appendToPath :: FilePath -> Sh ()
 appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
-  setenv path_env $ pe <> ":" <> tp
-  where
-    path_env = "PATH"
+  setPath $ pe <> T.singleton searchPathSeparator <> tp
 
 -- | Fetch the current value of an environment variable.
 -- if non-existant or empty text, will be Nothing
@@ -658,6 +712,7 @@ shelly' opts action = do
                    , sTracing = True
                    , sTrace = T.empty
                    , sDirectory = dir
+                   , sPathExecutables = Nothing
                    , sErrExit = True
                    }
   stref <- liftIO $ newIORef def
@@ -858,7 +913,7 @@ runHandles exe args mStdinHandle withHandles = do
     trace cmdString
 
     bracketOnWindowsError
-      (liftIO $ (sRun state) mStdinHandle state exe args)
+      ((sRun state) mStdinHandle state exe args)
       (\(_,_,_,procH) -> (terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         liftIO $ case mStdin of

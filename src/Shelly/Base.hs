@@ -46,6 +46,7 @@ import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
+import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
@@ -66,8 +67,9 @@ data State = State
    , sDirectory :: FilePath -- ^ working directory
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
-   , sRun :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
+   , sRun :: (Maybe Handle) -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]
+   , sPathExecutables :: Maybe [(FilePath, S.Set FilePath)] -- ^ cache of executables in the PATH
    , sTracing :: Bool -- ^ should we trace command execution
    , sTrace :: Text -- ^ the trace of command execution
    , sErrExit :: Bool -- ^ should we exit immediately on any error
