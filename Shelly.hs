@@ -19,8 +19,8 @@
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import qualified Data.Text.Lazy as LT
--- > default (LT.Text)
+-- > import qualified Data.Text as T
+-- > default (T.Text)
 module Shelly
        (
          -- * Entering Sh.
@@ -109,7 +109,15 @@ import System.IO.Error (isPermissionError)
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
-import Data.Monoid ( mappend, (<>) )
+
+#if __GLASGOW_HASKELL__ < 704
+import Data.Monoid (Monoid, mappend)
+infixr 5 <>
+(<>) :: Monoid m => m -> m -> m
+(<>) = mappend
+#else
+import Data.Monoid ( mappend, (<>))
+#endif
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
@@ -179,8 +187,8 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import qualified Data.Text.Lazy as LT
--- > default (LT.Text)
+-- > import qualified Data.Text as T
+-- > default (T.Text)
 --
 cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []

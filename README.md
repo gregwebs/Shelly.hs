@@ -14,6 +14,8 @@ Looking to put your Haskell learning to immediate practical use? You don't have 
 
 The focus of this library on convenience combined with good error messages should make shelly approachable for newer users of Haskell.
 I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/). There is a paid version in German from Linux Magazin.
+That article uses the version 'shelly < 1.0' which uses lazy text.
+
 
 
 ## More shelly packages
@@ -81,8 +83,8 @@ I recommend using the boilerplate at the top of this example in your projects.
     {-# LANGUAGE ExtendedDefaultRules #-}
     {-# OPTIONS_GHC -fno-warn-type-defaults #-}
     import Shelly
-    import Data.Text.Lazy as LT
-    default (LT.Text)
+    import Data.Text as LT
+    default (T.Text)
 
     main = shelly $ verbosely $ do
       host <- run "uname" ["-n"]
@@ -145,6 +147,5 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 ## Future plans
 
 * improved SSH API
-* Switch from lazy text to strict
 * fix PATH/which implementation
 * more efficient piping/redirecting (issue #18)
