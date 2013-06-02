@@ -1,7 +1,6 @@
-{-# Language OverloadedStrings #-}
-{-# Language ExtendedDefaultRules #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module FailureSpec (main, spec) where
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ExtendedDefaultRules #-}
+module FailureSpec ( failureSpec ) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit
@@ -9,11 +8,8 @@ import Test.Hspec
 
 import Shelly
 
-main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec = do
+failureSpec :: Spec
+failureSpec = do
   let discardException action = shelly $ catchany_sh action (\_ -> return ())
 
   describe "failure set to stderr" $

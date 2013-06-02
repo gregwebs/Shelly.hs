@@ -1,4 +1,3 @@
-{-# LANGUAGE CPP #-}
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              MultiParamTypeClasses, FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, IncoherentInstances, GADTs #-}
@@ -19,15 +18,15 @@
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import qualified Data.Text.Lazy as LT
--- > default (LT.Text)
+-- > import qualified Data.Text as T
+-- > default (T.Text)
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
-         , run, run_, runFoldLines, cmd, FoldCallback
+         , run, run_, runFoldLines, cmd, FoldCallback, runHandle, runHandles
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
@@ -83,7 +82,7 @@ import Shelly.Find
 import Control.Monad ( when, unless, void )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
-#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding ( readFile, FilePath, catch)
 #else
 import Prelude hiding ( readFile, FilePath)
@@ -92,7 +91,7 @@ import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile )
+import System.IO ( hClose, stderr, stdin, stdout, openTempFile )
 import System.Exit
 import System.Environment
 import Control.Applicative
@@ -103,13 +102,21 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
+import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
-import Data.Monoid ( mappend, (<>) )
+
+#if __GLASGOW_HASKELL__ < 704
+import Data.Monoid (Monoid, mappend)
+infixr 5 <>
+(<>) :: Monoid m => m -> m -> m
+(<>) = mappend
+#else
+import Data.Monoid ( mappend, (<>))
+#endif
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
@@ -179,8 +186,8 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import qualified Data.Text.Lazy as LT
--- > default (LT.Text)
+-- > import qualified Data.Text as T
+-- > default (T.Text)
 --
 cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []
@@ -252,28 +259,29 @@ put newState = do
   liftIO (writeIORef stateVar newState)
 
 -- FIXME: find the full path to the exe from PATH
-runCommand :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
-runCommand st exe args = shellyProcess st $
+runCommand :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
+runCommand mstdin st exe args = shellyProcess mstdin st $
     RawCommand (unpack exe) (map T.unpack args)
 
-runCommandNoEscape :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
-runCommandNoEscape st exe args = shellyProcess st $
+runCommandNoEscape :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape mstdin st exe args = shellyProcess mstdin st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
 
 
-shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
-shellyProcess st cmdSpec =  do
+shellyProcess :: (Maybe Handle) -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess mstdin st cmdSpec =  do
   (Just hin, Just hout, Just herr, pHandle) <- createProcess CreateProcess {
         cmdspec = cmdSpec
       , cwd = Just $ unpack $ sDirectory st
       , env = Just $ sEnvironment st
-      , std_in = CreatePipe, std_out = CreatePipe, std_err = CreatePipe
+      , std_in = case mstdin of
+                   Nothing     -> CreatePipe
+                   Just handle -> UseHandle handle
+      , std_out = CreatePipe, std_err = CreatePipe
       , close_fds = False
-#if MIN_VERSION_process(1,1,0)
       , create_group = False
-#endif
-      }
-  return (hin, hout, herr, pHandle)
+    }
+  return (stdin, stdout, stderr, pHandle)
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
@@ -368,8 +376,8 @@ mv from' to' = do
   let to_loc = if not to_dir then to else to FP.</> filename from
   liftIO $ rename from to_loc
     `catchany` (\e -> throwIO $
-	  ReThrownException e (extraMsg to_loc from)
-	)
+      ReThrownException e (extraMsg to_loc from)
+    )
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 
@@ -602,9 +610,7 @@ tracing shouldTrace action = sub $ do
 escaping :: Bool -> Sh a -> Sh a
 escaping shouldEscape action = sub $ do
   modify $ \st -> st { sRun =
-      if shouldEscape
-        then runCommand
-        else runCommandNoEscape
+      if shouldEscape then runCommand else runCommandNoEscape
     }
   action
 
@@ -811,10 +817,34 @@ run_ = runFoldLines () (\(_, _) -> ())
 liftIO_ :: IO a -> Sh ()
 liftIO_ action = void (liftIO action)
 
--- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
--- stderr is still being placed in memory under the assumption it is always relatively small
-runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
-runFoldLines start cb exe args = do
+-- | Similar to 'run' but gives the raw stdout handle in a callback.
+-- If you want even more control, use 'runHandles'.
+runHandle :: FilePath -- ^ command
+          -> [Text] -- ^ arguments
+          -> (Handle -> Sh a) -- ^ stdout handle
+          -> Sh a
+runHandle exe args withHandle = 
+  runHandles exe args Nothing $ \outH errH -> do
+    errVar <- liftIO $ do
+      errVar' <- newEmptyMVar
+      _ <- forkIO $ printGetContent errH stderr >>= putMVar errVar'
+      return errVar'
+      -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
+      --
+    res <- withHandle outH
+
+    errs <- liftIO $ takeMVar errVar
+
+    modify $ \state' -> state' { sStderr = errs }
+    return res
+
+-- | Similar to 'run' but gives direct access to all input and output handles.
+runHandles :: FilePath -- ^ command
+           -> [Text] -- ^ arguments
+           -> (Maybe Handle) -- ^ stdin
+           -> (Handle -> Handle -> Sh a) -- ^ stdout and stderr
+           -> Sh a
+runHandles exe args mStdinHandle withHandles = do
     -- clear stdin before beginning command execution
     origstate <- get
     let mStdin = sStdin origstate
@@ -825,46 +855,67 @@ runFoldLines start cb exe args = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
-    (ex, errs, outV) <- liftIO $ bracketOnWindowsError
-      (sRun state state exe args)
+    bracketOnWindowsError
+      (liftIO $ (sRun state) mStdinHandle state exe args)
       (\(_,_,_,procH) -> (terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
-        case mStdin of
+        liftIO $ case mStdin of
           Just input ->
             TIO.hPutStr inH input >> hClose inH
             -- stdin is cleared from state below
           Nothing -> return ()
 
-        errV <- newEmptyMVar
-        outV' <- newEmptyMVar
+        result <- withHandles outH errH
 
-        _ <- forkIO $ printGetContent errH stderr >>= putMVar errV
-        -- liftIO_ $ forkIO $ getContent errH >>= putMVar errV
-        _ <- if sPrintStdout state
-          then
-            forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outV'
-          else
-            forkIO $ foldHandleLines start cb outH >>= putMVar outV'
+        (ex, code) <- liftIO $ do
+          hClose outH
+          hClose errH
 
-        errs' <- takeMVar errV
-        ex' <- waitForProcess procH
-        return (ex', errs', outV')
+          ex' <- waitForProcess procH
+          return $ case ex' of
+            ExitSuccess -> (ex', 0)
+            ExitFailure n -> (ex', n)
+
+        modify $ \state' -> state' { sCode = code }
+
+        case (sErrExit state, ex) of
+          (True,  ExitFailure n) -> do
+              newState <- get
+              liftIO $ throwIO $ RunFailed exe args n (sStderr newState)
+          _                      -> return result
       )
-
-    let code = case ex of
-                 ExitSuccess -> 0
-                 ExitFailure n -> n
-    modify $ \state' -> state' { sStderr = errs , sCode = code }
-    liftIO $ case (sErrExit state, ex) of
-      (True,  ExitFailure n) -> throwIO $ RunFailed exe args n errs
-      _                      -> takeMVar outV
-
   where -- Windows does not terminate spawned processes, so we must bracket.
 #if defined(mingw32_HOST_OS)
     bracketOnWindowsError = bracketOnError
 #else
     bracketOnWindowsError acquire _ main = acquire >>= main
 #endif
+
+
+-- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
+-- stderr is still being placed in memory under the assumption it is always relatively small
+runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
+runFoldLines start cb exe args =
+  runHandles exe args Nothing $ \outH errH -> do
+    (errVar, outVar) <- liftIO $ do
+      errVar' <- newEmptyMVar
+      outVar' <- newEmptyMVar
+      _ <- forkIO $ printGetContent errH stderr >>= putMVar errVar'
+      return (errVar', outVar')
+      -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
+
+    state <- get
+    errs <- liftIO $ do
+      void $ if sPrintStdout state
+        then
+          forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outVar
+        else
+          forkIO $ foldHandleLines start cb outH >>= putMVar outVar
+      takeMVar errVar
+
+    modify $ \state' -> state' { sStderr = errs }
+    liftIO $ takeMVar outVar
+
 
 
 -- | The output of last external command. See 'run'.
@@ -919,8 +970,8 @@ cp from' to' = do
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
   liftIO $ copyFile from to_loc `catchany` (\e -> throwIO $
-	  ReThrownException e (extraMsg to_loc from)
-	)
+      ReThrownException e (extraMsg to_loc from)
+    )
   where
     extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
 

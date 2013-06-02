@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    ShIO, Sh, unSh, runSh, State(..), FilePath, Text,
+    Sh, unSh, runSh, State(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -21,7 +21,7 @@ module Shelly.Base
     , addTrailingSlash
   ) where
 
-#if __GLASGOW_HASKELL__ && __GLASGOW_HASKELL__ < 760
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding (FilePath, catch)
 #else
 import Prelude hiding (FilePath)
@@ -47,11 +47,6 @@ import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
 
--- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
-type ShIO a = Sh a
-{- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
- - # DEPRECATED ShIO, "Use Sh instead of ShIO" # -}
-
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
   } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
@@ -66,7 +61,7 @@ data State = State
    , sDirectory :: FilePath -- ^ working directory
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
-   , sRun :: State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
+   , sRun :: (Maybe Handle) -> State -> FilePath -> [Text] -> IO (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]
    , sTracing :: Bool -- ^ should we trace command execution
    , sTrace :: Text -- ^ the trace of command execution

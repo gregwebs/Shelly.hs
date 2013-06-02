@@ -1,22 +1,23 @@
+{-# Language CPP #-}
 {-# Language OverloadedStrings #-}
 {-# Language ExtendedDefaultRules #-}
-{-# OPTIONS_GHC -fno-warn-type-defaults #-}
-module CopySpec (main, spec) where
+module CopySpec ( copySpec ) where
 
 import Test.Hspec.HUnit ()
 import Test.HUnit hiding (path)
 import Test.Hspec
-import Prelude hiding (catch, FilePath)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
+import Prelude hiding ( FilePath, catch)
+#else
+import Prelude hiding ( FilePath)
+#endif
 import Shelly
 import Control.Monad (forM_)
 import System.IO.Error
 import Help
 
-main :: IO ()
-main = hspec spec
-
-spec :: Spec
-spec = do
+copySpec :: Spec
+copySpec = do
   let b = "b" 
   let c = "c"
   describe "cp file" $ do

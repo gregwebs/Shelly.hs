@@ -2,3 +2,6 @@ _darcs
 dist/
 cabal-dev/
 tags
+.shelly/
+*.orig
+Session.vim

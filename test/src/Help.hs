@@ -3,7 +3,11 @@ module Help (
 ) where
 
 import Shelly
-import Prelude hiding (catch, FilePath)
+#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
+import Prelude hiding ( catch, FilePath )
+#else
+import Prelude hiding ( FilePath )
+#endif
 
 with_dir :: FilePath -> Sh a -> Sh a
 with_dir d action =
