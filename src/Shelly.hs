@@ -26,7 +26,7 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
-         , run, run_, runFoldLines, cmd, FoldCallback
+         , run, run_, runFoldLines, cmd, FoldCallback, runHandle, runHandles
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
@@ -819,7 +819,28 @@ run_ = runFoldLines () (\(_, _) -> ())
 liftIO_ :: IO a -> Sh ()
 liftIO_ action = void (liftIO action)
 
--- | Lower level: gives direct access to all input and output handles.
+-- | Similar to 'run' but gives the raw stdout handle in a callback.
+-- If you want even more control, use 'runHandles'.
+runHandle :: FilePath -- ^ command
+          -> [Text] -- ^ arguments
+          -> (Handle -> Sh a) -- ^ stdout handle
+          -> Sh a
+runHandle exe args withHandle = 
+  runHandles exe args Nothing $ \outH errH -> do
+    errVar <- liftIO $ do
+      errVar' <- newEmptyMVar
+      _ <- forkIO $ printGetContent errH stderr >>= putMVar errVar'
+      return errVar'
+      -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
+      --
+    res <- withHandle outH
+
+    errs <- liftIO $ takeMVar errVar
+
+    modify $ \state' -> state' { sStderr = errs }
+    return res
+
+-- | Similar to 'run' but gives direct access to all input and output handles.
 runHandles :: FilePath -- ^ command
            -> [Text] -- ^ arguments
            -> (Maybe Handle) -- ^ stdin
