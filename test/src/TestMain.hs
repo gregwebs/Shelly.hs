@@ -8,7 +8,6 @@ import FindSpec
 import EnvSpec
 import FailureSpec
 import CopySpec
-import RunSpec
 
 import Test.Hspec
 
@@ -21,4 +20,3 @@ main = hspec $ do
     envSpec
     failureSpec
     copySpec
-    runSpec
