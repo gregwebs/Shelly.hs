@@ -861,8 +861,8 @@ runHandles exe args mStdinHandle withHandles = do
 
         case (sErrExit state, ex) of
           (True,  ExitFailure n) -> do
-              state <- get
-              liftIO $ throwIO $ RunFailed exe args n (sStderr state)
+              newState <- get
+              liftIO $ throwIO $ RunFailed exe args n (sStderr newState)
           _                      -> return result
       )
   where -- Windows does not terminate spawned processes, so we must bracket.
@@ -887,7 +887,7 @@ runFoldLines start cb exe args =
 
     state <- get
     errs <- liftIO $ do
-      if sPrintStdout state
+      void $ if sPrintStdout state
         then
           forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outVar
         else
