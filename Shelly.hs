@@ -831,7 +831,7 @@ runHandles exe args mStdinHandle withHandles = do
 
     bracketOnWindowsError
       (liftIO $ (sRun state) mStdinHandle state exe args)
-      (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
+      (\(_,_,_,procH) -> (terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         liftIO $ case mStdin of
           Just input ->
