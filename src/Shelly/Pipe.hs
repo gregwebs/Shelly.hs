@@ -31,8 +31,8 @@
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
 -- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
 -- > import Shelly
--- > import Data.Text.Lazy as LT
--- > default (LT.Text)
+-- > import Data.Text as T
+-- > default (T.Text)
 module Shelly.Pipe
        (
          -- * Entering Sh.

@@ -2,3 +2,4 @@ _darcs
 dist/
 cabal-dev/
 tags
+.shelly/

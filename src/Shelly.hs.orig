@@ -102,7 +102,12 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
+<<<<<<< HEAD:src/Shelly.hs
+import System.Process( CmdSpec(..), StdStream(Inherit), CreateProcess(..),
+                       createProcess, waitForProcess, terminateProcess, ProcessHandle )
+=======
 import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
+>>>>>>> upstream/1.0-alpha:src/Shelly.hs
 import System.IO.Error (isPermissionError)
 
 import qualified Data.Text as T
@@ -268,6 +273,15 @@ runCommandNoEscape mstdin st exe args = shellyProcess mstdin st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
 
 
+<<<<<<< HEAD:src/Shelly.hs
+shellyProcess :: State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess st cmdSpec =  do
+  (Nothing, Nothing, Nothing, pHandle) <- createProcess CreateProcess {
+        cmdspec = cmdSpec
+      , cwd = Just $ unpack $ sDirectory st
+      , env = Just $ sEnvironment st
+      , std_in = Inherit, std_out = Inherit, std_err = Inherit
+=======
 shellyProcess :: (Maybe Handle) -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess mstdin st cmdSpec =  do
   (Just hin, Just hout, Just herr, pHandle) <- createProcess CreateProcess {
@@ -278,6 +292,7 @@ shellyProcess mstdin st cmdSpec =  do
                    Nothing     -> CreatePipe
                    Just handle -> UseHandle handle
       , std_out = CreatePipe, std_err = CreatePipe
+>>>>>>> upstream/1.0-alpha:src/Shelly.hs
       , close_fds = False
       , create_group = False
     }

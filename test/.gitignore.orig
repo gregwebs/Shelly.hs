@@ -1,0 +1,9 @@
+dist/*
+*.tix
+.hpc/*
+<<<<<<< HEAD
+.shelly/*
+=======
+.shelly/
+>>>>>>> upstream/1.0-alpha
+.DS_Store
