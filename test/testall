@@ -38,6 +38,7 @@ Main
 MoveSpec
 ReadFileSpec
 WriteSpec
+RunSpec
 '
 
 EXCL=""
