@@ -1084,9 +1084,6 @@ appendfile f' bits = absPath f' >>= \f -> do
   trace $ "appendfile " <> toTextIgnore f
   liftIO (TIO.appendFile (unpack f) bits)
 
--- | (Strictly) read file into a Text.
--- All other functions use Lazy Text.
--- Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
 readfile :: FilePath -> Sh Text
 readfile = absPath >=> \fp -> do
   trace $ "readfile " <> toTextIgnore fp
