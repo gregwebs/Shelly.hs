@@ -186,9 +186,12 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 
 
 -- | variadic argument version of 'run'.
+-- Please see the documenation for 'run'.
+--
 -- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
 -- So an argument can be a Text or a FilePath without manual conversions.
 -- a FilePath is automatically converted to Text with 'toTextIgnore'.
+--
 -- Convenient usage of 'cmd' requires the following:
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
@@ -828,10 +831,6 @@ instance Exception e => Show (ReThrownException e) where
 -- You may prefer using 'cmd' instead, which is a variadic argument version
 -- of this function.
 --
--- By default shell characters are escaped and the command name is a name of a program that can be found via @PATH@).
--- When escaping is set to False, shell characters are allowed and the
--- setenv @PATH@ is not taken into account when finding the exe name
---
 -- 'stdout' and 'stderr' are collected. The 'stdout' is returned as
 -- a result of 'run', and complete stderr output is available after the fact using
 -- 'lastStderr'
@@ -839,6 +838,12 @@ instance Exception e => Show (ReThrownException e) where
 -- All of the stdout output will be loaded into memory.
 -- You can avoid this if you don't need stdout by using 'run_',
 -- If you want to avoid the memory and need to process the output then use 'runFoldLines' or 'runHandle' or 'runHandles'.
+--
+-- By default shell characters are escaped and the command name is a name of a program that can be found via @PATH@).
+-- When escaping is set to False, shell characters are allowed and the
+-- 'setenv' @PATH@ is not taken into account when finding the exe name
+-- On a Posix system the "env" command can be used to make the 'setenv' PATH used when 'escaping' is set to FAlse. @env echo hello@ instead of @echo hello@
+--
 run :: FilePath -> [Text] -> Sh Text
 run = runFoldLines T.empty foldText
 
