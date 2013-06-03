@@ -664,8 +664,11 @@ tracing shouldTrace action = sub $ do
   action
 
 -- | Create a sub-Sh with shell character escaping on or off.
--- Defaults to True.
--- Setting to False allows for shell wildcard such as * to be expanded by the shell along with any other special shell characters.
+-- Defaults to @True@.
+--
+-- Setting to @False@ allows for shell wildcard such as * to be expanded by the shell along with any other special shell characters.
+-- As a side-effect, setting to @False@ causes changes to @PATH@ to be ignored:
+-- see the 'run' documentation.
 escaping :: Bool -> Sh a -> Sh a
 escaping shouldEscape action = sub $ do
   modify $ \st -> st { sRun =
@@ -839,10 +842,16 @@ instance Exception e => Show (ReThrownException e) where
 -- You can avoid this if you don't need stdout by using 'run_',
 -- If you want to avoid the memory and need to process the output then use 'runFoldLines' or 'runHandle' or 'runHandles'.
 --
--- By default shell characters are escaped and the command name is a name of a program that can be found via @PATH@).
--- When escaping is set to False, shell characters are allowed and the
--- 'setenv' @PATH@ is not taken into account when finding the exe name
--- On a Posix system the "env" command can be used to make the 'setenv' PATH used when 'escaping' is set to FAlse. @env echo hello@ instead of @echo hello@
+-- By default shell characters are escaped and
+-- the command name is a name of a program that can be found via @PATH@.
+-- Shelly will look through the @PATH@ itself to find the command.
+--
+-- When 'escaping' is set to @False@, shell characters are allowed.
+-- Since there is no longer a guarantee that a single program name is
+-- given, Shelly cannot look in the @PATH@ for it.
+-- a @PATH@ modified by setenv is not taken into account when finding the exe name.
+-- Instead the original Haskell program @PATH@ is used.
+-- On a Posix system the @env@ command can be used to make the 'setenv' PATH used when 'escaping' is set to False. @env echo hello@ instead of @echo hello@
 --
 run :: FilePath -> [Text] -> Sh Text
 run = runFoldLines T.empty foldText
