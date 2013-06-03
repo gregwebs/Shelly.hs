@@ -147,5 +147,4 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 ## Future plans
 
 * improved SSH API
-* fix PATH/which implementation
 * more efficient piping/redirecting (issue #18)

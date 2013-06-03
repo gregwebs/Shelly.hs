@@ -822,17 +822,23 @@ instance Exception e => Show (ReThrownException e) where
   show (ReThrownException ex msg) = "\n" ++
     msg ++ "\n" ++ "Exception: " ++ show ex
 
--- | Execute an external command. Takes the command name (no shell allowed,
--- just a name of something that can be found via @PATH@; FIXME: setenv'd
--- @PATH@ is not taken into account when finding the exe name)
+-- | Execute an external command.
+-- Takes the command name and arguments.
+--
+-- You may prefer using 'cmd' instead, which is a variadic argument version
+-- of this function.
+--
+-- By default shell characters are escaped and the command name is a name of a program that can be found via @PATH@).
+-- When escaping is set to False, shell characters are allowed and the
+-- setenv @PATH@ is not taken into account when finding the exe name
 --
 -- 'stdout' and 'stderr' are collected. The 'stdout' is returned as
 -- a result of 'run', and complete stderr output is available after the fact using
 -- 'lastStderr'
 --
--- All of the stdout output will be loaded into memory
--- You can avoid this but still consume the result by using 'run_',
--- If you want to avoid the memory and need to process the output then use 'runFoldLines'.
+-- All of the stdout output will be loaded into memory.
+-- You can avoid this if you don't need stdout by using 'run_',
+-- If you want to avoid the memory and need to process the output then use 'runFoldLines' or 'runHandle' or 'runHandles'.
 run :: FilePath -> [Text] -> Sh Text
 run = runFoldLines T.empty foldText
 
