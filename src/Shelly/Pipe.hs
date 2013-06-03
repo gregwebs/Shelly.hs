@@ -1,8 +1,8 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances, 
              TypeFamilies, ExistentialQuantification #-}
 -- | This module is a wrapper for the module "Shelly". 
--- The only difference is a main type "Sh". In this module 
--- "Sh" contains a list of results. Actual definition of the type "Sh" is:
+-- The only difference is a main type 'Sh'. In this module 
+-- 'Sh' contains a list of results. Actual definition of the type 'Sh' is:
 --
 -- > import qualified Shelly as S
 -- >
@@ -24,8 +24,8 @@
 -- @ListT Shelly.Sh@, but ">>" forgets the number of 
 -- the empty effects. So the last line prints @\"done\"@ only once. 
 --
--- I highly recommend putting the following at the top of your program,
--- otherwise you will likely need either type annotations or type conversions
+-- Documentation in this module mostly just reference documentation from
+-- the main "Shelly" module.
 --
 -- > {-# LANGUAGE OverloadedStrings #-}
 -- > {-# LANGUAGE ExtendedDefaultRules #-}
@@ -122,8 +122,8 @@ import Data.Text as T hiding (concat, all, find, cons)
 default (T.Text)
 
 
--- | This type is a simple wrapper for a type "Shelly.Sh".
--- "Sh" contains a list of results. 
+-- | This type is a simple wrapper for a type @Shelly.Sh@.
+-- 'Sh' contains a list of results. 
 newtype Sh a = Sh { unSh :: S.Sh [a] }
 
 instance Functor Sh where
@@ -193,7 +193,7 @@ mapM2 f as bs = sequence $ liftA2 f as bs
 unroll :: Sh a -> Sh [a]
 unroll = Sh . fmap return . unSh 
 
--- | Pack list of results. It performs "concat" inside "Sh".
+-- | Pack list of results. It performs @concat@ inside 'Sh'.
 roll :: Sh [a] -> Sh a
 roll = Sh . fmap concat . unSh
 
@@ -204,197 +204,138 @@ liftSh f = Sh . fmap f . unSh
 ------------------------------------------------------------------
 -- Entering Sh
 
--- | Enter a Sh from (Monad)IO. The environment and working directories are
--- inherited from the current process-wide values. Any subsequent changes in
--- processwide working directory or environment are not reflected in the
--- running Sh.
+-- | see 'S.shelly'
 shelly :: MonadIO m => Sh a -> m [a]
 shelly = S.shelly . unSh
 
--- | Performs "shelly" and then an empty action @return ()@. 
+-- | Performs 'shelly' and then an empty action @return ()@. 
 shs :: MonadIO m => Sh () -> m ()
 shs a = shelly a >> return ()
 
--- | Using this entry point does not create a @.shelly@ directory in the case
--- of failure. Instead it logs directly into the standard error stream (@stderr@).
+-- | see 'S.shellyNoDir'
 shellyNoDir :: MonadIO m => Sh a -> m [a]
 shellyNoDir = S.shellyNoDir . unSh
 
--- | Performs "shellyNoDir" and then an empty action @return ()@.
+-- | Performs 'shellyNoDir' and then an empty action @return ()@.
 shsNoDir :: MonadIO m => Sh () -> m ()
 shsNoDir a = shellyNoDir a >> return ()
 
--- | Enter a sub-Sh that inherits the environment
--- The original state will be restored when the sub-Sh completes.
--- Exceptions are propagated normally.
+-- | see 'S.sub'
 sub :: Sh a -> Sh a
 sub = lift1 S.sub
 
--- | Create a sub-Sh in which external command outputs are not echoed.
--- Also commands are not printed.
--- See "sub".
+-- See 'S.siliently'
 silently :: Sh a -> Sh a
 silently = lift1 S.silently
 
--- | Create a sub-Sh in which external command outputs are echoed.
--- Executed commands are printed
--- See "sub".
+-- See 'S.verbosely
 verbosely :: Sh a -> Sh a
 verbosely = lift1 S.verbosely
 
--- | Create a sub-Sh with shell character escaping on or off
+-- | see 'S.escaping'
 escaping :: Bool -> Sh a -> Sh a
 escaping b = lift1 (S.escaping b)
 
--- | Create a sub-Sh with stdout printing on or off
+-- | see 'S.print_stdout'
 print_stdout :: Bool -> Sh a -> Sh a
 print_stdout b = lift1 (S.print_stdout b)
 
--- | Create a sub-Sh with command echoing on or off
+-- | see 'S.print_commands
 print_commands :: Bool -> Sh a -> Sh a
 print_commands b = lift1 (S.print_commands b)
 
--- | Create a sub-Sh where commands are not traced
--- Defaults to True.
--- You should only set to False temporarily for very specific reasons
+-- | see 'S.tracing'
 tracing :: Bool -> Sh a -> Sh a
 tracing b = lift1 (S.tracing b)
 
--- | named after bash -e errexit. Defaults to @True@.
--- When @True@, throw an exception on a non-zero exit code.
--- When @False@, ignore a non-zero exit code.
--- Not recommended to set to @False@ unless you are specifically checking the error code with 'lastExitCode'.
+-- | see 'S.errExit'
 errExit :: Bool -> Sh a -> Sh a
 errExit b = lift1 (S.errExit b)
 
 
-------------------------------------------------------------------
--- Running external commands. 
-
--- | Execute an external command. Takes the command name (no shell allowed,
--- just a name of something that can be found via @PATH@; FIXME: setenv'd
--- @PATH@ is not taken into account when finding the exe name)
---
--- "stdout" and "stderr" are collected. The "stdout" is returned as
--- a result of "run", and complete stderr output is available after the fact using
--- "lastStderr" 
---
--- All of the stdout output will be loaded into memory
--- You can avoid this but still consume the result by using "run_",
--- If you want to avoid the memory and need to process the output then use "runFoldLines".
+-- | see 'S.run'
 run :: FilePath -> [Text] -> Sh Text
 run a b = sh0 $ S.run a b
 
--- | The same as "run", but return () instead of the stdout content.
+-- | see 'S.run_'
 run_ :: FilePath -> [Text] -> Sh ()
 run_ a b = sh0 $ S.run_ a b
 
--- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
--- stderr is still being placed in memory under the assumption it is always relatively small
+-- | see 'S.runFoldLines'
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines a cb fp ts = sh0 $ S.runFoldLines a cb fp ts
 
--- | Pipe operator. set the stdout the first command as the stdin of the second.
+-- | see 'S.-|-'
 (-|-) :: Sh Text -> Sh b -> Sh b
 (-|-) = lift2 (S.-|-)
 
--- | The output of last external command. See "run".
+-- | see 'S.lastStderr'
 lastStderr :: Sh Text
 lastStderr = sh0 S.lastStderr
 
--- | set the stdin to be used and cleared by the next "run".
+-- | see 'S.setStdin'
 setStdin :: Text -> Sh ()
 setStdin = sh1 S.setStdin 
 
--- | The exit code from the last command.
--- Unless you set 'errExit' to False you won't get a chance to use this: a non-zero exit code will throw an exception.
+-- | see 'S.lastExitCode'
 lastExitCode :: Sh Int
 lastExitCode = sh0 S.lastExitCode
 
--- | bind some arguments to run for re-use
--- Example: @monit = command "monit" ["-c", "monitrc"]@
+-- | see 'S.command'
 command :: FilePath -> [Text] -> [Text] -> Sh Text
 command = sh3 S.command
 
--- | bind some arguments to "run_" for re-use
--- Example: @monit_ = command_ "monit" ["-c", "monitrc"]@
+-- | see 'S.command_'
 command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ = sh3 S.command_
 
 
--- | bind some arguments to run for re-use, and expect 1 argument
--- Example: @git = command1 "git" []; git "pull" ["origin", "master"]@
+-- | see 'S.command1'
 command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 = sh4 S.command1
 
--- | bind some arguments to run for re-use, and expect 1 argument
--- Example: @git_ = command1_ "git" []; git+ "pull" ["origin", "master"]@
+-- | see 'S.command1_'
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ = sh4 S.command1_
 
--- | run commands over SSH.
--- An ssh executable is expected in your path.
--- Commands are in the same form as 'run', but given as pairs
---
--- > sshPairs "server-name" [("cd", "dir"), ("rm",["-r","dir2"])]
---
--- This interface is crude, but it works for now.
---
--- Please note this sets 'escaping' to False: the commands will not be shell escaped.
--- Internally the list of commands are combined with the string " && " before given to ssh.
+-- | see 'S.sshPairs'
 sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs = sh2 S.sshPairs
 
--- | same as 'sshPairs', but returns ()
+-- | see 'S.sshPairs_'
 sshPairs_ :: Text -> [(FilePath, [Text])] -> Sh ()
 sshPairs_ = sh2 S.sshPairs_
 
--------------------------------------------------------------------
--- Modifying and querying environment. 
-
--- | Set an environment variable. The environment is maintained in Sh
--- internally, and is passed to any external commands to be executed.
+-- | see 'S.setenv'
 setenv :: Text -> Text -> Sh ()
 setenv = sh2 S.setenv
 
--- | Fetch the current value of an environment variable.
--- if non-existant or empty text, will be Nothing
+-- | see 'S.get_env'
 get_env :: Text -> Sh (Maybe Text)
 get_env = sh1 S.get_env
 
--- | Fetch the current value of an environment variable. Both empty and
--- non-existent variables give empty string as a result.
+-- | see 'S.get_env_text'
 get_env_text :: Text -> Sh Text
 get_env_text = sh1 S.get_env_text
 
--- | Fetch the current value of an environment variable. Both empty and
--- non-existent variables give the default value as a result
+-- | see 'S.get_env_def'
 get_env_def :: Text -> Text -> Sh Text
 get_env_def a d = sh0 $ fmap (fromMaybe d) $ S.get_env a
 {-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
--- | add the filepath onto the PATH env variable
--- FIXME: only effects the PATH once the process is ran, as per comments in 'which'
+-- | see 'S.appendToPath'
 appendToPath :: FilePath -> Sh ()
 appendToPath = sh1 S.appendToPath
 
--------------------------------------------------------------
--- Environment directory 
-
--- | Change current working directory of Sh. This does *not* change the
--- working directory of the process we are running it. Instead, Sh keeps
--- track of its own working directory and builds absolute paths internally
--- instead of passing down relative paths. This may have performance
--- repercussions if you are doing hundreds of thousands of filesystem
--- operations. You will want to handle these issues differently in those cases.
+-- | see 'S.cd'
 cd :: FilePath -> Sh ()
 cd = sh1 S.cd
 
--- | "cd", execute a Sh action in the new directory and then pop back to the original directory
+-- | see 'S.chdir'
 chdir :: FilePath -> Sh a -> Sh a
 chdir p = lift1 (S.chdir p)
 
--- | Obtain the current (Sh) working directory.
+-- | see 'S.pwd'
 pwd :: Sh FilePath
 pwd = sh0 S.pwd
 
@@ -410,88 +351,77 @@ echo_n_err  = sh1 S.echo_n_err
 echo_err    = sh1 S.echo_err
 echo_n      = sh1 S.echo_n
 
--- | a print lifted into Sh
+-- | see 'S.inspect'
 inspect :: Show s => s -> Sh ()
 inspect = sh1 S.inspect
 
--- | a print lifted into Sh using stderr
+-- | see 'S.inspect_err'
 inspect_err :: Show s => s -> Sh ()
 inspect_err = sh1 S.inspect_err
 
--- | same as 'trace', but use it combinator style
+-- | see 'S.tag'
 tag :: Sh a -> Text -> Sh a
 tag a t = lift1 (flip S.tag t) a
 
--- | internally log what occured.
--- Log will be re-played on failure.
+-- | see 'S.trace'
 trace :: Text -> Sh ()
 trace = sh1 S.trace
 
+-- | see 'S.show_command'
 show_command :: FilePath -> [Text] -> Text
 show_command = S.show_command
 
 ------------------------------------------------------------------
 -- Querying filesystem
 
--- | List directory contents. Does *not* include \".\" and \"..\", but it does
--- include (other) hidden files.
+-- | see 'S.ls'
 ls :: FilePath -> Sh FilePath
 ls = sh1s S.ls
 
--- | Get back [Text] instead of [FilePath]
+-- | see 'S.lsT'
 lsT :: FilePath -> Sh Text
 lsT = sh1s S.lsT
 
--- | Does a path point to an existing filesystem object?
+-- | see 'S.test_e'
 test_e :: FilePath -> Sh Bool
 test_e = sh1 S.test_e
 
--- | Does a path point to an existing file?
+-- | see 'S.test_f'
 test_f :: FilePath -> Sh Bool
 test_f = sh1 S.test_f
 
--- | Does a path point to an existing directory?
+-- | see 'S.test_d'
 test_d :: FilePath -> Sh Bool
 test_d = sh1 S.test_d
 
--- | Does a path point to a symlink?
+-- | see 'S.test_s'
 test_s :: FilePath -> Sh Bool
 test_s = sh1 S.test_s
 
--- | Get a full path to an executable on @PATH@, if exists. FIXME does not
--- respect setenv'd environment and uses @findExecutable@ which uses the @PATH@ inherited from the process
--- environment.
--- FIXME: findExecutable does not maintain a hash of existing commands and does a ton of file stats
+-- | see 'S.which
 which :: FilePath -> Sh (Maybe FilePath)
 which = sh1 S.which
 
 ---------------------------------------------------------------------
 -- Filename helpers
 
--- | Make a relative path absolute by combining with the working directory.
--- An absolute path is returned as is.
--- To create a relative path, use 'path'.
+-- | see 'S.absPath'
 absPath :: FilePath -> Sh FilePath
 absPath = sh1 S.absPath
 
--- | makes an absolute path.
--- Like 'canonicalize', but on an exception returns 'path'
+-- | see 'S.canonic'
 canonic :: FilePath -> Sh FilePath
 canonic = sh1 S.canonic
 
--- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
--- "canonicalizePath" in system-fileio.
+-- | see 'S.canonicalize'
 canonicalize :: FilePath -> Sh FilePath
 canonicalize = sh1 S.canonicalize
 
--- | Makes a relative path relative to the current Sh working directory.
--- An absolute path is returned as is.
--- To create an absolute path, use 'absPath'
+-- | see 'S.relPath'
 relPath :: FilePath -> Sh FilePath
 relPath = sh1 S.relPath
 
--- | make the second path relative to the first
--- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
+-- | see 'S.relativeTo'
 relativeTo :: FilePath -- ^ anchor path, the prefix
            -> FilePath -- ^ make this relative to anchor path
            -> Sh FilePath
@@ -500,120 +430,88 @@ relativeTo = sh2 S.relativeTo
 -------------------------------------------------------------
 -- Manipulating filesystem
 
--- | Currently a "renameFile" wrapper. TODO: Support cross-filesystem
--- move. TODO: Support directory paths in the second parameter, like in "cp".
+-- | see 'S.mv'
 mv :: FilePath -> FilePath -> Sh ()
 mv = sh2 S.mv
 
--- | Remove a file.
--- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
+-- | see 'S.rm'
 rm :: FilePath -> Sh ()
 rm = sh1 S.rm
 
--- | Remove a file. Does not fail if the file does not exist.
--- Does fail if the file is not a file.
+-- | see 'S.rm_f'
 rm_f :: FilePath -> Sh ()
 rm_f = sh1 S.rm_f
 
--- | A swiss army cannon for removing things. Actually this goes farther than a
--- normal rm -rf, as it will circumvent permission problems for the files we
--- own. Use carefully.
--- Uses 'removeTree'
+-- | see 'S.rm_rf'
 rm_rf :: FilePath -> Sh ()
 rm_rf = sh1 S.rm_rf
 
--- | Copy a file. The second path could be a directory, in which case the
--- original file name is used, in that directory.
+-- | see 'S.cp'
 cp :: FilePath -> FilePath -> Sh ()
 cp = sh2 S.cp
 
--- | Copy a file, or a directory recursively.
+-- | see 'S.cp_r'
 cp_r :: FilePath -> FilePath -> Sh ()
 cp_r = sh2 S.cp_r
 
--- | Create a new directory (fails if the directory exists).
+-- | see 'S.mkdir'
 mkdir :: FilePath -> Sh ()
 mkdir = sh1 S.mkdir
 
--- | Create a new directory, including parents (succeeds if the directory
--- already exists).
+-- | see 'S.mkdir_p'
 mkdir_p :: FilePath -> Sh ()
 mkdir_p = sh1 S.mkdir_p
 
--- | Create a new directory tree. You can describe a bunch of directories as 
--- a tree and this function will create all subdirectories. An example:
---
--- > exec = mkTree $
--- >           "package" # [
--- >                "src" # [
--- >                    "Data" # leaves ["Tree", "List", "Set", "Map"] 
--- >                ],
--- >                "test" # leaves ["QuickCheck", "HUnit"],
--- >                "dist/doc/html" # []
--- >            ]
--- >         where (#) = Node
--- >               leaves = map (# []) 
---
+-- | see 'S.mkdirTree'
 mkdirTree :: Tree FilePath -> Sh ()
 mkdirTree = sh1 S.mkdirTree
 
--- | (Strictly) read file into a Text.
--- All other functions use Lazy Text.
--- So Internally this reads a file as strict text and then converts it to lazy text, which is inefficient
+-- | see 'S.readFile'
 readfile :: FilePath -> Sh Text
 readfile = sh1 S.readfile
 
--- | wraps ByteSting readFile
+-- | see 'S.readBinary'
 readBinary :: FilePath -> Sh ByteString
 readBinary = sh1 S.readBinary
 
--- | Write a Lazy Text to a file.
+-- | see 'S.writeFile'
 writefile :: FilePath -> Text -> Sh ()
 writefile = sh2 S.writefile
 
--- | Update a file, creating (a blank file) if it does not exist.
+-- | see 'S.touchFile'
 touchfile :: FilePath -> Sh ()
 touchfile = sh1 S.touchfile
 
--- | Append a Lazy Text to a file.
+-- | see 'S.appendFile'
 appendfile :: FilePath -> Text -> Sh ()
 appendfile = sh2 S.appendfile
 
--- | Create a temporary directory and pass it as a parameter to a Sh
--- computation. The directory is nuked afterwards.
+-- | see 'S.withTmpDir'
 withTmpDir :: (FilePath -> Sh a) -> Sh a
 withTmpDir f = Sh $ S.withTmpDir (unSh . f)
 
 -----------------------------------------------------------------
 -- find
 
--- | List directory recursively (like the POSIX utility "find").
--- listing is relative if the path given is relative.
--- If you want to filter out some results or fold over them you can do that with the returned files.
--- A more efficient approach is to use one of the other find functions.
+-- | see 'S.find'
 find :: FilePath -> Sh FilePath
 find = sh1s S.find
 
--- | 'find' that filters the found files as it finds.
--- Files must satisfy the given filter to be returned in the result.
+-- | see 'S.findWhen'
 findWhen :: (FilePath -> Sh Bool) -> FilePath -> Sh FilePath
 findWhen p a = Sh $ S.findWhen (fmap and . unSh . p) a
 
--- | Fold an arbitrary folding function over files froma a 'find'.
--- Like 'findWhen' but use a more general fold rather than a filter.
+-- | see 'S.findFold'
 findFold :: (a -> FilePath -> Sh a) -> a -> FilePath -> Sh a
 findFold cons nil a = Sh $ S.findFold cons' nil' a
     where nil'  = return nil
           cons' as dir = unSh $ roll $ mapM (flip cons dir) as
 
--- | 'find' that filters out directories as it finds
--- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
+-- | see 'S.findDirFilter'
 findDirFilter :: (FilePath -> Sh Bool) -> FilePath -> Sh FilePath
 findDirFilter p a = Sh $ S.findDirFilter (fmap and . unSh . p) a
     
--- | similar 'findWhen', but also filter out directories
--- Alternatively, similar to 'findDirFilter', but also filter out files
--- Filtering out directories makes the find much more efficient
+-- | see 'S.findDirFilterWhen'
 findDirFilterWhen :: (FilePath -> Sh Bool) -- ^ directory filter
                   -> (FilePath -> Sh Bool) -- ^ file filter
                   -> FilePath -- ^ directory
@@ -625,8 +523,7 @@ findDirFilterWhen dirPred filePred a =
             a
 
 
--- | like 'findDirFilterWhen' but use a folding function rather than a filter
--- The most general finder: you likely want a more specific one
+-- | see 'S.findFoldDirFilterWhen'
 findFoldDirFilter :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
 findFoldDirFilter cons nil p a = Sh $ S.findFoldDirFilter cons' nil' p' a
     where p'    = fmap and . unSh . p
@@ -636,44 +533,46 @@ findFoldDirFilter cons nil p a = Sh $ S.findFoldDirFilter cons' nil' p' a
 -----------------------------------------------------------
 -- exiting the program 
 
+-- | see 'S.exit'
 exit :: Int -> Sh ()
 exit = sh1 S.exit
 
+-- | see 'S.errorExit'
 errorExit :: Text -> Sh ()
 errorExit = sh1 S.errorExit
 
--- | for exiting with status > 0 without printing debug information
+-- | see 'S.quietExit'
 quietExit :: Int -> Sh ()
 quietExit = sh1 S.quietExit
 
--- | fail that takes a Text
+-- | see 'S.terror'
 terror :: Text -> Sh a
 terror = sh1 S.terror
 
 ------------------------------------------------------------
 -- Utilities
 
--- | Catch an exception in the Sh monad.
+-- | see 'S.catch_sh'
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh a f = Sh $ S.catch_sh (unSh a) (unSh . f)
 
--- | Catch an exception in the Sh monad.
+-- | see 'S.catchany_sh'
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
 catchany_sh = catch_sh
 
 
--- | Catch an exception in the Sh monad.
+-- | see 'S.finally_sh'
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh = lift2 S.finally_sh
 
--- | Run a Sh computation and collect timing  information.
+-- | see 'S.time'
 time :: Sh a -> Sh (Double, a)
 time = lift1 S.time
 
--- | You need this when using 'catches_sh'.
+-- | see 'S.ShellyHandler'
 data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
 
--- | Catch multiple exceptions in the Sh monad.
+-- | see 'S.catches_sh'
 catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
 catches_sh a hs = Sh $ S.catches_sh (unSh a) (fmap convert hs)
     where convert :: ShellyHandler a -> S.ShellyHandler [a]
@@ -682,6 +581,7 @@ catches_sh a hs = Sh $ S.catches_sh (unSh a) (fmap convert hs)
 ------------------------------------------------------------
 -- convert between Text and FilePath 
 
+-- | see 'S.toTextWarn'
 toTextWarn :: FilePath -> Sh Text
 toTextWarn = sh1 S.toTextWarn
 
@@ -720,19 +620,6 @@ instance ShellCommand (Sh ()) where
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
     cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
 
--- | variadic argument version of run.
--- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
--- So an argument can be a Text or a FilePath.
--- a FilePath is converted to Text with 'toTextIgnore'.
--- You will need to add the following to your module:
---
--- > {-# LANGUAGE OverloadedStrings #-}
--- > {-# LANGUAGE ExtendedDefaultRules #-}
--- > {-# OPTIONS_GHC -fno-warn-type-defaults #-}
--- > import Shelly
--- > import Data.Text.Lazy as LT
--- > default (LT.Text)
---
+-- | see 'S.cmd'
 cmd :: (ShellCommand result) => FilePath -> result
 cmd fp = cmdAll fp []
-
