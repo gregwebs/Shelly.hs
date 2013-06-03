@@ -497,15 +497,15 @@ cachedPathExecutables = do
         executables <- forM dirs (\dir -> do
             files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
             exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
-              map (\f -> (encodeString f, f)) files
+              map (\f -> (encodeString f, filename f)) files
             return $ S.fromList exes
-                
           )
         let cachedExecutables = zip dirs executables
         modify $ \x -> x { sPathExecutables = Just cachedExecutables }
         return $ cachedExecutables
   where
-    isExecutable fp = executable `fmap` getPermissions fp
+    isExecutable fp = (executable `fmap` getPermissions fp) `catch`
+                        (\(_ :: IOError) -> return False)
 
 
 -- | A monadic-conditional version of the 'unless' guard.
