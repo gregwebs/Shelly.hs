@@ -282,11 +282,11 @@ runCommand mstdin st exe args = findExe exe >>= \fullExe ->
     findExe :: FilePath -> Sh FilePath
     findExe fp = do
 #if defined(mingw32_HOST_OS)
-        let exe = case extension fp of
+        let fullExe = case extension fp of
                     Nothing -> fp <.> "exe"
-                    Just f -> f
-        mExe <- which exe
-        case mExe of
+                    Just _ -> fp
+        mExe <- which fullExe
+        return $ case mExe of
           Just execFp -> execFp
           -- windows looks in extra places besides the PATH, so just give
           -- up even if the behavior is not properly specified anymore
@@ -934,7 +934,7 @@ runHandles exe args mStdinHandle withHandles = do
 
     bracketOnWindowsError
       ((sRun state) mStdinHandle state exe args)
-      (\(_,_,_,procH) -> (terminateProcess procH))
+      (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         liftIO $ case mStdin of
           Just input ->
@@ -963,7 +963,12 @@ runHandles exe args mStdinHandle withHandles = do
       )
   where -- Windows does not terminate spawned processes, so we must bracket.
 #if defined(mingw32_HOST_OS)
-    bracketOnWindowsError = bracketOnError
+    bracketOnWindowsError acquire release main = do
+      resource <- acquire 
+      main resource `catchany_sh` (\e -> do
+          _ <- release resource
+          liftIO $ throwIO e
+        )
 #else
     bracketOnWindowsError acquire _ main = acquire >>= main
 #endif
