@@ -970,6 +970,7 @@ runHandles exe args mStdinHandle withHandles = do
           liftIO $ throwIO e
         )
 #else
+    bracketOnWindowsError :: Sh a -> (a -> Sh ()) -> (a -> Sh b) -> Sh b
     bracketOnWindowsError acquire _ main = acquire >>= main
 #endif
 
