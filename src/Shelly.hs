@@ -296,7 +296,8 @@ runCommand mstdin st exe args = findExe exe >>= \fullExe ->
         case mExe of
           Just execFp -> return execFp
           Nothing -> liftIO $ throwIO $ userError $
-            "shelly did not find " ++ encodeString fp ++ " in the PATH"
+            "shelly did not find " `mappend` encodeString fp `mappend`
+              if absolute exe then "" else " in the PATH"
 #endif
 
 
