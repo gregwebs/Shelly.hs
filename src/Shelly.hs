@@ -485,31 +485,61 @@ mkdirTree = mk . unrollPath
 -- variable. Windows normally looks in additional places besides the
 -- @PATH@: this does not duplicate that behavior.
 which :: FilePath -> Sh (Maybe FilePath)
-which fp = do
-  (trace . mappend "which " . toTextIgnore) fp
-  pathExecutables <- cachedPathExecutables
-  return $ fmap (flip (</>) fp . fst) $ L.find (S.member fp . snd) pathExecutables 
-
-cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
-cachedPathExecutables = do
-  mPathExecutables <- gets sPathExecutables
-  case mPathExecutables of
-      Just pExecutables -> return pExecutables
-      Nothing -> do
-        dirs <- mapM absPath =<< ((map fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
-        executables <- forM dirs (\dir -> do
-            files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
-            exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
-              map (\f -> (encodeString f, filename f)) files
-            return $ S.fromList exes
-          )
-        let cachedExecutables = zip dirs executables
-        modify $ \x -> x { sPathExecutables = Just cachedExecutables }
-        return $ cachedExecutables
+which fp = (trace . mappend "which " . toTextIgnore) fp >> whichUntraced
   where
-    isExecutable fp = (executable `fmap` getPermissions fp) `catch`
-                        (\(_ :: IOError) -> return False)
+    whichUntraced | absolute fp                      = checkFile
+                  | length (splitDirectories fp) > 0 = lookupPath
+                  | otherwise                        = lookupCache
+    checkFile = do
+        exists <- liftIO $ isFile fp
+        return $ if exists then Just fp else Nothing
 
+    lookupPath =
+        pathDirs >>= findMapM (\dir -> do
+            let fullFp = dir </> fp
+            res <- liftIO $ isExecutable $ encodeString $ fullFp
+            return $ if res then Just fullFp else Nothing
+          )
+
+    lookupCache = do
+        pathExecutables <- cachedPathExecutables
+        liftIO $ print pathExecutables
+        return $ fmap (flip (</>) fp . fst) $
+            L.find (S.member fp . snd) pathExecutables
+    
+
+    pathDirs = mapM absPath =<< ((map fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
+
+    isExecutable f = (executable `fmap` getPermissions f) `catch`
+                       (\(_ :: IOError) -> return False)
+
+    cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
+    cachedPathExecutables = do
+      mPathExecutables <- gets sPathExecutables
+      case mPathExecutables of
+          Just pExecutables -> return pExecutables
+          Nothing -> do
+            dirs <- pathDirs
+            executables <- forM dirs (\dir -> do
+                files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
+                exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
+                  map (\f -> (encodeString f, filename f)) files
+                return $ S.fromList exes
+              )
+            let cachedExecutables = zip dirs executables
+            modify $ \x -> x { sPathExecutables = Just cachedExecutables }
+            return $ cachedExecutables
+
+
+-- | A monadic findMap, taken from MissingM package
+findMapM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
+findMapM _ [] = return Nothing
+findMapM f (x:xs) =
+  do
+    mb <- f x
+    if (isJust mb)
+      then return mb
+      else findMapM f xs
 
 -- | A monadic-conditional version of the 'unless' guard.
 unlessM :: Monad m => m Bool -> m () -> m ()
