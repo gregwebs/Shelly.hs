@@ -5,7 +5,7 @@
 
 import Shelly
 import Shelly.Background
-import Data.Text.Lazy (Text, stripEnd)
+import Data.Text (Text, stripEnd)
 import Test.HUnit
 default (Text)
 
