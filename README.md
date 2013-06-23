@@ -9,12 +9,13 @@ Shelly provides a single module for convenient systems programming in Haskell.
 * has low memory usage
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
+  * 'runHandle` and `runHandles` for incremental reads from handles.
 
 Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
 
 The focus of this library on convenience combined with good error messages should make shelly approachable for newer users of Haskell.
 I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/). There is a paid version in German from Linux Magazin.
-That article uses the version 'shelly < 1.0' which uses lazy text.
+That article uses the version `shelly < 1.0` which uses lazy text. `shelly > 1.0` uses strict text.
 
 
 
@@ -57,10 +58,10 @@ Both of these libraries (unlike Shelly currently) also implement very efficient 
 Shelly does not change the nature of shell scripting (text in, text out).
 If you want something more revolutionary you might try these:
 
+* [Plush](https://github.com/mzero/plush) shell with nice GUI. Written in Haskell. Actively developed, unlike [TermKit](https://github.com/unconed/TermKit/)
 * PowerShell is proably the best known.
 * [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
 * [untyped JSON](https://github.com/benbernard/RecordStream)
-* [Plush](https://github.com/mzero/plush) shell with nice GUI. Written in Haskell. Actively developed, unlike [TermKit](https://github.com/unconed/TermKit/)
 
 
 ## Usage
@@ -83,15 +84,15 @@ I recommend using the boilerplate at the top of this example in your projects.
     {-# LANGUAGE ExtendedDefaultRules #-}
     {-# OPTIONS_GHC -fno-warn-type-defaults #-}
     import Shelly
-    import Data.Text as LT
+    import Data.Text as T
     default (T.Text)
 
     main = shelly $ verbosely $ do
       host <- run "uname" ["-n"]
-      if LT.stripEnd host === "local-machine"
+      if T.stripEnd host === "local-machine"
         then do d <- cmd "date"
                 c <- escaping False $ cmd "git" "log -1 | head -1 | awk '{print $2}'"
-                appendfile "log/deploy.log" $ LT.intercalate " - " [LT.stripEnd d, c]
+                appendfile "log/deploy.log" $ T.intercalate " - " [T.stripEnd d, c]
                 uploads ["deploy"]
                 shPairs_ "my-server" [("./deploy", [])]
       else do
@@ -99,7 +100,7 @@ I recommend using the boilerplate at the top of this example in your projects.
 
     -- same path on remote host
     -- will create directories
-    uploads :: [Text] -> ShIO ()
+    uploads :: [Text] -> Sh ()
     uploads locals login = rsync $ ["--relative"] ++ locals ++ [login]
 
     rsync   = command_ "rsync" ["--delete", "-avz", "--no-g"]
@@ -124,7 +125,7 @@ This should be infrequent though because
 Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 
 
-### Thread-safe working directory
+### Thread-safe working directory and relative paths
 
 `cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
 All of the Shelly API takes this into account, internally shelly converts all paths to absolute paths. You can turn a relative path into an absolute with `absPath` or `canonic` or you can make a path relative to the Shelly working directory with `relPath`.
@@ -140,7 +141,7 @@ If you use `shellyNoDir`, the log will instead be printed to stderr.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
-If you make your own primitive functions that don't use the Shelly API, use `trace` or `tag` to log what they are doing.
+If you make your own primitive functions that don't use the existing Shelly API, you can create a wrapper in the Sh monad that use `trace` or `tag` to log what they are doing.
 You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 
