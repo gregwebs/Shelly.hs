@@ -90,6 +90,8 @@ import Prelude hiding ( readFile, FilePath)
 import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
+import Data.Sequence (Seq, (|>))
+import Data.Foldable (foldl')
 import Data.Maybe
 import System.IO ( hClose, stderr, stdout, openTempFile )
 import System.Exit
@@ -109,6 +111,7 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
 
+import Data.Monoid (mempty)
 #if __GLASGOW_HASKELL__ < 704
 import Data.Monoid (Monoid, mappend)
 infixr 5 <>
@@ -233,22 +236,26 @@ toTextWarn efile = case toText efile of
 fromText :: Text -> FilePath
 fromText = FP.fromText
 
-printGetContent :: Handle -> Handle -> IO Text
-printGetContent = printFoldHandleLines T.empty foldText
+printGetTextList :: Handle -> Handle -> IO Text
+printGetTextList h1 h2 = printFoldHandleLines mempty (|>) h1 h2 >>=
+    return . lineSeqToText
+
+lineSeqToText :: Seq Text -> Text
+lineSeqToText = T.intercalate "\n" . foldl' (flip (:)) []
 
 {-
 getContent :: Handle -> IO Text
 getContent h = fmap B.toLazyText $ foldHandleLines (B.fromText "") foldBuilder h
 -}
 
-type FoldCallback a = ((a, Text) -> a)
+type FoldCallback a = (a -> Text -> a)
 
 printFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
 printFoldHandleLines start foldLine readHandle writeHandle = go start
   where
     go acc = do
       line <- TIO.hGetLine readHandle
-      TIO.hPutStrLn writeHandle line >> go (foldLine (acc, line))
+      TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
      `catchany` \_ -> return acc
 
 foldHandleLines :: a -> FoldCallback a -> Handle -> IO a
@@ -256,7 +263,7 @@ foldHandleLines start foldLine readHandle = go start
   where
     go acc = do
       line <- TIO.hGetLine readHandle
-      go $ foldLine (acc, line)
+      go $ foldLine acc line
      `catchany` \_ -> return acc
 
 -- | same as 'trace', but use it combinator style
@@ -885,11 +892,7 @@ instance Exception e => Show (ReThrownException e) where
 -- On a Posix system the @env@ command can be used to make the 'setenv' PATH used when 'escaping' is set to False. @env echo hello@ instead of @echo hello@
 --
 run :: FilePath -> [Text] -> Sh Text
-run = runFoldLines T.empty foldText
-
-foldText :: (Text, Text) -> Text
-foldText (t, line) = t <> line <> T.singleton '\n'
-
+run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
 
 -- | bind some arguments to run for re-use. Example:
 --
@@ -920,7 +923,7 @@ command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 -- | the same as 'run', but return @()@ instead of the stdout content
 -- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
-run_ = runFoldLines () (\(_, _) -> ())
+run_ = runFoldLines () (\_ _ -> ())
 
 liftIO_ :: IO a -> Sh ()
 liftIO_ action = void (liftIO action)
@@ -935,7 +938,7 @@ runHandle exe args withHandle =
   runHandles exe args Nothing $ \outH errH -> do
     errVar <- liftIO $ do
       errVar' <- newEmptyMVar
-      _ <- forkIO $ printGetContent errH stderr >>= putMVar errVar'
+      _ <- forkIO $ printGetTextList errH stderr >>= putMVar errVar'
       return errVar'
       -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
       --
@@ -1014,7 +1017,7 @@ runFoldLines start cb exe args =
     (errVar, outVar) <- liftIO $ do
       errVar' <- newEmptyMVar
       outVar' <- newEmptyMVar
-      _ <- forkIO $ printGetContent errH stderr >>= putMVar errVar'
+      _ <- forkIO $ printGetTextList errH stderr >>= putMVar errVar'
       return (errVar', outVar')
       -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
 
