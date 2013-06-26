@@ -98,7 +98,8 @@ import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (foldl')
 import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile )
+import System.IO ( hClose, hFlush, stderr, stdout, openTempFile )
+import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
 import System.Exit
 import System.Environment
 import Control.Applicative
@@ -110,7 +111,6 @@ import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
 import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
-import System.IO.Error (isPermissionError)
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
@@ -241,6 +241,7 @@ fromText = FP.fromText
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
+-- does not close the write handle.
 --
 -- Also, return the complete contents being streamed line by line.
 transferLinesAndCombine :: Handle -> Handle -> IO Text
@@ -254,15 +255,23 @@ type FoldCallback a = (a -> Text -> a)
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
+-- does not close the write handle.
 --
 -- Also, fold over the contents being streamed line by line
 transferFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
 transferFoldHandleLines start foldLine readHandle writeHandle = go start
   where
+    catchEOF action cleanup = catchIOError
+                   (fmap Just action)
+                   (\e -> if isEOFError e || isIllegalOperation e -- handle was closed
+                           then cleanup >> return Nothing
+                           else ioError e)
     go acc = do
-      line <- TIO.hGetLine readHandle
-      TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
-     `catchany` \_ -> return acc
+        mLine <- catchEOF (TIO.hGetLine readHandle)
+                  (hClose readHandle >> hFlush writeHandle)
+        case mLine of
+            Nothing -> return acc
+            Just line -> TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
 
 foldHandleLines :: a -> FoldCallback a -> Handle -> IO a
 foldHandleLines start foldLine readHandle = go start
