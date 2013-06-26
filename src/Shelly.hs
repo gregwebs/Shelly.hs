@@ -34,7 +34,7 @@ module Shelly
 
          -- * Running commands Using handles
          , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
-         , ReusedHandle(..)
+         , StdHandle(..), StdStream(..)
 
 
          -- * Modifying and querying environment.
@@ -110,7 +110,7 @@ import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle )
+import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle, StdStream(..) )
 
 import qualified Data.Text as T
 import qualified Data.ByteString as BS
@@ -291,11 +291,11 @@ put newState = do
   stateVar <- ask
   liftIO (writeIORef stateVar newState)
 
-runCommandNoEscape :: [ReusedHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommandNoEscape handles st exe args = liftIO $ shellyProcess handles st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
 
-runCommand :: [ReusedHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommand :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommand handles st exe args = findExe exe >>= \fullExe ->
   liftIO $ shellyProcess handles st $
     RawCommand (unpack fullExe) (map T.unpack args)
@@ -324,47 +324,47 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
 
 
 
-shellyProcess :: [ReusedHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess :: [StdHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess reusedHandles st cmdSpec =  do
     (createdInH, createdOutH, createdErrorH, pHandle) <- createProcess CreateProcess {
           cmdspec = cmdSpec
         , cwd = Just $ unpack $ sDirectory st
         , env = Just $ sEnvironment st
-        , std_in  = reuse mIn
-        , std_out = reuse mOut
-        , std_err = reuse mError
+        , std_in  = createUnless mInH
+        , std_out = createUnless mOutH
+        , std_err = createUnless mErrorH
         , close_fds = False
 #if MIN_VERSION_process(1,1,0)
         , create_group = False
 #endif
         }
-    return (just $ createdInH <|> mInH,
-            just $ createdOutH <|> mOutH,
-            just $ createdErrorH <|> mErrorH, pHandle)
+    return ( just $ createdInH <|> toHandle mInH
+           , just $ createdOutH <|> toHandle mOutH
+           , just $ createdErrorH <|> toHandle mErrorH
+           , pHandle
+           )
   where
     just :: Maybe a -> a
     just Nothing  = error "error in shelly creating process"
     just (Just j) = j
 
-    mInH    = getHandle mIn reusedHandles
-    mOutH   = getHandle mOut reusedHandles
-    mErrorH = getHandle mError reusedHandles
+    toHandle (Just (UseHandle h)) = Just h
+    toHandle (Just CreatePipe)    = error "shelly process creation failure CreatePIpe"
+    toHandle (Just Inherit)       = error "cannot access an inherited pipe"
+    toHandle Nothing              = error "error in shelly creating process"
 
-    reuse :: (ReusedHandle -> Maybe Handle) -> StdStream
-    reuse mHandle = createOrUse $ getHandle mHandle reusedHandles
+    createUnless Nothing = CreatePipe
+    createUnless (Just stream) = stream
 
-    getHandle :: (ReusedHandle -> Maybe Handle) -> [ReusedHandle] -> Maybe Handle
-    getHandle _ [] = Nothing
-    getHandle mHandle (h:hs) = case mHandle h of
-        Just already -> Just already
-        Nothing -> getHandle mHandle hs
+    mInH    = getStream mIn reusedHandles
+    mOutH   = getStream mOut reusedHandles
+    mErrorH = getStream mError reusedHandles
 
-    createOrUse :: Maybe Handle -> StdStream
-    createOrUse mHandle = case mHandle of
-        Just already -> UseHandle already
-        Nothing -> CreatePipe
+    getStream :: (StdHandle -> Maybe StdStream) -> [StdHandle] -> Maybe StdStream
+    getStream _ [] = Nothing
+    getStream mHandle (h:hs) = mHandle h <|> getStream mHandle hs
 
-    mIn, mOut, mError :: (ReusedHandle -> Maybe Handle)
+    mIn, mOut, mError :: (StdHandle -> Maybe StdStream)
     mIn (InHandle h) = Just h
     mIn _ = Nothing
     mOut (OutHandle h) = Just h
@@ -993,9 +993,13 @@ runHandle exe args withHandle =
     return res
 
 -- | Similar to 'run' but gives direct access to all input and output handles.
+--
+-- Be careful when using the optional input handles.
+-- If you specify Inherit for a handle then attempting to access the handle in your
+-- callback is an error
 runHandles :: FilePath -- ^ command
            -> [Text] -- ^ arguments
-           -> [ReusedHandle] -- ^ optionally connect process i/o handles to existing handles
+           -> [StdHandle] -- ^ optionally connect process i/o handles to existing handles
            -> (Handle -> Handle -> Handle -> Sh a) -- ^ stdin, stdout and stderr
            -> Sh a
 runHandles exe args reusedHandles withHandles = do
@@ -1022,9 +1026,10 @@ runHandles exe args reusedHandles withHandles = do
         (ex, code) <- liftIO $ do
           ex' <- waitForProcess procH
 
-          hClose outH
-          hClose errH
-          hClose inH
+          -- TODO: specifically catch our own error for Inherit pipes
+          hClose outH `catchany` (const $ return ())
+          hClose errH `catchany` (const $ return ())
+          hClose inH `catchany` (const $ return ())
 
           return $ case ex' of
             ExitSuccess -> (ex', 0)

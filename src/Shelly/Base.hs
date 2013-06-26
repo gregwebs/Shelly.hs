@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    ShIO, Sh, unSh, runSh, State(..), ReusedHandle(..), FilePath, Text,
+    ShIO, Sh, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -28,7 +28,7 @@ import Prelude hiding (FilePath)
 #endif
 
 import Data.Text (Text)
-import System.Process( ProcessHandle )
+import System.Process( ProcessHandle, StdStream(..) )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
 import Control.Monad (when, (>=>) )
@@ -67,7 +67,7 @@ data State = State
    , sDirectory :: FilePath -- ^ working directory
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
-   , sRun :: [ReusedHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
+   , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]
    , sPathExecutables :: Maybe [(FilePath, S.Set FilePath)] -- ^ cache of executables in the PATH
    , sTracing :: Bool -- ^ should we trace command execution
@@ -75,9 +75,9 @@ data State = State
    , sErrExit :: Bool -- ^ should we exit immediately on any error
    }
 
-data ReusedHandle = InHandle Handle
-                  | OutHandle Handle
-                  | ErrorHandle Handle
+data StdHandle = InHandle StdStream
+               | OutHandle StdStream
+               | ErrorHandle StdStream
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
