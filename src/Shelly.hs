@@ -111,14 +111,13 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
 
-import Data.Monoid (mempty)
+import Data.Monoid (Monoid, mempty, mappend)
 #if __GLASGOW_HASKELL__ < 704
-import Data.Monoid (Monoid, mappend)
 infixr 5 <>
 (<>) :: Monoid m => m -> m -> m
 (<>) = mappend
 #else
-import Data.Monoid ( mappend, (<>))
+import Data.Monoid ((<>))
 #endif
 
 import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
