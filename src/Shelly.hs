@@ -291,13 +291,13 @@ put newState = do
   stateVar <- ask
   liftIO (writeIORef stateVar newState)
 
-runCommandNoEscape :: (Maybe Handle) -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
-runCommandNoEscape mstdin st exe args = liftIO $ shellyProcess mstdin st $
+runCommandNoEscape :: [ReusedHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommandNoEscape handles st exe args = liftIO $ shellyProcess handles st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
 
-runCommand :: (Maybe Handle) -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
-runCommand mstdin st exe args = findExe exe >>= \fullExe ->
-  liftIO $ shellyProcess mstdin st $
+runCommand :: [ReusedHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
+runCommand handles st exe args = findExe exe >>= \fullExe ->
+  liftIO $ shellyProcess handles st $
     RawCommand (unpack fullExe) (map T.unpack args)
   where
     findExe :: FilePath -> Sh FilePath
@@ -324,19 +324,18 @@ runCommand mstdin st exe args = findExe exe >>= \fullExe ->
 
 
 
-shellyProcess :: (Maybe Handle) -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
-shellyProcess mstdin st cmdSpec =  do
-  (Just hin, Just hout, Just herr, pHandle) <- createProcess CreateProcess {
-        cmdspec = cmdSpec
-      , cwd = Just $ unpack $ sDirectory st
-      , env = Just $ sEnvironment st
-      , std_in = case mstdin of
-                   Nothing     -> CreatePipe
-                   Just handle -> UseHandle handle
-      , std_out = CreatePipe, std_err = CreatePipe
-      , close_fds = False
+shellyProcess :: [ReusedHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
+shellyProcess reusedHandles st cmdSpec =  do
+    (createdInH, createdOutH, createdErrorH, pHandle) <- createProcess CreateProcess {
+          cmdspec = cmdSpec
+        , cwd = Just $ unpack $ sDirectory st
+        , env = Just $ sEnvironment st
+        , std_in  = reuse mIn
+        , std_out = reuse mOut
+        , std_err = reuse mError
+        , close_fds = False
 #if MIN_VERSION_process(1,1,0)
-      , create_group = False
+        , create_group = False
 #endif
         }
     return (just $ createdInH <|> mInH,
@@ -981,7 +980,7 @@ runHandle :: FilePath -- ^ command
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
 runHandle exe args withHandle = 
-  runHandles exe args Nothing $ \_ outH errH -> do
+  runHandles exe args [] $ \_ outH errH -> do
     errVar <- liftIO $ do
       errVar' <- newEmptyMVar
       _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
@@ -996,10 +995,10 @@ runHandle exe args withHandle =
 -- | Similar to 'run' but gives direct access to all input and output handles.
 runHandles :: FilePath -- ^ command
            -> [Text] -- ^ arguments
-           -> (Maybe Handle) -- ^ optionally connect process stdin to an existing handle
+           -> [ReusedHandle] -- ^ optionally connect process i/o handles to existing handles
            -> (Handle -> Handle -> Handle -> Sh a) -- ^ stdin, stdout and stderr
            -> Sh a
-runHandles exe args mStdinHandle withHandles = do
+runHandles exe args reusedHandles withHandles = do
     -- clear stdin before beginning command execution
     origstate <- get
     let mStdin = sStdin origstate
@@ -1011,7 +1010,7 @@ runHandles exe args mStdinHandle withHandles = do
     trace cmdString
 
     bracketOnWindowsError
-      ((sRun state) mStdinHandle state exe args)
+      ((sRun state) reusedHandles state exe args)
       (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         liftIO $ case mStdin of
