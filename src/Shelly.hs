@@ -98,7 +98,7 @@ import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (foldl')
 import Data.Maybe
-import System.IO ( hClose, hFlush, stderr, stdout, openTempFile )
+import System.IO ( hClose, stderr, stdout, openTempFile )
 import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
 import System.Exit
 import System.Environment
@@ -261,14 +261,13 @@ type FoldCallback a = (a -> Text -> a)
 transferFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
 transferFoldHandleLines start foldLine readHandle writeHandle = go start
   where
-    catchEOF action cleanup = catchIOError
+    catchIOErrors action = catchIOError
                    (fmap Just action)
                    (\e -> if isEOFError e || isIllegalOperation e -- handle was closed
-                           then cleanup >> return Nothing
+                           then return Nothing
                            else ioError e)
     go acc = do
-        mLine <- catchEOF (TIO.hGetLine readHandle)
-                  (hClose readHandle >> hFlush writeHandle)
+        mLine <- catchIOErrors (TIO.hGetLine readHandle)
         case mLine of
             Nothing -> return acc
             Just line -> TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
@@ -1016,18 +1015,18 @@ runHandles exe args mStdinHandle withHandles = do
       (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
         liftIO $ case mStdin of
-          Just input ->
-            TIO.hPutStr inH input >> hClose inH
-            -- stdin is cleared from state below
+          Just input -> TIO.hPutStr inH input
           Nothing -> return ()
 
         result <- withHandles inH outH errH
 
         (ex, code) <- liftIO $ do
+          ex' <- waitForProcess procH
+
           hClose outH
           hClose errH
+          hClose inH
 
-          ex' <- waitForProcess procH
           return $ case ex' of
             ExitSuccess -> (ex', 0)
             ExitFailure n -> (ex', n)
@@ -1058,8 +1057,9 @@ runHandles exe args mStdinHandle withHandles = do
 -- stderr is still being placed in memory under the assumption it is always relatively small
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args =
-  runHandles exe args Nothing $ \_ outH errH -> do
+  runHandles exe args [] $ \inH outH errH -> do
     (errVar, outVar) <- liftIO $ do
+      hClose inH -- setStdin was taken care of before the process even ran
       errVar' <- newEmptyMVar
       outVar' <- newEmptyMVar
       _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
