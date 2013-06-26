@@ -26,11 +26,16 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
 
          -- * Running external commands.
-         , run, run_, runFoldLines, cmd, FoldCallback, runHandle, runHandles
+         , run, run_, runFoldLines, cmd, FoldCallback
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
          , ShellArg (..)
+
+         -- * Running commands Using handles
+         , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
+         , ReusedHandle(..)
+
 
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, getenv, get_env_def, appendToPath
@@ -168,7 +173,6 @@ instance ShellArg Text     where toTextArg = id
 instance ShellArg FilePath where toTextArg = toTextIgnore
 instance ShellArg String   where toTextArg = T.pack
 
-
 -- | used to create the variadic function 'cmd'
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
@@ -235,22 +239,25 @@ toTextWarn efile = case toText efile of
 fromText :: Text -> FilePath
 fromText = FP.fromText
 
-printGetTextList :: Handle -> Handle -> IO Text
-printGetTextList h1 h2 = printFoldHandleLines mempty (|>) h1 h2 >>=
+-- | Transfer from one handle to another
+-- For example, send contents of a process output to stdout.
+--
+-- Also, return the complete contents being streamed line by line.
+transferLinesAndCombine :: Handle -> Handle -> IO Text
+transferLinesAndCombine h1 h2 = transferFoldHandleLines mempty (|>) h1 h2 >>=
     return . lineSeqToText
 
 lineSeqToText :: Seq Text -> Text
 lineSeqToText = T.intercalate "\n" . foldl' (flip (:)) []
 
-{-
-getContent :: Handle -> IO Text
-getContent h = fmap B.toLazyText $ foldHandleLines (B.fromText "") foldBuilder h
--}
-
 type FoldCallback a = (a -> Text -> a)
 
-printFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
-printFoldHandleLines start foldLine readHandle writeHandle = go start
+-- | Transfer from one handle to another
+-- For example, send contents of a process output to stdout.
+--
+-- Also, fold over the contents being streamed line by line
+transferFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
+transferFoldHandleLines start foldLine readHandle writeHandle = go start
   where
     go acc = do
       line <- TIO.hGetLine readHandle
@@ -323,8 +330,40 @@ shellyProcess mstdin st cmdSpec =  do
 #if MIN_VERSION_process(1,1,0)
       , create_group = False
 #endif
-      }
-  return (hin, hout, herr, pHandle)
+        }
+    return (just $ createdInH <|> mInH,
+            just $ createdOutH <|> mOutH,
+            just $ createdErrorH <|> mErrorH, pHandle)
+  where
+    just :: Maybe a -> a
+    just Nothing  = error "error in shelly creating process"
+    just (Just j) = j
+
+    mInH    = getHandle mIn reusedHandles
+    mOutH   = getHandle mOut reusedHandles
+    mErrorH = getHandle mError reusedHandles
+
+    reuse :: (ReusedHandle -> Maybe Handle) -> StdStream
+    reuse mHandle = createOrUse $ getHandle mHandle reusedHandles
+
+    getHandle :: (ReusedHandle -> Maybe Handle) -> [ReusedHandle] -> Maybe Handle
+    getHandle _ [] = Nothing
+    getHandle mHandle (h:hs) = case mHandle h of
+        Just already -> Just already
+        Nothing -> getHandle mHandle hs
+
+    createOrUse :: Maybe Handle -> StdStream
+    createOrUse mHandle = case mHandle of
+        Just already -> UseHandle already
+        Nothing -> CreatePipe
+
+    mIn, mOut, mError :: (ReusedHandle -> Maybe Handle)
+    mIn (InHandle h) = Just h
+    mIn _ = Nothing
+    mOut (OutHandle h) = Just h
+    mOut _ = Nothing
+    mError (ErrorHandle h) = Just h
+    mError _ = Nothing
 
 {-
 -- | use for commands requiring usage of sudo. see 'run_sudo'.
@@ -934,15 +973,13 @@ runHandle :: FilePath -- ^ command
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
 runHandle exe args withHandle = 
-  runHandles exe args Nothing $ \outH errH -> do
+  runHandles exe args Nothing $ \_ outH errH -> do
     errVar <- liftIO $ do
       errVar' <- newEmptyMVar
-      _ <- forkIO $ printGetTextList errH stderr >>= putMVar errVar'
+      _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
       return errVar'
-      -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
-      --
-    res <- withHandle outH
 
+    res <- withHandle outH
     errs <- liftIO $ takeMVar errVar
 
     modify $ \state' -> state' { sStderr = errs }
@@ -951,8 +988,8 @@ runHandle exe args withHandle =
 -- | Similar to 'run' but gives direct access to all input and output handles.
 runHandles :: FilePath -- ^ command
            -> [Text] -- ^ arguments
-           -> (Maybe Handle) -- ^ stdin
-           -> (Handle -> Handle -> Sh a) -- ^ stdout and stderr
+           -> (Maybe Handle) -- ^ optionally connect process stdin to an existing handle
+           -> (Handle -> Handle -> Handle -> Sh a) -- ^ stdin, stdout and stderr
            -> Sh a
 runHandles exe args mStdinHandle withHandles = do
     -- clear stdin before beginning command execution
@@ -975,7 +1012,7 @@ runHandles exe args mStdinHandle withHandles = do
             -- stdin is cleared from state below
           Nothing -> return ()
 
-        result <- withHandles outH errH
+        result <- withHandles inH outH errH
 
         (ex, code) <- liftIO $ do
           hClose outH
@@ -1012,19 +1049,18 @@ runHandles exe args mStdinHandle withHandles = do
 -- stderr is still being placed in memory under the assumption it is always relatively small
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args =
-  runHandles exe args Nothing $ \outH errH -> do
+  runHandles exe args Nothing $ \_ outH errH -> do
     (errVar, outVar) <- liftIO $ do
       errVar' <- newEmptyMVar
       outVar' <- newEmptyMVar
-      _ <- forkIO $ printGetTextList errH stderr >>= putMVar errVar'
+      _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
       return (errVar', outVar')
-      -- liftIO_ $ forkIO $ getContent errH >>= putMVar errVar
 
     state <- get
     errs <- liftIO $ do
       void $ if sPrintStdout state
         then
-          forkIO $ printFoldHandleLines start cb outH stdout >>= putMVar outVar
+          forkIO $ transferFoldHandleLines start cb outH stdout >>= putMVar outVar
         else
           forkIO $ foldHandleLines start cb outH >>= putMVar outVar
       takeMVar errVar
