@@ -1,0 +1,50 @@
+extensions:
+  CPP: true
+cabal-file: project.cabal
+version: 1
+module-template: ! 'module MODULE_NAME where
+
+'
+modules:
+  Main(examples/Pipe/Log.hs):
+    filename: examples/Pipe/Log.hs
+  EnvSpec:
+    filename: test/src/EnvSpec.hs
+  Main(examples/Pipe/Pictures.hs):
+    filename: examples/Pipe/Pictures.hs
+  Shelly.Background:
+    filename: shelly-extra/Shelly/Background.hs
+  ReadFileSpec:
+    filename: test/src/ReadFileSpec.hs
+  Main(test/src/drain.hs):
+    filename: test/src/drain.hs
+  Help:
+    filename: test/src/Help.hs
+  FailureSpec:
+    filename: test/src/FailureSpec.hs
+  Main(test/TestMain.hs):
+    filename: test/TestMain.hs
+  Main(test/src/sleep.hs):
+    filename: test/src/sleep.hs
+  Main(shelly-extra/test/main.hs):
+    filename: shelly-extra/test/main.hs
+  MoveSpec:
+    filename: test/src/MoveSpec.hs
+  WriteSpec:
+    filename: test/src/WriteSpec.hs
+  FindSpec:
+    filename: test/src/FindSpec.hs
+  Shelly.Base:
+    filename: src/Shelly/Base.hs
+  Main(test/src/TestMain.hs):
+    filename: test/src/TestMain.hs
+  Shelly.Pipe:
+    filename: src/Shelly/Pipe.hs
+  Shelly:
+    filename: src/Shelly.hs
+  Main(test/Setup.hs):
+    filename: test/Setup.hs
+  CopySpec:
+    filename: test/src/CopySpec.hs
+  Shelly.Find:
+    filename: src/Shelly/Find.hs
