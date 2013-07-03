@@ -96,7 +96,7 @@ import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
 import Data.IORef
 import Data.Sequence (Seq, (|>))
-import Data.Foldable (foldl')
+import Data.Foldable (toList)
 import Data.Maybe
 import System.IO ( hClose, stderr, stdout, openTempFile )
 import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
@@ -249,7 +249,7 @@ transferLinesAndCombine h1 h2 = transferFoldHandleLines mempty (|>) h1 h2 >>=
     return . lineSeqToText
 
 lineSeqToText :: Seq Text -> Text
-lineSeqToText = T.intercalate "\n" . foldl' (flip (:)) []
+lineSeqToText = T.intercalate "\n" . toList
 
 type FoldCallback a = (a -> Text -> a)
 
