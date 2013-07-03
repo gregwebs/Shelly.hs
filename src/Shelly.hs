@@ -249,7 +249,8 @@ transferLinesAndCombine h1 h2 = transferFoldHandleLines mempty (|>) h1 h2 >>=
     return . lineSeqToText
 
 lineSeqToText :: Seq Text -> Text
-lineSeqToText = T.intercalate "\n" . toList
+-- extra append puts a newline at the end
+lineSeqToText = T.intercalate "\n" . toList . flip (|>) ""
 
 type FoldCallback a = (a -> Text -> a)
 
