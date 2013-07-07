@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    ShIO, Sh, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
+    Sh, ShIO, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -50,8 +50,7 @@ import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
-{- don't need to turn on deprecation. It will cause a lot of warnings while compiling existing code.
- - # DEPRECATED ShIO, "Use Sh instead of ShIO" # -}
+{-# DEPRECATED ShIO "Use Sh instead of ShIO" #-}
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
