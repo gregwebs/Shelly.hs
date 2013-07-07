@@ -720,10 +720,10 @@ print_commands shouldPrint a = sub $ modify (\st -> st { sPrintCommands = should
 -- The original state will be restored when the sub-Sh completes.
 -- Exceptions are propagated normally.
 sub :: Sh a -> Sh a
-sub a = do
+sub action = do
   oldState <- get
   modify $ \st -> st { sTrace = T.empty }
-  a `finally_sh` restoreState oldState
+  action `finally_sh` restoreState oldState
   where
     restoreState oldState = do
       newState <- get
@@ -881,8 +881,6 @@ sshPairs_ server cmds = sshPairs' run_ server cmds
 -- Commands are in the same form as 'run', but given as pairs
 --
 -- > sshPairs "server-name" [("cd", "dir"), ("rm",["-r","dir2"])]
---
--- This interface is crude, but it works for now.
 --
 -- Please note this sets 'escaping' to False: the commands will not be shell escaped.
 -- Internally the list of commands are combined with the string @&&@ before given to ssh.

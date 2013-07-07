@@ -10,17 +10,6 @@ Haskell lets us use the `do` notation for any monad, so shelly gets a DSL syntax
 * custom behavior for each command run
 
 
-## Custom behavior
-
-Lets talk about the last point first. For scripting, we are focused on executing OS commands. But mostly we want to be able to execute external commands. So we can define a `run` command that takes a command and a list of arguments, executes them in `IO`, and returns the stdout.
-
-~~~~~~~~ {.hs}
-runIt :: FilePath -> [Text] -> IO Text
-~~~~~~~~
-
-This works well for the most common case. But what if we want to print the command to stdout when it executes, continue or exit the program if the command fails, or if we want stderr combined with stdout. Instead of defining new functions for the different possible parameters and return values, we can embed these options in the `Sh` monad.
-
-
 ## Thread-Safe environment
 
 ~~~~~~~~ {.hs}
@@ -29,8 +18,8 @@ chdir :: FilePath -> IO ()
 
 Some commands, like `chdir` will change the environment.
 The current working directory is a global mutable variable: multiple threads will just clobber each other.
-Instead, Shelly places a copy of the working directory and environemnt variables in its monad.
-The Shelly apis use these values, leaving the global variable alone.
+Instead, Shelly places a copy of the working directory and environemnt variables in the state of its monad.
+The Shelly apis all use these values and leave the global variable alone.
 When creating a new thread, simply enter a new `Sh` monad, and you have a new thread-safe copy of global data.
 
 
@@ -41,8 +30,21 @@ Shelly instead logs the executed commands, which is often better.
 The log is stored in the monad and written out to a file on error.
 
 
+## Custom behavior
+
+For scripting, we are focused on executing OS commands. But mostly we want to be able to execute external commands. So we can define a `run` command that takes a command and a list of arguments, executes them in `IO`, and returns the stdout.
+
+~~~~~~~~ {.hs}
+runIt :: FilePath -> [Text] -> IO Text
+~~~~~~~~
+
+This works well for the most common case. But what if we want to print the command to stdout when it executes, continue or exit the program if the command fails, or if we want stderr combined with stdout. Instead of defining new functions for the different possible parameters and return values, or requiring a record of options to be passed in, we can embed these options in the state of the `Sh` monad.
+
+
 
 ## Monad definition
+
+Shelly is all about maintaining state. It might make more sense to separate out the different classoptions.
 
 ~~~~~~~~ {.hs}
 data State = State { code :: Int                -- ^ return code from last command
@@ -56,6 +58,24 @@ data State = State { code :: Int                -- ^ return code from last comma
                    , trace :: B.Builder         -- ^ store a trace of executed commands
                    , errExit :: Bool            -- ^ throw an exception when a command returns an error
                    }
+data State = State
+   -- state for the currently ran command
+   { sCode :: Int -- ^ exit code for command that ran
+   , sStdin :: Maybe Text -- ^ stdin for the command to be run
+   , sStderr :: Text -- ^ stderr for command that ran
+
+   -- state for the envrionment
+   , sDirectory :: FilePath -- ^ working directory
+   , sEnvironment :: [(String, String)]
+   , sPathExecutables :: Maybe [(FilePath, S.Set FilePath)] -- ^ cache of executables in the PATH
+
+   -- state for the options
+   , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+   , sPrintCommands :: Bool -- ^ print command that is executed
+   , sTracing :: Bool -- ^ should we trace command execution
+   , sTrace :: Text -- ^ the trace of command execution
+   , sErrExit :: Bool -- ^ should we exit immediately on any error
+   }
 ~~~~~~~~
 
 `State` holds the state of our environment. `errExit`, `printStdout`, and `printCommands` all configure how running a shell command behaves.
@@ -107,8 +127,7 @@ Now we can finally look at shelly's `run` command:
 ~~~~~~~~ {.hs}
 run :: FilePath -> [Text] -> Sh Text
 run = do
-   stateVar <- ask
-   state <- liftIO (readIORef stateVar)
+   state <- get
 
    -- for brevity we omit the following:
    -- * check the state options such as what exactly should be printed
@@ -174,7 +193,6 @@ shelly = do
 ## Conclusion
 
 Petr Rockai originally wrote the Shellish library with basically the same monad.
-Shelly is a fork with lots of changes and improvements, but the Monad operates exactly the same.
+Shelly is a fork with lots of changes and improvements, but basically operates exactly the same.
 
-I don't know much about designing a monad. I should probably take the time to make some improvements to it, such as using a real State monad.
 I hope this shows you how easy it is to create a custom environment/DSL with a Monad and that it doesn't need to be perfect.

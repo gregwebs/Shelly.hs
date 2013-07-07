@@ -44,7 +44,7 @@ import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Control.Monad.State (MonadState, evalStateT, get, modify, StateT, gets)
+import Control.Monad.State (MonadState, evalStateT, modify, StateT, gets)
 import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
@@ -58,20 +58,26 @@ newtype Sh a = Sh {
 runSh :: Sh a -> State -> IO a
 runSh = evalStateT . unSh
 
-data State = State 
+data State = State
+   -- state for the currently ran command
    { sCode :: Int -- ^ exit code for command that ran
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
    , sStderr :: Text -- ^ stderr for command that ran
+
+   -- state for the envrionment
    , sDirectory :: FilePath -- ^ working directory
-   , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
-   , sPrintCommands :: Bool -- ^ print command that is executed
-   , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]
    , sPathExecutables :: Maybe [(FilePath, S.Set FilePath)] -- ^ cache of executables in the PATH
+
+   -- state for the options
+   , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+   , sPrintCommands :: Bool -- ^ print command that is executed
    , sTracing :: Bool -- ^ should we trace command execution
    , sTrace :: Text -- ^ the trace of command execution
    , sErrExit :: Bool -- ^ should we exit immediately on any error
+   , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    }
+
 
 data StdHandle = InHandle StdStream
                | OutHandle StdStream

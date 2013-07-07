@@ -14,7 +14,7 @@ import Control.Monad (foldM)
 import Data.Monoid (mappend)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem (isDirectory)
-import Filesystem.Path.CurrentOS (FilePath, encodeString)
+import Filesystem.Path.CurrentOS (encodeString)
 
 -- | List directory recursively (like the POSIX utility "find").
 -- listing is relative if the path given is relative.

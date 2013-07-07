@@ -9,19 +9,19 @@ Shelly provides a single module for convenient systems programming in Haskell.
 * has low memory usage
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
-  * 'runHandle` and `runHandles` for incremental reads from handles.
+  * 'runHandle` and `runHandles` for complete control over handles.
 
 Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
 
-The focus of this library on convenience combined with good error messages should make shelly approachable for newer users of Haskell.
+The focus of this library on convenience combined with good error messages should make it approachable for newer users of Haskell.
 I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/). There is a paid version in German from Linux Magazin.
-That article uses the version `shelly < 1.0` which uses lazy text. `shelly > 1.0` uses strict text.
+That article uses the version `shelly < 1.0` which uses lazy text. `shelly > 1.0` (which you should use) uses strict text.
 
 
 
 ## More shelly packages
 
-The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has some additional functionality that requires additional dependencies, currently including a convenient concurrency/futures implementation. If you are following along the above article you need to install it.
+The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has some additional functionality that requires additional dependencies, currently including a convenient futures implementation (for running multiple commands at once). If you are following along the above article you need to install it.
 
 
 ## Examples
@@ -69,13 +69,12 @@ If you want something more revolutionary you might try these:
 Shelly's main goal is ease of use.
 There should be a primitive for every shell operation you need so you can easily build abstractions, so there are many of the usual file and environment operations.
 
-There are 2 main entry points for running arbitrary commands: `run` and `cmd`.
-They take a FilePath as their first argument. `run` takes a [Text] as its second argument.
+There are 2 main entry points for running arbitrary commands: `cmd` and `run`.
+They take a FilePath as their first argument. `run` takes `[Text]` as its second argument.
 `cmd` takes a variadic number of arguments, and they can be either Text or FilePath.
 
-Fun Example: shows an infectious script: it uploads itself to a server and runs itself over ssh.
-I actually do this for a deployment.
-Of course, the development machine may need to be exactly the same OS as the server.
+This example: shows an infectious script: it uploads itself to a server and runs itself over ssh.
+Of course, the development machine and server need to be capable of running the same binary.
 
 I recommend using the boilerplate at the top of this example in your projects.
 
@@ -95,8 +94,8 @@ I recommend using the boilerplate at the top of this example in your projects.
                 appendfile "log/deploy.log" $ T.intercalate " - " [T.stripEnd d, c]
                 uploads ["deploy"]
                 shPairs_ "my-server" [("./deploy", [])]
-      else do
-              cmd "./script/angel"
+        else do
+                cmd "./script/angel"
 
     -- same path on remote host
     -- will create directories
@@ -107,7 +106,7 @@ I recommend using the boilerplate at the top of this example in your projects.
 ~~~~~
 
 Yes, you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
-I find `cmd` to be more convenient, but I often use `run` and `command` variants when I am building up abstractions.
+The `cmd` variant is usually more convenient, but `run` can be helpful when building up abstractions.
 
 ### Escaping
 
@@ -147,5 +146,10 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 ## Future plans
 
-* improved SSH API
 * more efficient piping/redirecting (issue #18)
+* more efficient find functions (issue #23)
+
+
+## Advanced documentation
+
+Shelly [uses a State Monad to good effect](doc/shelly-monad.markdown)
