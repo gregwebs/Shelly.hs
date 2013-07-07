@@ -175,7 +175,7 @@ test_d = absPath >=> liftIO . isDirectory
 -- | Does a path point to a symlink?
 test_s :: FilePath -> Sh Bool
 test_s = absPath >=> liftIO . \f -> do
-  stat <- getSymbolicLinkStatus (unpack f)
+  stat <- getSymbolicLinkStatus (encodeString f)
   return $ isSymbolicLink stat
 
 unpack :: FilePath -> String

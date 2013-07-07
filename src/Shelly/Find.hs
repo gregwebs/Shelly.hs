@@ -14,6 +14,7 @@ import Control.Monad (foldM)
 import Data.Monoid (mappend)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem (isDirectory)
+import Filesystem.Path.CurrentOS (FilePath, encodeString)
 
 -- | List directory recursively (like the POSIX utility "find").
 -- listing is relative if the path given is relative.
@@ -66,7 +67,7 @@ findFoldDirFilter folder startValue dirFilter dir = do
     traverse acc (relativePath, absolutePath) = do
       -- optimization: don't use Shelly API since our path is already good
       isDir <- liftIO $ isDirectory absolutePath
-      sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (unpack absolutePath)
+      sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (encodeString absolutePath)
       newAcc <- folder acc relativePath
       if isDir && not sym
         then findFoldDirFilter folder newAcc 

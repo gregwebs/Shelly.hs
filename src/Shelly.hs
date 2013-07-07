@@ -299,7 +299,7 @@ runCommandNoEscape handles st exe args = liftIO $ shellyProcess handles st $
 runCommand :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommand handles st exe args = findExe exe >>= \fullExe ->
   liftIO $ shellyProcess handles st $
-    RawCommand (unpack fullExe) (map T.unpack args)
+    RawCommand (encodeString fullExe) (map T.unpack args)
   where
     findExe :: FilePath -> Sh FilePath
     findExe fp = do
@@ -323,7 +323,7 @@ shellyProcess :: [StdHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, 
 shellyProcess reusedHandles st cmdSpec =  do
     (createdInH, createdOutH, createdErrorH, pHandle) <- createProcess CreateProcess {
           cmdspec = cmdSpec
-        , cwd = Just $ unpack $ sDirectory st
+        , cwd = Just $ encodeString $ sDirectory st
         , env = Just $ sEnvironment st
         , std_in  = createUnless mInH
         , std_out = createUnless mOutH
@@ -461,7 +461,7 @@ mv from' to' = do
       ReThrownException e (extraMsg to_loc from)
     )
   where
-    extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
+    extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
 
 -- | Get back [Text] instead of [FilePath]
 lsT :: FilePath -> Sh [Text]
@@ -626,7 +626,7 @@ rm_rf = absPath >=> \f -> do
     else
       (liftIO_ $ removeTree f) `catch_sh` (\(e :: IOError) ->
         when (isPermissionError e) $ do
-          find f >>= mapM_ (\file -> liftIO_ $ fixPermissions (unpack file) `catchany` \_ -> return ())
+          find f >>= mapM_ (\file -> liftIO_ $ fixPermissions (encodeString file) `catchany` \_ -> return ())
           liftIO $ removeTree f
         )
   where fixPermissions file =
@@ -844,7 +844,7 @@ shelly' opts action = do
 
     nextNum :: [FilePath] -> Int
     nextNum [] = 1
-    nextNum fs = (+ 1) . maximum . map (readDef 1 . filter isDigit . unpack . filename) $ fs
+    nextNum fs = (+ 1) . maximum . map (readDef 1 . filter isDigit . encodeString . filename) $ fs
 
 -- from safe package
 readDef :: Read a => a -> String -> a
@@ -1143,7 +1143,7 @@ cp from' to' = do
       ReThrownException e (extraMsg to_loc from)
     )
   where
-    extraMsg t f = "during copy from: " ++ unpack f ++ " to: " ++ unpack t
+    extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
 
 
 
@@ -1165,7 +1165,7 @@ withTmpDir act = do
 writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = absPath f' >>= \f -> do
   trace $ "writefile " <> toTextIgnore f
-  liftIO (TIO.writeFile (unpack f) bits)
+  liftIO (TIO.writeFile (encodeString f) bits)
 
 -- | Update a file, creating (a blank file) if it does not exist.
 touchfile :: FilePath -> Sh ()
@@ -1175,7 +1175,7 @@ touchfile = absPath >=> flip appendfile ""
 appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = absPath f' >>= \f -> do
   trace $ "appendfile " <> toTextIgnore f
-  liftIO (TIO.appendFile (unpack f) bits)
+  liftIO (TIO.appendFile (encodeString f) bits)
 
 readfile :: FilePath -> Sh Text
 readfile = absPath >=> \fp -> do
@@ -1185,7 +1185,7 @@ readfile = absPath >=> \fp -> do
 
 -- | wraps ByteSting readFile
 readBinary :: FilePath -> Sh ByteString
-readBinary = absPath >=> liftIO . BS.readFile . unpack
+readBinary = absPath >=> liftIO . BS.readFile . encodeString
 
 -- | flipped hasExtension for Text
 hasExt :: Text -> FilePath -> Bool
