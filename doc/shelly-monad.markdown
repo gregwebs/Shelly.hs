@@ -62,22 +62,10 @@ data State = State { code :: Int                -- ^ return code from last comma
 We can set `stdin` before running a command, and we can inspect information about the last executed commands such as `stderr` and `code`.
 We hold a copy of the `Environment` variables in `environment` and the working directory in `directory`.
 
-Here is the Monad that shelly calls ShIO:
 
-~~~~~~~~ {.hs}
-import Control.Monad.Reader
+The original definition for the Sh Monad when I inherited this project was
 
-type Sh a = ReaderT (IORef State) IO a
-~~~~~~~~
-
-
-Actually, this gives a nicer error message of 'Sh' rather than mentioning '`eaderT`
-
-~~~~~~~~ {.hs}
-newtype Sh a = Sh {
-      unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
-~~~~~~~~
+    type Sh a = ReaderT (IORef State) IO a
 
 `a` is a type parameter: it allows any type. The `a` on the left is used to fill in the `a` on the right.
 `IORef` is a mutable variable: what most programming languages would call a variable.
@@ -94,13 +82,30 @@ put state = do
 This code may seem verbose, but that is ok because these are library internals, and we want to be very explicit about when we are modifying state. The mutation effects must be done in `IO` using `liftIO`.
 The library came to me using an IORef, so I just kept it that way, but it might make more sense to use the State Monad, which accomplishes the same thing.
 
+Shelly has been changed to use StateT
+
+~~~~~~~~ {.hs}
+type Sh a = StateT State IO a
+~~~~~~~~
+
+StateT already defines a put function (along with get and modify), and it does not need to use an IORef.
+
+To get a nicer error message we can use a newtype: that way users will just see `Sh` and not `StateT ...`
+
+~~~~~~~~ {.hs}
+newtype Sh a = Sh {
+      unSh :: StateT State IO a
+  } deriving (Applicative, Monad, MonadIO, MonadState State, Functor)
+~~~~~~~~
+
+
 
 ## running a command
 
 Now we can finally look at shelly's `run` command:
 
 ~~~~~~~~ {.hs}
-run :: FilePath -> [Text] -> ShIO Text
+run :: FilePath -> [Text] -> Sh Text
 run = do
    stateVar <- ask
    state <- liftIO (readIORef stateVar)
@@ -132,20 +137,20 @@ modify f = do
 This function restores the original state when it is completed.
 
 ~~~~~~~~ {.hs}
-sub :: ShIO a -> ShIO a
+sub :: Sh a -> Sh a
 sub action = do
-  stateVar <- ask
-  original_state <- liftIO (readIORef stateVar)
+  oldState <- get
   result <- action
-  put original_state
+  put oldState
   return result
 ~~~~~~~~
 
 ## executing the Monad
 
 ~~~~~~~~ {.hs}
-runSh :: Sh a -> IORef State -> IO a
-runSh = runReaderT . unSh
+runSh :: Sh a -> State -> IO a
+runSh = evalStateT ∘ unSh
+
 
 shelly = do
   environment <- liftIO getEnvironment
@@ -162,8 +167,7 @@ shelly = do
                    , sDirectory = dir
                    , sErrExit = True
                    }
-  stref <- liftIO $ newIORef def
-  liftIO $ runSh (action `catches_sh` ...) stref
+  liftIO $ runSh (action `catches_sh` ...) def
 ~~~~~~~~
 
 
