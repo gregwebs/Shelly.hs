@@ -9,7 +9,7 @@ module Shelly.Base
     Sh, ShIO, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
-    unpack, gets, get, modify, trace,
+    trace,
     ls, lsRelAbs,
     toTextIgnore,
     echo, echo_n, echo_err, echo_n_err, inspect, inspect_err,
@@ -38,14 +38,13 @@ import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
 import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
 import qualified Filesystem.Path.CurrentOS as FP
 import qualified Filesystem as FS
-import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
+import Control.Monad.State (MonadState, evalStateT, get, modify, StateT, gets)
 import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
@@ -53,11 +52,11 @@ type ShIO a = Sh a
 {-# DEPRECATED ShIO "Use Sh instead of ShIO" #-}
 
 newtype Sh a = Sh {
-      unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
+      unSh :: StateT State IO a
+  } deriving (Applicative, Monad, MonadIO, MonadState State, Functor)
 
-runSh :: Sh a -> IORef State -> IO a
-runSh = runReaderT . unSh
+runSh :: Sh a -> State -> IO a
+runSh = evalStateT . unSh
 
 data State = State 
    { sCode :: Int -- ^ exit code for command that ran
@@ -177,22 +176,6 @@ test_s :: FilePath -> Sh Bool
 test_s = absPath >=> liftIO . \f -> do
   stat <- getSymbolicLinkStatus (encodeString f)
   return $ isSymbolicLink stat
-
-unpack :: FilePath -> String
-unpack = encodeString
-
-gets :: (State -> a) -> Sh a
-gets f = f <$> get
-
-get :: Sh State
-get = do
-  stateVar <- ask 
-  liftIO (readIORef stateVar)
-
-modify :: (State -> State) -> Sh ()
-modify f = do
-  state <- ask 
-  liftIO (modifyIORef state f)
 
 -- | internally log what occurred.
 -- Log will be re-played on failure.

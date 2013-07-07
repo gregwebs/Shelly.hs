@@ -86,7 +86,7 @@ import Shelly.Base
 import Shelly.Find
 import Control.Monad ( when, unless, void, forM, filterM )
 import Control.Monad.Trans ( MonadIO )
-import Control.Monad.Reader (ask)
+import Control.Monad.State (get, gets, modify, put)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding ( readFile, FilePath, catch)
 #else
@@ -94,7 +94,6 @@ import Prelude hiding ( readFile, FilePath)
 #endif
 import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
-import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (toList)
 import Data.Maybe
@@ -287,11 +286,6 @@ tag action msg = do
   trace msg
   action
 
-put :: State -> Sh ()
-put newState = do
-  stateVar <- ask
-  liftIO (writeIORef stateVar newState)
-
 runCommandNoEscape :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommandNoEscape handles st exe args = liftIO $ shellyProcess handles st $
     ShellCommand $ T.unpack $ T.intercalate " " (toTextIgnore exe : args)
@@ -380,13 +374,13 @@ run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 -- | Same as a normal 'catch' but specialized for the Sh monad.
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh action handle = do
-    ref <- ask
+    ref <- get
     liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
 
 -- | Same as a normal 'finally' but specialized for the 'Sh' monad.
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
-    ref <- ask
+    ref <- get
     liftIO $ finally (runSh action ref) (runSh handle ref)
 
 
@@ -396,7 +390,7 @@ data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
 -- | Same as a normal 'catches', but specialized for the 'Sh' monad.
 catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
 catches_sh action handlers = do
-    ref <- ask
+    ref <- get
     let runner a = runSh a ref
     liftIO $ catches (runner action) $ map (toHandler runner) handlers
   where
@@ -809,7 +803,6 @@ shelly' opts action = do
                    , sPathExecutables = Nothing
                    , sErrExit = True
                    }
-  stref <- liftIO $ newIORef def
   let caught =
         action `catches_sh` [
               ShellyHandler (\ex ->
@@ -821,7 +814,7 @@ shelly' opts action = do
                                      QuietExit n -> liftIO $ throwIO $ ExitFailure n)
             , ShellyHandler (\(ex::SomeException) -> throwExplainedException ex)
           ]
-  liftIO $ runSh caught stref
+  liftIO $ runSh caught def
   where
     throwExplainedException :: Exception exception => exception -> Sh a
     throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
