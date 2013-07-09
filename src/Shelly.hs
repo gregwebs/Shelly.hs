@@ -535,7 +535,7 @@ mkdirTree = mk . unrollPath
 which :: FilePath -> Sh (Maybe FilePath)
 which originalFp = whichFull
 #if defined(mingw32_HOST_OS)
-    case extension originalFp of
+    $ case extension originalFp of
         Nothing -> originalFp <.> "exe"
         Just _ -> originalFp
 #else
