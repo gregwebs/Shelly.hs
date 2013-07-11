@@ -550,14 +550,13 @@ which originalFp = whichFull
                       | otherwise                        = lookupCache
         checkFile = do
             exists <- liftIO $ isFile fp
-            return $ if exists then Just fp else Nothing
+            return $ toMaybe exists fp
 
         lookupPath =
-            pathDirs >>= findMapM (\dir -> do
+            (pathDirs >>=) $ findMapM $ \dir -> do
                 let fullFp = dir </> fp
                 res <- liftIO $ isExecutable $ encodeString $ fullFp
-                return $ if res then Just fullFp else Nothing
-              )
+                return $ toMaybe res fullFp
 
         lookupCache = do
             pathExecutables <- cachedPathExecutables
@@ -589,11 +588,15 @@ which originalFp = whichFull
                 return $ cachedExecutables
 
 
+-- | Returns 'Just' if the precondition is fulfilled.
+toMaybe :: Bool -> a -> Maybe a
+toMaybe False _ = Nothing
+toMaybe True x = Just x
+
 -- | A monadic findMap, taken from MissingM package
 findMapM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
 findMapM _ [] = return Nothing
-findMapM f (x:xs) =
-  do
+findMapM f (x:xs) = do
     mb <- f x
     if (isJust mb)
       then return mb
@@ -679,8 +682,8 @@ get_env :: Text -> Sh (Maybe Text)
 get_env k = do
   mval <- return . fmap T.pack . lookup (T.unpack k) =<< gets sEnvironment
   return $ case mval of
-    Nothing -> Nothing
-    j@(Just val) -> if T.null val then Nothing else j
+    Nothing  -> Nothing
+    Just val -> toMaybe (T.null val) val
 
 -- | deprecated
 getenv :: Text -> Sh Text
