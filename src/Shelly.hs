@@ -655,16 +655,18 @@ rm = absPath >=> \f -> do
 -- | Set an environment variable. The environment is maintained in Sh
 -- internally, and is passed to any external commands to be executed.
 setenv :: Text -> Text -> Sh ()
-setenv k v =
-  if k == path_env then setPath v else do
-      let (kStr, vStr) = (T.unpack k, T.unpack v)
-          wibble environment = (kStr, vStr) : filter ((/=kStr) . fst) environment
-       in modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
+setenv k v = if k == path_env then setPath v else setenvRaw k v
+
+setenvRaw :: Text -> Text -> Sh ()
+setenvRaw k v = modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
+  where
+    (kStr, vStr) = (T.unpack k, T.unpack v)
+    wibble environment = (kStr, vStr) : filter ((/=kStr) . fst) environment
 
 setPath :: Text -> Sh ()
 setPath newPath = do
   modify $ \x -> x{ sPathExecutables = Nothing }
-  setenv path_env newPath
+  setenvRaw path_env newPath
 
 path_env :: Text
 path_env = "PATH"
@@ -683,7 +685,7 @@ get_env k = do
   mval <- return . fmap T.pack . lookup (T.unpack k) =<< gets sEnvironment
   return $ case mval of
     Nothing  -> Nothing
-    Just val -> toMaybe (T.null val) val
+    Just val -> toMaybe (not $ T.null val) val
 
 -- | deprecated
 getenv :: Text -> Sh Text
