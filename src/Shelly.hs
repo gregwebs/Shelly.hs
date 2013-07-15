@@ -85,12 +85,11 @@ module Shelly
 import Shelly.Base
 import Shelly.Find
 import Control.Monad ( when, unless, void, forM, filterM )
-import Control.Monad.Trans ( MonadIO )
-import Control.Monad.State (get, gets, modify, put)
+import Control.Monad.IO.Class ( MonadIO )
+import Control.Monad.State.Strict (get, gets, modify, put)
+import Prelude hiding ( readFile, FilePath, ioError)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding ( readFile, FilePath, catch)
-#else
-import Prelude hiding ( readFile, FilePath)
 #endif
 import Data.Char ( isAlphaNum, isSpace )
 import Data.Typeable
@@ -102,7 +101,7 @@ import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOp
 import System.Exit
 import System.Environment
 import Control.Applicative
-import Control.Exception hiding (handle)
+import Control.Exception.Lifted hiding (handle)
 import Control.Concurrent
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
@@ -380,8 +379,8 @@ catch_sh action handle = do
 -- | Same as a normal 'finally' but specialized for the 'Sh' monad.
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
-    ref <- get
-    liftIO $ finally (runSh action ref) (runSh handle ref)
+    state <- get
+    liftIO $ finally (runSh action state) (runSh handle state)
 
 
 -- | You need to wrap exception handlers with this when using 'catches_sh'.
@@ -394,7 +393,7 @@ catches_sh action handlers = do
     let runner a = runSh a ref
     liftIO $ catches (runner action) $ map (toHandler runner) handlers
   where
-    toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
+    toHandler :: (Sh t -> m a) -> ShellyHandler t -> Handler m a
     toHandler runner (ShellyHandler handle) = Handler (\e -> runner (handle e))
 
 -- | Catch an exception in the Sh monad.

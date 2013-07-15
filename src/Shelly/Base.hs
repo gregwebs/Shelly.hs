@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    Sh, ShIO, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
+    Sh, ShT, ShIO, runSh, State(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     trace,
@@ -41,22 +41,28 @@ import qualified Filesystem as FS
 import Data.Monoid (mappend)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Control.Exception (SomeException, catch)
+import Control.Exception.Lifted (SomeException, catch)
 import Data.Maybe (fromMaybe)
-import Control.Monad.Trans ( MonadIO, liftIO )
-import Control.Monad.State (MonadState, evalStateT, modify, StateT, gets)
+import Control.Monad.IO.Class ( MonadIO, liftIO )
+import Control.Monad.Trans.Class ( MonadTrans )
 import qualified Data.Set as S
+import Control.Monad.State.Strict (MonadState, runStateT, evalStateT, modify, StateT, gets)
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
 {-# DEPRECATED ShIO "Use Sh instead of ShIO" #-}
 
-newtype Sh a = Sh {
-      unSh :: StateT State IO a
-  } deriving (Applicative, Monad, MonadIO, MonadState State, Functor)
+newtype MonadIO m => ShT m a = ShT {
+    runShT :: StateT State m a
+  } deriving (Functor, Applicative, Monad, MonadIO, MonadTrans, MonadState State)
 
-runSh :: Sh a -> State -> IO a
-runSh = evalStateT . unSh
+type Sh a = ShT IO a
+
+runSh :: MonadIO m => ShT m a -> State -> m a
+runSh = evalStateT . runShT
+
+runShState :: Sh a -> State -> IO (a, State)
+runShState = runStateT . runShT
 
 data State = State
    -- state for the currently ran command
@@ -90,7 +96,7 @@ whenM c a = c >>= \res -> when res a
 -- | Makes a relative path relative to the current Sh working directory.
 -- An absolute path is returned as is.
 -- To create an absolute path, use 'absPath'
-relPath :: FilePath -> Sh FilePath
+relPath :: FilePath -> ShT IO FilePath
 relPath fp = do
   wd  <- gets sDirectory
   rel <- eitherRelativeTo wd fp

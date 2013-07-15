@@ -98,7 +98,6 @@ import Prelude hiding (FilePath)
 
 import Control.Applicative
 import Control.Monad
-import Control.Monad.Trans
 import Control.Exception hiding (handle)
 
 import Filesystem.Path(FilePath)
@@ -118,6 +117,8 @@ import Data.ByteString (ByteString)
 import Data.Tree(Tree)
 
 import Data.Text as T hiding (concat, all, find, cons)
+
+import Control.Monad.IO.Class ( MonadIO, liftIO )
 
 default (T.Text)
 
