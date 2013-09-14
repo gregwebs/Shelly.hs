@@ -9,7 +9,7 @@ Shelly provides a single module for convenient systems programming in Haskell.
 * has low memory usage
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
-  * 'runHandle` and `runHandles` for incremental reads from handles.
+  * 'runHandle` and `runHandles` for complete control over handles
 
 Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
 
@@ -74,7 +74,6 @@ They take a FilePath as their first argument. `run` takes a [Text] as its second
 `cmd` takes a variadic number of arguments, and they can be either Text or FilePath.
 
 Fun Example: shows an infectious script: it uploads itself to a server and runs itself over ssh.
-I actually do this for a deployment.
 Of course, the development machine may need to be exactly the same OS as the server.
 
 I recommend using the boilerplate at the top of this example in your projects.
@@ -95,7 +94,7 @@ I recommend using the boilerplate at the top of this example in your projects.
                 appendfile "log/deploy.log" $ T.intercalate " - " [T.stripEnd d, c]
                 uploads ["deploy"]
                 shPairs_ "my-server" [("./deploy", [])]
-      else do
+        else do
               cmd "./script/angel"
 
     -- same path on remote host
@@ -103,7 +102,7 @@ I recommend using the boilerplate at the top of this example in your projects.
     uploads :: [Text] -> Sh ()
     uploads locals login = rsync $ ["--relative"] ++ locals ++ [login]
 
-    rsync   = command_ "rsync" ["--delete", "-avz", "--no-g"]
+    rsync args = run_ "rsync" $ ["--delete", "-avz", "--no-g"] ++ args
 ~~~~~
 
 Yes, you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
@@ -149,3 +148,4 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 * improved SSH API
 * more efficient piping/redirecting (issue #18)
+* more efficient find functions (issue #23)
