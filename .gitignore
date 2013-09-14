@@ -3,3 +3,5 @@ dist/
 cabal-dev/
 tags
 .shelly/
+.cabal-sandbox/
+cabal.sandbox.config
