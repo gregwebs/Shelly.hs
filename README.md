@@ -105,8 +105,19 @@ I recommend using the boilerplate at the top of this example in your projects.
     rsync args = run_ "rsync" $ ["--delete", "-avz", "--no-g"] ++ args
 ~~~~~
 
-Yes, you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
+### Variadic arguments to cmd
+
+Yes, as seen above you can write variadic functions in Haskell quite easily, you just can't compose them as easily.
 I find `cmd` to be more convenient, but I often use `run` and `command` variants when I am building up abstractions.
+Building up abstractions with cmd will require type signatures.
+
+    -- easy signature, but only allows one argument
+    let cabal = cmd "cabal" :: Text -> Sh Text
+
+    -- more complex signature that allows partial application of cmd
+    let cabal = cmd "cabal" :: Shelly.ShellCmd result => result
+
+
 
 ### Escaping
 

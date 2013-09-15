@@ -30,7 +30,7 @@ module Shelly
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
-         , ShellArg (..)
+         , ShellCmd(..), CmdArg (..)
 
          -- * Running commands Using handles
          , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
@@ -145,49 +145,51 @@ searchPathSeparator = ':'
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
-class ShellArgs a where
+class CmdArgs a where
   toTextArgs :: a -> [Text]
 
-instance ShellArgs Text       where toTextArgs t = [t]
-instance ShellArgs FilePath   where toTextArgs t = [toTextIgnore t]
-instance ShellArgs [Text]     where toTextArgs = id
-instance ShellArgs [FilePath] where toTextArgs = map toTextIgnore
+instance CmdArgs Text       where toTextArgs t = [t]
+instance CmdArgs FilePath   where toTextArgs t = [toTextIgnore t]
+instance CmdArgs [Text]     where toTextArgs = id
+instance CmdArgs [FilePath] where toTextArgs = map toTextIgnore
 
-instance ShellArgs (Text, Text) where
+instance CmdArgs (Text, Text) where
   toTextArgs (t1,t2) = [t1, t2]
-instance ShellArgs (FilePath, FilePath) where
+instance CmdArgs (FilePath, FilePath) where
   toTextArgs (fp1,fp2) = [toTextIgnore fp1, toTextIgnore fp2]
-instance ShellArgs (Text, FilePath) where
+instance CmdArgs (Text, FilePath) where
   toTextArgs (t1, fp1) = [t1, toTextIgnore fp1]
-instance ShellArgs (FilePath, Text) where
+instance CmdArgs (FilePath, Text) where
   toTextArgs (fp1,t1) = [toTextIgnore fp1, t1]
 
-cmd :: (ShellArgs args) => FilePath -> args -> Sh Text
+cmd :: (CmdArgs args) => FilePath -> args -> Sh Text
 cmd fp args = run fp $ toTextArgs args
 -}
 
 -- | Argument converter for the variadic argument version of 'run' called 'cmd'.
 -- Useful for a type signature of a function that uses 'cmd'
-class ShellArg a where toTextArg :: a -> Text
-instance ShellArg Text     where toTextArg = id
-instance ShellArg FilePath where toTextArg = toTextIgnore
-instance ShellArg String   where toTextArg = T.pack
+class CmdArg a where toTextArg :: a -> Text
+instance CmdArg Text     where toTextArg = id
+instance CmdArg FilePath where toTextArg = toTextIgnore
+instance CmdArg String   where toTextArg = T.pack
 
--- | used to create the variadic function 'cmd'
-class ShellCommand t where
+-- | For the variadic function 'cmd'
+--
+-- partially applied variadic functions require type signatures
+class ShellCmd t where
     cmdAll :: FilePath -> [Text] -> t
 
-instance ShellCommand (Sh Text) where
+instance ShellCmd (Sh Text) where
     cmdAll = run
 
-instance (s ~ Text, Show s) => ShellCommand (Sh s) where
+instance (s ~ Text, Show s) => ShellCmd (Sh s) where
     cmdAll = run
 
 -- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
-instance ShellCommand (Sh ()) where
+instance ShellCmd (Sh ()) where
     cmdAll = run_
 
-instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
+instance (CmdArg arg, ShellCmd result) => ShellCmd (arg -> result) where
     cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
 
 
@@ -207,7 +209,7 @@ instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) whe
 -- > import qualified Data.Text as T
 -- > default (T.Text)
 --
-cmd :: (ShellCommand result) => FilePath -> result
+cmd :: (ShellCmd result) => FilePath -> result
 cmd fp = cmdAll fp []
 
 -- | Helper to convert a Text to a FilePath. Used by '(</>)' and '(<.>)'
@@ -226,7 +228,6 @@ x </> y = toFilePath x FP.</> toFilePath y
 -- | uses System.FilePath.CurrentOS, but can automatically convert a Text
 (<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
 x <.> y = toFilePath x FP.<.> y
-
 
 
 toTextWarn :: FilePath -> Sh Text
