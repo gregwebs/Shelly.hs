@@ -9,7 +9,7 @@ Shelly provides a single module for convenient systems programming in Haskell.
 * has low memory usage
   * `run_` and other underscore variants that don't return stdout
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
-  * 'runHandle` and `runHandles` for complete control over handles
+  * `runHandle` and `runHandles` for complete control over handles
 
 Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
 
