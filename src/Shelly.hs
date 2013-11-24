@@ -38,7 +38,7 @@ module Shelly
 
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv, get_env_def, appendToPath
+         , setenv, get_env, get_env_text, getenv, get_env_def, get_environment, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -678,6 +678,10 @@ appendToPath = absPath >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
   setPath $ pe <> T.singleton searchPathSeparator <> tp
+
+-- | get the full environment
+get_environment :: Sh [(String, String)]
+get_environment = gets sEnvironment
 
 -- | Fetch the current value of an environment variable.
 -- if non-existant or empty text, will be Nothing
