@@ -1,5 +1,5 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             FlexibleInstances,
+             FlexibleInstances, IncoherentInstances,
              TypeFamilies, ExistentialQuantification #-}
 
 -- | A module for shell-like programming in Haskell.
