@@ -9,7 +9,7 @@ import Data.Text (Text, stripEnd)
 import Test.HUnit
 default (Text)
 
-shIOUnit :: ShIO ()
+shIOUnit :: Sh ()
 shIOUnit = do
   cmd "pwd"
   chdir ".." $
@@ -32,11 +32,11 @@ main = do
     echo recho
 
     (res :: Text) <- cmd "pwd"
-    liftIO $ putStrLn $ show res
+    liftIO $ print res
     inspect res
 
-    inspect =<< (cmd "echo" "compose" :: ShIO Text)
-    inspect =<< (cmd "pwd")
+    inspect =<< (cmd "echo" "compose" :: Sh Text)
+    inspect =<< cmd "pwd"
 
     -- this somehow forces more evaluation
     shIOUnit

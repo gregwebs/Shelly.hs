@@ -1,17 +1,18 @@
 Name:       shelly-extra
 
-Version:     0.2.2.1
+Version:     0.2.3
 Synopsis:    shelly features that require extra dependencies
 
-Description: Please see the shelly package. Shelly provides a single module for convenient
-             systems programming in Haskell, similar in spirit to POSIX shells.
+Description: A background job implementation for performing tasks in parallel.
              .
-             shelly-extra is designed to be a grab bag for functionality that
+             Please see the shelly package. Shelly provides a single module for convenient systems programming in Haskell, similar in spirit to POSIX shells.
+             .
+             shelly-extra is designed to be a grab bag for functionality that either
+             .
                * requires extra dependencies
              .
-               * or is application specific and not generally applicable
+               * is application specific and not generally applicable
              .
-             currently contains a background job implementation for performing tasks in parallel
 
 
 Homepage:            https://github.com/yesodweb/Shelly.hs
@@ -27,7 +28,7 @@ Cabal-version:       >=1.8
 Library
   Exposed-modules:     Shelly.Background
 
-  Build-depends: base >= 4 && < 5, shelly >= 0.10, SafeSemaphore
+  Build-depends: base >= 4 && < 5, shelly >= 0.13, SafeSemaphore
 
   ghc-options: -Wall
 

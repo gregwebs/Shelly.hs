@@ -18,9 +18,9 @@ import Prelude hiding (catch)
 import qualified Control.Concurrent.MSem as Sem
 
 -- | Create a 'BgJobManager' that has a 'limit' on the max number of background tasks.
--- an invocation of jobs is independent of any others, and not tied to the ShIO monad in any way.
+-- an invocation of jobs is independent of any others, and not tied to the Sh monad in any way.
 -- This blocks the execution of the program until all 'background' jobs are finished.
-jobs :: Int -> (BgJobManager -> ShIO a) -> ShIO a
+jobs :: Int -> (BgJobManager -> Sh a) -> Sh a
 jobs limit action = do
     unless (limit > 0) $ terror "expected limit to be > 0"
     availableJobsSem <- liftIO $ Sem.new limit
@@ -40,14 +40,14 @@ newtype BgResult a = BgResult (MVar a)
 
 -- | Returns the promised result from a backgrounded task.  Blocks until
 -- the task completes.
-getBgResult :: BgResult a -> ShIO a
+getBgResult :: BgResult a -> Sh a
 getBgResult (BgResult mvar) = liftIO $ takeMVar mvar
 
--- | Run the `ShIO` task asynchronously in the background, returns
+-- | Run the `Sh` task asynchronously in the background, returns
 -- the `BgResult a`, a promise immediately. Run "getBgResult" to wait for the result.
--- The background task will inherit the current ShIO context
+-- The background task will inherit the current Sh context
 -- The 'BgJobManager' ensures the max jobs limit must be sufficient for the parent and all children.
-background :: BgJobManager -> ShIO a -> ShIO (BgResult a)
+background :: BgJobManager -> Sh a -> Sh (BgResult a)
 background (BgJobManager manager) proc = do
   state <- get
   liftIO $ do
