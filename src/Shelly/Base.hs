@@ -65,6 +65,7 @@ data State = State
    , sStderr :: Text -- ^ stderr for command that ran
    , sDirectory :: FilePath -- ^ working directory
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+   , sPrintStderr :: Bool   -- ^ print stderr of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
    , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
    , sEnvironment :: [(String, String)]

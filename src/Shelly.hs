@@ -23,7 +23,9 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, ShIO, shelly, shellyNoDir, sub
+         , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
+         , tracing, errExit
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, FoldCallback
@@ -84,7 +86,7 @@ module Shelly
 
 import Shelly.Base
 import Shelly.Find
-import Control.Monad ( when, unless, void, forM, filterM )
+import Control.Monad ( when, unless, void, forM, filterM, liftM2 )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
@@ -717,18 +719,33 @@ get_env_def d = get_env >=> return . fromMaybe d
 -- commands are not printed.
 -- See 'sub'.
 silently :: Sh a -> Sh a
-silently a = sub $ modify (\x -> x { sPrintStdout = False, sPrintCommands = False }) >> a
+silently a = sub $ modify (\x -> x
+                                { sPrintStdout = False
+                                , sPrintStderr = False
+                                , sPrintCommands = False
+                                }) >> a
 
 -- | Create a sub-Sh in which external command outputs are echoed and
 -- Executed commands are printed
 -- See 'sub'.
 verbosely :: Sh a -> Sh a
-verbosely a = sub $ modify (\x -> x { sPrintStdout = True, sPrintCommands = True }) >> a
+verbosely a = sub $ modify (\x -> x
+                                 { sPrintStdout = True
+                                 , sPrintStderr = True
+                                 , sPrintCommands = True
+                                 }) >> a
 
 -- | Create a sub-Sh with stdout printing on or off
 -- Defaults to True.
 print_stdout :: Bool -> Sh a -> Sh a
-print_stdout shouldPrint a = sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
+print_stdout shouldPrint a =
+  sub $ modify (\x -> x { sPrintStdout = shouldPrint }) >> a
+
+-- | Create a sub-Sh with stderr printing on or off
+-- Defaults to True.
+print_stderr :: Bool -> Sh a -> Sh a
+print_stderr shouldPrint a =
+  sub $ modify (\x -> x { sPrintStderr = shouldPrint }) >> a
 
 
 -- | Create a sub-Sh with command echoing on or off
@@ -814,6 +831,7 @@ shelly' opts action = do
                    , sStdin = Nothing
                    , sStderr = T.empty
                    , sPrintStdout = True
+                   , sPrintStderr = True
                    , sPrintCommands = False
                    , sRun = runCommand
                    , sEnvironment = environment
@@ -1081,25 +1099,28 @@ runHandles exe args reusedHandles withHandles = do
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args =
   runHandles exe args [] $ \inH outH errH -> do
+    state <- get
     (errVar, outVar) <- liftIO $ do
       hClose inH -- setStdin was taken care of before the process even ran
-      errVar' <- newEmptyMVar
-      outVar' <- newEmptyMVar
-      _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
-      return (errVar', outVar')
-
-    state <- get
-    errs <- liftIO $ do
-      void $ if sPrintStdout state
-        then
-          forkIO $ transferFoldHandleLines start cb outH stdout >>= putMVar outVar
-        else
-          forkIO $ foldHandleLines start cb outH >>= putMVar outVar
-      takeMVar errVar
-
+      liftM2 (,)
+          (putHandleIntoMVar mempty (|>) errH stderr (sPrintStderr state))
+          (putHandleIntoMVar start cb outH stdout (sPrintStdout state))
+    errs <- liftIO $ lineSeqToText `fmap` takeMVar errVar
     modify $ \state' -> state' { sStderr = errs }
     liftIO $ takeMVar outVar
 
+
+putHandleIntoMVar :: a -> FoldCallback a
+                  -> Handle -- ^ out handle
+                  -> Handle -- ^ in handle
+                  -> Bool  -- ^ should it be printed while transfered?
+                  -> IO (MVar a)
+putHandleIntoMVar start cb outH inHandle shouldPrint = do
+  outVar <- newEmptyMVar
+  void $ forkIO $ if shouldPrint
+    then transferFoldHandleLines start cb outH inHandle >>= putMVar outVar
+    else foldHandleLines start cb outH >>= putMVar outVar
+  return outVar
 
 
 -- | The output of last external command. See 'run'.
