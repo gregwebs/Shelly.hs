@@ -335,6 +335,9 @@ shellyProcess reusedHandles st cmdSpec =  do
 #if MIN_VERSION_process(1,1,0)
         , create_group = False
 #endif
+#if MIN_VERSION_process(1,2,0)
+        , delegate_ctlc = False
+#endif
         }
     return ( just $ createdInH <|> toHandle mInH
            , just $ createdOutH <|> toHandle mOutH
