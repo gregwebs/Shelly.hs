@@ -654,7 +654,7 @@ rm_f = absPath >=> \f -> do
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> Sh ()
 rm = absPath >=> \f -> do
-  trace $ "rm" <> toTextIgnore f
+  trace $ "rm " <> toTextIgnore f
   -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
