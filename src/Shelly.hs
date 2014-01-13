@@ -1061,7 +1061,7 @@ runHandles exe args reusedHandles withHandles = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
-    bracketOnWindowsError
+    bracket_sh
       ((sRun state) reusedHandles state exe args)
       (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
@@ -1091,18 +1091,6 @@ runHandles exe args reusedHandles withHandles = do
               liftIO $ throwIO $ RunFailed exe args n (sStderr newState)
           _                      -> return result
       )
-  where -- Windows does not terminate spawned processes, so we must bracket.
-#if defined(mingw32_HOST_OS)
-    bracketOnWindowsError acquire release main = do
-      resource <- acquire
-      main resource `catchany_sh` (\e -> do
-          _ <- release resource
-          liftIO $ throwIO e
-        )
-#else
-    bracketOnWindowsError :: Sh a -> (a -> Sh ()) -> (a -> Sh b) -> Sh b
-    bracketOnWindowsError = bracket_sh
-#endif
 
 
 -- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
