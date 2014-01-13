@@ -66,13 +66,13 @@ module Shelly
          , exit, errorExit, quietExit, terror
 
          -- * Exceptions
-         , catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
+         , bracket_sh, catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, fromText
 
          -- * Utility Functions
-         , whenM, unlessM, time, sleep 
+         , whenM, unlessM, time, sleep
 
          -- * Re-exported for your convenience
          , liftIO, when, unless, FilePath, (<$>)
@@ -395,6 +395,14 @@ finally_sh action handle = do
     ref <- ask
     liftIO $ finally (runSh action ref) (runSh handle ref)
 
+bracket_sh :: Sh a -> (a -> Sh b) -> (a -> Sh c) -> Sh c
+bracket_sh acquire release main = do
+  ref <- ask
+  liftIO $ bracket (runSh acquire ref)
+                   (\resource -> runSh (release resource) ref)
+                   (\resource -> runSh (main resource) ref)
+
+
 
 -- | You need to wrap exception handlers with this when using 'catches_sh'.
 data ShellyHandler a = forall e . Exception e => ShellyHandler (e -> Sh a)
@@ -508,28 +516,28 @@ mkdir_p = absPath >=> \fp -> do
   trace $ "mkdir -p " <> toTextIgnore fp
   liftIO $ createTree fp
 
--- | Create a new directory tree. You can describe a bunch of directories as 
+-- | Create a new directory tree. You can describe a bunch of directories as
 -- a tree and this function will create all subdirectories. An example:
 --
 -- > exec = mkTree $
 -- >           "package" # [
 -- >                "src" # [
--- >                    "Data" # leaves ["Tree", "List", "Set", "Map"] 
+-- >                    "Data" # leaves ["Tree", "List", "Set", "Map"]
 -- >                ],
 -- >                "test" # leaves ["QuickCheck", "HUnit"],
 -- >                "dist/doc/html" # []
 -- >            ]
 -- >         where (#) = Node
--- >               leaves = map (# []) 
+-- >               leaves = map (# [])
 --
 mkdirTree :: Tree FilePath -> Sh ()
-mkdirTree = mk . unrollPath 
+mkdirTree = mk . unrollPath
     where mk :: Tree FilePath -> Sh ()
           mk (Node a ts) = do
             b <- test_d a
             unless b $ mkdir a
             chdir a $ mapM_ mkdirTree ts
-            
+
           unrollPath :: Tree FilePath -> Tree FilePath
           unrollPath (Node v ts) = unrollRoot v $ map unrollPath ts
               where unrollRoot x = foldr1 phi $ map Node $ splitDirectories x
@@ -569,7 +577,7 @@ which originalFp = whichFull
             liftIO $ print pathExecutables
             return $ fmap (flip (</>) fp . fst) $
                 L.find (S.member fp . snd) pathExecutables
-        
+
 
         pathDirs = mapM absPath =<< ((map fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
 
@@ -769,7 +777,7 @@ sub a = do
       newState <- get
       put oldState {
          -- avoid losing the log
-         sTrace  = sTrace oldState <> sTrace newState 
+         sTrace  = sTrace oldState <> sTrace newState
          -- latest command execution: not make sense to restore these to old settings
        , sCode   = sCode newState
        , sStderr = sStderr newState
@@ -810,7 +818,7 @@ errExit shouldExit action = sub $ do
 data ShellyOpts = ShellyOpts { failToDir :: Bool }
 
 -- avoid data-default dependency for now
--- instance Default ShellyOpts where 
+-- instance Default ShellyOpts where
 shellyOpts :: ShellyOpts
 shellyOpts = ShellyOpts { failToDir = True }
 
@@ -1019,7 +1027,7 @@ runHandle :: FilePath -- ^ command
           -> [Text] -- ^ arguments
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
-runHandle exe args withHandle = 
+runHandle exe args withHandle =
   runHandles exe args [] $ \_ outH errH -> do
     errVar <- liftIO $ do
       errVar' <- newEmptyMVar
@@ -1086,14 +1094,14 @@ runHandles exe args reusedHandles withHandles = do
   where -- Windows does not terminate spawned processes, so we must bracket.
 #if defined(mingw32_HOST_OS)
     bracketOnWindowsError acquire release main = do
-      resource <- acquire 
+      resource <- acquire
       main resource `catchany_sh` (\e -> do
           _ <- release resource
           liftIO $ throwIO e
         )
 #else
     bracketOnWindowsError :: Sh a -> (a -> Sh ()) -> (a -> Sh b) -> Sh b
-    bracketOnWindowsError acquire _ main = acquire >>= main
+    bracketOnWindowsError = bracket_sh
 #endif
 
 
