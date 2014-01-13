@@ -66,7 +66,7 @@ module Shelly
          , exit, errorExit, quietExit, terror
 
          -- * Exceptions
-         , catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
+         , bracket_sh, catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, fromText
@@ -394,6 +394,14 @@ finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
     ref <- ask
     liftIO $ finally (runSh action ref) (runSh handle ref)
+
+bracket_sh :: Sh a -> (a -> Sh b) -> (a -> Sh c) -> Sh c
+bracket_sh acquire release main = do
+  ref <- ask
+  liftIO $ bracket (runSh acquire ref)
+                   (\resource -> runSh (release resource) ref)
+                   (\resource -> runSh (main resource) ref)
+
 
 
 -- | You need to wrap exception handlers with this when using 'catches_sh'.
@@ -1093,7 +1101,7 @@ runHandles exe args reusedHandles withHandles = do
         )
 #else
     bracketOnWindowsError :: Sh a -> (a -> Sh ()) -> (a -> Sh b) -> Sh b
-    bracketOnWindowsError acquire _ main = acquire >>= main
+    bracketOnWindowsError = bracket_sh
 #endif
 
 
