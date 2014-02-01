@@ -5,7 +5,7 @@ import TestInit
 whichSpec :: Spec
 whichSpec = describe "which" $ do
     it "gives full path to cabal" $ do
-      Just fp <- shelly $ which "cabal"
+      Just _ <- shelly $ which "cabal"
       assert True
 
     it "recognizes cabal as a path executable" $ do

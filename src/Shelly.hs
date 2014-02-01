@@ -23,7 +23,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, sub
+         Sh, ShIO, shelly, shellyNoDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
 
@@ -107,6 +107,7 @@ import System.Environment
 import Control.Applicative
 import Control.Exception hiding (handle)
 import Control.Concurrent
+import Control.Concurrent.Async (async, Async)
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.IO as TIO
@@ -1244,3 +1245,9 @@ time what = sub $ do
 -- | threadDelay wrapper that uses seconds
 sleep :: Int -> Sh ()
 sleep = liftIO . threadDelay . (1000 * 1000 *)
+
+-- | spawn an asynchronous action with a copy of the current state
+asyncSh :: Sh a -> Sh (Async a)
+asyncSh proc = do
+  state <- get
+  liftIO $ async $ shelly (put state >> proc)
