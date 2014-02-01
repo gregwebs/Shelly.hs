@@ -50,7 +50,7 @@ module Shelly
          , tag, trace, show_command
 
          -- * Querying filesystem.
-         , ls, lsT, test_e, test_f, test_d, test_s, which
+         , ls, lsT, test_e, test_f, test_d, test_s, test_px, which
 
          -- * Filename helpers
          , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path
@@ -69,7 +69,7 @@ module Shelly
          , bracket_sh, catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
-         , toTextIgnore, toTextWarn, fromText
+         , toTextIgnore, toTextWarn, FP.fromText
 
          -- * Utility Functions
          , whenM, unlessM, time, sleep
@@ -238,9 +238,6 @@ toTextWarn efile = case toText efile of
     Right f -> return f
   where
     encodeError f = echo ("Invalid encoding for file: " <> f)
-
-fromText :: Text -> FilePath
-fromText = FP.fromText
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
@@ -543,6 +540,11 @@ mkdirTree = mk . unrollPath
               where unrollRoot x = foldr1 phi $ map Node $ splitDirectories x
                     phi a b = a . return . b
 
+
+isExecutable :: FilePath -> IO Bool
+isExecutable f = (executable `fmap` getPermissions (encodeString f)) `catch` (\(_ :: IOError) -> return False)
+
+
 -- | Get a full path to an executable by looking at the @PATH@ environement
 -- variable. Windows normally looks in additional places besides the
 -- @PATH@: this does not duplicate that behavior.
@@ -569,7 +571,7 @@ which originalFp = whichFull
         lookupPath =
             (pathDirs >>=) $ findMapM $ \dir -> do
                 let fullFp = dir </> fp
-                res <- liftIO $ isExecutable $ encodeString $ fullFp
+                res <- liftIO $ isExecutable fullFp
                 return $ toMaybe res fullFp
 
         lookupCache = do
@@ -579,10 +581,7 @@ which originalFp = whichFull
                 L.find (S.member fp . snd) pathExecutables
 
 
-        pathDirs = mapM absPath =<< ((map fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
-
-        isExecutable f = (executable `fmap` getPermissions f) `catch`
-                           (\(_ :: IOError) -> return False)
+        pathDirs = mapM absPath =<< ((map FP.fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
 
         cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
         cachedPathExecutables = do
@@ -594,7 +593,7 @@ which originalFp = whichFull
                 executables <- forM dirs (\dir -> do
                     files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
                     exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
-                      map (\f -> (encodeString f, filename f)) files
+                      map (\f -> (f, filename f)) files
                     return $ S.fromList exes
                   )
                 let cachedExecutables = zip dirs executables
@@ -630,6 +629,14 @@ test_e = absPath >=> \f ->
 -- | Does a path point to an existing file?
 test_f :: FilePath -> Sh Bool
 test_f = absPath >=> liftIO . isFile
+
+-- | Test that a file is in the PATH and also executable
+test_px :: FilePath -> Sh Bool
+test_px exe = do
+  mFull <- which exe
+  case mFull of
+    Nothing -> return False
+    Just full -> liftIO $ isExecutable full
 
 -- | A swiss army cannon for removing things. Actually this goes farther than a
 -- normal rm -rf, as it will circumvent permission problems for the files we

@@ -37,6 +37,7 @@ Help
 Main
 MoveSpec
 ReadFileSpec
+WhichSpec
 WriteSpec
 RunSpec
 '

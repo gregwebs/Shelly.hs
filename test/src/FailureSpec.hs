@@ -1,12 +1,6 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ExtendedDefaultRules #-}
 module FailureSpec ( failureSpec ) where
 
-import Test.Hspec.HUnit ()
-import Test.HUnit
-import Test.Hspec
-
-import Shelly
+import TestInit
 
 failureSpec :: Spec
 failureSpec = do

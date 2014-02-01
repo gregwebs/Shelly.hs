@@ -18,6 +18,8 @@ Executable shelly-testsuite
   ghc-options: -O2 -Wall -fhpc -fwarn-tabs -funbox-strict-fields -threaded
                -fno-warn-unused-do-bind -fno-warn-type-defaults
 
+  extensions: OverloadedStrings, ExtendedDefaultRules
+
   build-depends:
     base                      >= 4.6,
     text                      >= 0.11,

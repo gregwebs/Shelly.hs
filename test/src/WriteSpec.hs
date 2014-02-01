@@ -1,15 +1,9 @@
-{-# LANGUAGE OverloadedStrings #-}
-{-# LANGUAGE ExtendedDefaultRules #-}
 module WriteSpec ( writeSpec ) where
 
-import Test.Hspec.HUnit ()
-import Test.HUnit
-import Test.Hspec
-
+import TestInit
 import Prelude hiding (FilePath)
-import Shelly
-import Data.Text (Text)
 
+import Data.Text (Text)
 default (Text)
 
 createsFile :: FilePath -> (FilePath -> IO ()) -> IO ()

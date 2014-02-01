@@ -1,17 +1,13 @@
 {-# Language CPP #-}
-{-# Language OverloadedStrings #-}
-{-# Language ExtendedDefaultRules #-}
 module CopySpec ( copySpec ) where
 
-import Test.Hspec.HUnit ()
-import Test.HUnit hiding (path)
-import Test.Hspec
+import TestInit
+
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
 import Prelude hiding ( FilePath, catch)
 #else
 import Prelude hiding ( FilePath)
 #endif
-import Shelly
 import Control.Monad (forM_)
 import System.IO.Error
 import Help
@@ -21,18 +17,18 @@ copySpec = do
   let b = "b" 
   let c = "c"
   describe "cp file" $ do
-    it "cp to same dir" $ do
+    it "cp to same dir" $
       forM_ [cp, cp_r] $ \copier -> do
-        res <- shelly $ do
+        res <- shelly $
           within_dir "test/a" $ do
             writefile b "testing"
             copier b c
             readfile c
         res @?= "testing"
 
-    it "cp to other dir" $ do
+    it "cp to other dir" $
       forM_ [cp, cp_r] $ \copier -> do
-        res <- shelly $ do
+        res <- shelly $
           within_dir "test/a" $ do
             writefile b "testing"
             mkdir c
@@ -42,7 +38,7 @@ copySpec = do
 
   describe "cp dir" $ do
     it "to dir does not exist: create the to dir" $ do
-      res <- shelly $ do
+      res <- shelly $
         within_dir "test/a" $ do
           mkdir b
           writefile "b/d" ""
@@ -53,7 +49,7 @@ copySpec = do
       assert res
 
     it "to dir exists: creates a nested directory, full to path given" $ do
-      res <- shelly $ do
+      res <- shelly $
         within_dir "test/a" $ do
           mkdir b
           mkdir c
@@ -67,7 +63,7 @@ copySpec = do
       assert res
 
     it "to dir exists: creates a nested directory, partial to path given" $ do
-      res <- shelly $ do
+      res <- shelly $
         within_dir "test/a" $ do
           mkdir b
           mkdir c
@@ -81,7 +77,7 @@ copySpec = do
       assert res
 
     it "copies the same dir" $ do
-      shelly $ do
+      shelly $
         within_dir "test/a" $ do
           mkdir b
           writefile "b/d" ""

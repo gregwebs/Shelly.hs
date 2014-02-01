@@ -2,6 +2,7 @@
 module Main where
 
 import ReadFileSpec
+import WhichSpec
 import WriteSpec
 import MoveSpec
 import FindSpec
@@ -14,6 +15,7 @@ import Test.Hspec
 main :: IO ()
 main = hspec $ do
     readFileSpec
+    whichSpec
     writeSpec
     moveSpec
     findSpec
