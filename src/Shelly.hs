@@ -66,7 +66,7 @@ module Shelly
          , exit, errorExit, quietExit, terror
 
          -- * Exceptions
-         , bracket_sh, catchany, catch_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
+         , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, FP.fromText
@@ -389,6 +389,13 @@ catch_sh action handle = do
     ref <- ask
     liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
 
+-- | Same as a normal 'catch' but specialized for the Sh monad.
+handle_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
+handle_sh action handle = do
+    ref <- ask
+    liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
+
+
 -- | Same as a normal 'finally' but specialized for the 'Sh' monad.
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh action handle = do
@@ -417,9 +424,13 @@ catches_sh action handlers = do
     toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
     toHandler runner (ShellyHandler handle) = Handler (\e -> runner (handle e))
 
--- | Catch an exception in the Sh monad.
+-- | Catch any exception in the Sh monad.
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
 catchany_sh = catch_sh
+
+-- | Handle an exception in the Sh monad.
+handleany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
+handleany_sh = handle_sh
 
 -- | Change current working directory of Sh. This does *not* change the
 -- working directory of the process we are running it. Instead, Sh keeps
