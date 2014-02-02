@@ -100,7 +100,7 @@ import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (toList)
 import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile )
+import System.IO ( hClose, stderr, stdout, openTempFile, hSetBuffering, BufferMode(LineBuffering) )
 import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
 import System.Exit
 import System.Environment
@@ -337,8 +337,10 @@ shellyProcess reusedHandles st cmdSpec =  do
         , delegate_ctlc = False
 #endif
         }
+    let outH = just $ createdOutH <|> toHandle mOutH
+    hSetBuffering outH LineBuffering
     return ( just $ createdInH <|> toHandle mInH
-           , just $ createdOutH <|> toHandle mOutH
+           , outH
            , just $ createdErrorH <|> toHandle mErrorH
            , pHandle
            )
@@ -348,7 +350,7 @@ shellyProcess reusedHandles st cmdSpec =  do
     just (Just j) = j
 
     toHandle (Just (UseHandle h)) = Just h
-    toHandle (Just CreatePipe)    = error "shelly process creation failure CreatePIpe"
+    toHandle (Just CreatePipe)    = error "shelly process creation failure CreatePipe"
     toHandle (Just Inherit)       = error "cannot access an inherited pipe"
     toHandle Nothing              = error "error in shelly creating process"
 
