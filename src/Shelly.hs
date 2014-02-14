@@ -238,7 +238,7 @@ toTextWarn efile = case toText efile of
     Left f -> encodeError f >> return f
     Right f -> return f
   where
-    encodeError f = echo ("Invalid encoding for file: " <> f)
+    encodeError f = echo ("non-unicode file name: " <> f)
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
