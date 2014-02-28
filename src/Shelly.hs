@@ -107,7 +107,7 @@ import System.Environment
 import Control.Applicative
 import Control.Exception hiding (handle)
 import Control.Concurrent
-import Control.Concurrent.Async (async, Async)
+import Control.Concurrent.Async (async, wait, Async)
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
 import qualified Data.Text.IO as TIO
@@ -1048,15 +1048,10 @@ runHandle :: FilePath -- ^ command
           -> [Text] -- ^ arguments
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
-runHandle exe args withHandle =
-  runHandles exe args [] $ \_ outH errH -> do
-    errVar <- liftIO $ do
-      errVar' <- newEmptyMVar
-      _ <- forkIO $ transferLinesAndCombine errH stderr >>= putMVar errVar'
-      return errVar'
-
+runHandle exe args withHandle = runHandles exe args [] $ \_ outH errH -> do
+    errPromise <- liftIO $ async $ transferLinesAndCombine errH stderr
     res <- withHandle outH
-    errs <- liftIO $ takeMVar errVar
+    errs <- liftIO $ wait errPromise
 
     modify $ \state' -> state' { sStderr = errs }
     return res
@@ -1125,22 +1120,20 @@ runFoldLines start cb exe args =
       liftM2 (,)
           (putHandleIntoMVar mempty (|>) errH stderr (sPrintStderr state))
           (putHandleIntoMVar start cb outH stdout (sPrintStdout state))
-    errs <- liftIO $ lineSeqToText `fmap` takeMVar errVar
+    errs <- liftIO $ lineSeqToText `fmap` wait errVar
     modify $ \state' -> state' { sStderr = errs }
-    liftIO $ takeMVar outVar
+    liftIO $ wait outVar
 
 
 putHandleIntoMVar :: a -> FoldCallback a
                   -> Handle -- ^ out handle
                   -> Handle -- ^ in handle
                   -> Bool  -- ^ should it be printed while transfered?
-                  -> IO (MVar a)
-putHandleIntoMVar start cb outH inHandle shouldPrint = do
-  outVar <- newEmptyMVar
-  void $ forkIO $ if shouldPrint
-    then transferFoldHandleLines start cb outH inHandle >>= putMVar outVar
-    else foldHandleLines start cb outH >>= putMVar outVar
-  return outVar
+                  -> IO (Async a)
+putHandleIntoMVar start cb outH inHandle shouldPrint = liftIO $ async $ do
+  if shouldPrint
+    then transferFoldHandleLines start cb outH inHandle
+    else foldHandleLines start cb outH
 
 
 -- | The output of last external command. See 'run'.
