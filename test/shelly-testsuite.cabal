@@ -45,7 +45,7 @@ Executable shelly-testsuite
 -- demonstarated that command output in Shellish was not shown until after the command finished
 -- not necessary anymore
 Executable drain
-  hs-source-dirs: ../src/ src
+  hs-source-dirs: ../src/ examples
   main-is: drain.hs
 
   build-depends:

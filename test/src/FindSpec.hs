@@ -30,14 +30,14 @@ findSpec = do
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./TestInit.hs", "./TestMain.hs",
-                    "./WhichSpec.hs", "./WriteSpec.hs", "./drain.hs", "./drain.sh", "./printer.sh", "./sleep.hs"]
+                    "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
     it "finds relative files" $ do
       res <- shelly $ cd "src" >> find "."
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./TestInit.hs", "./TestMain.hs",
-                    "./WhichSpec.hs", "./WriteSpec.hs", "./drain.hs", "./drain.sh", "./printer.sh", "./sleep.hs"]
+                    "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
   describe "find" $ do
     it "empty list for empty dir" $ do
@@ -53,11 +53,11 @@ findSpec = do
       res <- shelly $ find "src"
       sort res @?= ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
                     "src/FindSpec.hs", "src/Help.hs", "src/MoveSpec.hs", "src/ReadFileSpec.hs",
-                    "src/TestInit.hs", "src/TestMain.hs", "src/WhichSpec.hs", "src/WriteSpec.hs", "src/drain.hs",
-                    "src/drain.sh", "src/printer.sh", "src/sleep.hs"]
+                    "src/TestInit.hs", "src/TestMain.hs", "src/WhichSpec.hs", "src/WriteSpec.hs",
+                    "src/sleep.hs"]
 
     it "lists absolute files" $ do
       res <- shelly $ relPath "src" >>= find >>= mapM (relativeTo "src")
       sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs",
                     "Help.hs", "MoveSpec.hs", "ReadFileSpec.hs", "TestInit.hs", "TestMain.hs",
-                    "WhichSpec.hs", "WriteSpec.hs", "drain.hs", "drain.sh", "printer.sh", "sleep.hs"]
+                    "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
