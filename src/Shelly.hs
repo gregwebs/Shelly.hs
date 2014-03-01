@@ -100,7 +100,7 @@ import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (toList)
 import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile, hSetBuffering, BufferMode(LineBuffering) )
+import System.IO ( hClose, stderr, stdout, openTempFile)
 import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
 import System.Exit
 import System.Environment
@@ -337,10 +337,8 @@ shellyProcess reusedHandles st cmdSpec =  do
         , delegate_ctlc = False
 #endif
         }
-    let outH = just $ createdOutH <|> toHandle mOutH
-    hSetBuffering outH LineBuffering
     return ( just $ createdInH <|> toHandle mInH
-           , outH
+           , just $ createdOutH <|> toHandle mOutH
            , just $ createdErrorH <|> toHandle mErrorH
            , pHandle
            )
