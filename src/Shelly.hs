@@ -23,7 +23,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, asyncSh, sub
+         Sh, ShIO, shelly, shellyNoDir, asyncSh, asyncShNoDir, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
 
@@ -1255,3 +1255,10 @@ asyncSh :: Sh a -> Sh (Async a)
 asyncSh proc = do
   state <- get
   liftIO $ async $ shelly (put state >> proc)
+
+-- | Spawn an asynchronous action with a copy of the current state.
+--   Calls shellyNoDir internally.
+asyncShNoDir :: Sh a -> Sh (Async a)
+asyncShNoDir proc = do
+  state <- get
+  liftIO $ async $ shellyNoDir (put state >> proc)
