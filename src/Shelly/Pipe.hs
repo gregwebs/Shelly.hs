@@ -210,7 +210,7 @@ shelly = S.shelly . unSh
 
 -- | Performs 'shelly' and then an empty action @return ()@. 
 shs :: MonadIO m => Sh () -> m ()
-shs = void . shelly
+shs x = shelly x >> return ()
 
 -- | see 'S.shellyFailDir'
 shellyFailDir :: MonadIO m => Sh a -> m [a]
@@ -218,7 +218,7 @@ shellyFailDir = S.shellyFailDir . unSh
 
 -- | Performs 'shellyFailDir' and then an empty action @return ()@.
 shsFailDir :: MonadIO m => Sh () -> m ()
-shsFailDir = void . shellyFailDir
+shsFailDir x = shellyFailDir x >> return ()
 
 -- | see 'S.sub'
 sub :: Sh a -> Sh a
