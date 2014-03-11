@@ -23,7 +23,7 @@
 module Shelly
        (
          -- * Entering Sh.
-         Sh, ShIO, shelly, shellyNoDir, asyncSh, sub
+         Sh, ShIO, shelly, shellyNoDir, shellyFailDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
 
@@ -834,27 +834,30 @@ errExit shouldExit action = sub $ do
   modify $ \st -> st { sErrExit = shouldExit }
   action
 
-data ShellyOpts = ShellyOpts { failToDir :: Bool }
+defReadOnlyState :: ReadOnlyState
+defReadOnlyState = ReadOnlyState { rosFailToDir = False }
 
--- avoid data-default dependency for now
--- instance Default ShellyOpts where
-shellyOpts :: ShellyOpts
-shellyOpts = ShellyOpts { failToDir = True }
-
--- | Using this entry point does not create a @.shelly@ directory in the case
+-- | Deprecated now, just use 'shelly', whose default has been changed.
+-- Using this entry point does not create a @.shelly@ directory in the case
 -- of failure. Instead it logs directly into the standard error stream (@stderr@).
 shellyNoDir :: MonadIO m => Sh a -> m a
-shellyNoDir = shelly' shellyOpts { failToDir = False }
+shellyNoDir = shelly' ReadOnlyState { rosFailToDir = False }
+{-# DEPRECATED shellyNoDir "Just use shelly. The default settings have changed" #-}
+
+-- Using this entry point creates a @.shelly@ directory in the case
+-- of failure where errors are recorded.
+shellyFailDir :: MonadIO m => Sh a -> m a
+shellyFailDir = shelly' ReadOnlyState { rosFailToDir = True }
 
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
 -- running Sh.
 shelly :: MonadIO m => Sh a -> m a
-shelly = shelly' shellyOpts
+shelly = shelly' defReadOnlyState
 
-shelly' :: MonadIO m => ShellyOpts -> Sh a -> m a
-shelly' opts action = do
+shelly' :: MonadIO m => ReadOnlyState -> Sh a -> m a
+shelly' ros action = do
   environment <- liftIO getEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
@@ -870,6 +873,7 @@ shelly' opts action = do
                    , sDirectory = dir
                    , sPathExecutables = Nothing
                    , sErrExit = True
+                   , sReadOnly = ros
                    }
   stref <- liftIO $ newIORef def
   let caught =
@@ -887,8 +891,9 @@ shelly' opts action = do
   where
     throwExplainedException :: Exception exception => exception -> Sh a
     throwExplainedException ex = get >>= errorMsg >>= liftIO . throwIO . ReThrownException ex
+
     errorMsg st =
-      if not (failToDir opts) then ranCommands else do
+      if not (rosFailToDir $ sReadOnly st) then ranCommands else do
           d <- pwd
           sf <- shellyFile
           let logFile = d</>shelly_dir</>sf

@@ -36,7 +36,7 @@
 module Shelly.Pipe
        (
          -- * Entering Sh.
-         Sh, shs, shelly,shellyNoDir, shsNoDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, shs, shelly, shellyFailDir, shsFailDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
          -- * List functions
          , roll, unroll, liftSh
          -- * Running external commands.
@@ -210,15 +210,15 @@ shelly = S.shelly . unSh
 
 -- | Performs 'shelly' and then an empty action @return ()@. 
 shs :: MonadIO m => Sh () -> m ()
-shs a = shelly a >> return ()
+shs = void . shelly
 
--- | see 'S.shellyNoDir'
-shellyNoDir :: MonadIO m => Sh a -> m [a]
-shellyNoDir = S.shellyNoDir . unSh
+-- | see 'S.shellyFailDir'
+shellyFailDir :: MonadIO m => Sh a -> m [a]
+shellyFailDir = S.shellyFailDir . unSh
 
--- | Performs 'shellyNoDir' and then an empty action @return ()@.
-shsNoDir :: MonadIO m => Sh () -> m ()
-shsNoDir a = shellyNoDir a >> return ()
+-- | Performs 'shellyFailDir' and then an empty action @return ()@.
+shsFailDir :: MonadIO m => Sh () -> m ()
+shsFailDir = void . shellyFailDir
 
 -- | see 'S.sub'
 sub :: Sh a -> Sh a

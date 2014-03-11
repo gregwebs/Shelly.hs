@@ -6,7 +6,7 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    Sh, ShIO, unSh, runSh, State(..), StdHandle(..), FilePath, Text,
+    Sh, ShIO, unSh, runSh, State(..), ReadOnlyState(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -59,6 +59,7 @@ newtype Sh a = Sh {
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
 
+data ReadOnlyState = ReadOnlyState { rosFailToDir :: Bool }
 data State = State 
    { sCode :: Int -- ^ exit code for command that ran
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
@@ -73,6 +74,7 @@ data State = State
    , sTracing :: Bool -- ^ should we trace command execution
    , sTrace :: Text -- ^ the trace of command execution
    , sErrExit :: Bool -- ^ should we exit immediately on any error
+   , sReadOnly :: ReadOnlyState
    }
 
 data StdHandle = InHandle StdStream
