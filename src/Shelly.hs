@@ -310,10 +310,10 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
           -- windows looks in extra places besides the PATH, so just give
           -- up even if the behavior is not properly specified anymore
           --
-          -- non-Windows < 7.6 has a bug for read-only file systems
+          -- non-Windows < 7.8 has a bug for read-only file systems
           -- https://github.com/yesodweb/Shelly.hs/issues/56
           -- it would be better to specifically detect that bug
-#if defined(mingw32_HOST_OS) || (defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706)
+#if defined(mingw32_HOST_OS) || (defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 708)
           Nothing -> return fp
 #else
           Nothing -> liftIO $ throwIO $ userError $
