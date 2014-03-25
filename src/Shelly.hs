@@ -263,24 +263,27 @@ type FoldCallback a = (a -> Text -> a)
 transferFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
 transferFoldHandleLines start foldLine readHandle writeHandle = go start
   where
-    catchIOErrors action = catchIOError
-                   (fmap Just action)
-                   (\e -> if isEOFError e || isIllegalOperation e -- handle was closed
-                           then return Nothing
-                           else ioError e)
     go acc = do
-        mLine <- catchIOErrors (TIO.hGetLine readHandle)
+        mLine <- filterIOErrors $ TIO.hGetLine readHandle
         case mLine of
             Nothing -> return acc
             Just line -> TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
+
+filterIOErrors :: IO a -> IO (Maybe a)
+filterIOErrors action = catchIOError
+               (fmap Just action)
+               (\e -> if isEOFError e || isIllegalOperation e -- handle was closed
+                       then return Nothing
+                       else ioError e)
 
 foldHandleLines :: a -> FoldCallback a -> Handle -> IO a
 foldHandleLines start foldLine readHandle = go start
   where
     go acc = do
-      line <- TIO.hGetLine readHandle
-      go $ foldLine acc line
-     `catchany` \_ -> return acc
+      mLine <- filterIOErrors $ TIO.hGetLine readHandle
+      case mLine of
+        Nothing -> return acc
+        Just line -> go $ foldLine acc line
 
 -- | same as 'trace', but use it combinator style
 tag :: Sh a -> Text -> Sh a
