@@ -33,7 +33,7 @@ Cabal-version:       >=1.8
 
 
 Library
-  Exposed-modules: Shelly, Shelly.Pipe
+  Exposed-modules: Shelly, Shelly.Lifted, Shelly.Pipe
   other-modules:   Shelly.Base, Shelly.Find
   hs-source-dirs: src
 
@@ -46,7 +46,8 @@ Library
     unix-compat               < 0.5,
     system-filepath           >= 0.4.7 && < 0.5,
     system-fileio             < 0.4,
-    text, bytestring, async
+    monad-control             >= 0.3.2 && < 0.4,
+    text, bytestring, async, transformers, transformers-base
 
   if impl(ghc >= 7.6.1)
     build-depends:
