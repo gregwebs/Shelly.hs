@@ -39,7 +39,8 @@ Executable shelly-testsuite
     transformers-base,
     monad-control,
     lifted-base,
-    lifted-async
+    lifted-async,
+    enclosed-exceptions
     -- test-framework            >= 0.6,
     -- test-framework-hunit      >= 0.2,
     -- test-framework-th         >= 0.2

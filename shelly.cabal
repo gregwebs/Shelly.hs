@@ -49,6 +49,7 @@ Library
     monad-control             >= 0.3.2 && < 0.4,
     lifted-base,
     lifted-async,
+    enclosed-exceptions,
     text, bytestring, async, transformers, transformers-base
 
   if impl(ghc >= 7.6.1)

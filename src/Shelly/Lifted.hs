@@ -73,7 +73,7 @@ module Shelly.Lifted
          , exit, errorExit, quietExit, terror
 
          -- * Exceptions
-         , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, S.ShellyHandler(..), S.catches_sh, catchany_sh
+         , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
          , S.toTextIgnore, toTextWarn, FP.fromText
@@ -103,6 +103,7 @@ import Data.Tree ( Tree )
 import qualified Filesystem.Path.CurrentOS as FP
 
 import Control.Exception.Lifted
+import Control.Exception.Enclosed
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Identity
@@ -359,24 +360,31 @@ put = liftSh . S.put
 
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh = catch
+{-# DEPRECATED catch_sh "use Control.Exception.Lifted.catch instead" #-}
 
 handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
 handle_sh = handle
+{-# DEPRECATED handle_sh "use Control.Exception.Lifted.handle instead" #-}
 
 finally_sh :: Sh a -> Sh b -> Sh a
 finally_sh = finally
+{-# DEPRECATED finally_sh "use Control.Exception.Lifted.finally instead" #-}
 
 bracket_sh :: Sh a -> (a -> Sh b) -> (a -> Sh c) -> Sh c
 bracket_sh = bracket
+{-# DEPRECATED bracket_sh "use Control.Exception.Lifted.bracket instead" #-}
 
--- catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
--- catches_sh = catches
+catches_sh :: Sh a -> [Handler Sh a] -> Sh a
+catches_sh = catches
+{-# DEPRECATED catches_sh "use Control.Exception.Lifted.catches instead" #-}
 
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
-catchany_sh = catch
+catchany_sh = catchAny
+{-# DEPRECATED catchany_sh "use Control.Exception.Enclosed.catchAny instead" #-}
 
 handleany_sh :: (SomeException -> Sh a) -> Sh a -> Sh a
-handleany_sh = handle
+handleany_sh = handleAny
+{-# DEPRECATED handleany_sh "use Control.Exception.Enclosed.handleAny instead" #-}
 
 cd :: MonadSh m => FilePath -> m ()
 cd = liftSh . S.cd
