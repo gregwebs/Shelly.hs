@@ -189,7 +189,7 @@ instance MonadShControl Sh where
 instance MonadShControl m => MonadShControl (ListT m) where
     newtype ShM (ListT m) a = ListTShM (ShM m [a])
     liftShWith f =
-        ListT $ liftM (:[]) $ liftShWith $ \runInSh -> f $ \k ->
+        ListT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
             liftM ListTShM $ runInSh $ runListT k
     restoreSh (ListTShM m) = ListT . restoreSh $ m
     {-# INLINE liftShWith #-}
@@ -198,90 +198,98 @@ instance MonadShControl m => MonadShControl (ListT m) where
 instance MonadShControl m => MonadShControl (MaybeT m) where
     newtype ShM (MaybeT m) a = MaybeTShM (ShM m (Maybe a))
     liftShWith f =
-        MaybeT $ liftM Just $ liftShWith $ \runInSh -> f $ \k ->
+        MaybeT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
             liftM MaybeTShM $ runInSh $ runMaybeT k
     restoreSh (MaybeTShM m) = MaybeT . restoreSh $ m
     {-# INLINE liftShWith #-}
     {-# INLINE restoreSh #-}
 
--- instance MonadShControl m
---          => MonadShControl (IdentityT m) where
---     newtype ShM (IdentityT m) a = IdentityTShM (ShM m a)
---     liftShWith f =
---         IdentityT $ defaultLiftShWith f runIdentityT IdentityTShM id
---     restoreSh (IdentityTShM m) = IdentityT . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance MonadShControl m
+         => MonadShControl (IdentityT m) where
+    newtype ShM (IdentityT m) a = IdentityTShM (ShM m a)
+    liftShWith f =
+        IdentityT $ liftM id $ liftShWith $ \runInSh -> f $ \k ->
+            liftM IdentityTShM $ runInSh $ runIdentityT k
+    restoreSh (IdentityTShM m) = IdentityT . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance (MonadShControl m, Monoid w)
---          => MonadShControl (WriterT w m) where
---     newtype ShM (WriterT w m) a = WriterTShM (ShM m   (a, w))
---     liftShWith f = WriterT $
---         defaultLiftShWith f runWriterT WriterTShM (\x -> (x, mempty))
---     restoreSh (WriterTShM m) = WriterT . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance (MonadShControl m, Monoid w)
+         => MonadShControl (WriterT w m) where
+    newtype ShM (WriterT w m) a = WriterTShM (ShM m (a, w))
+    liftShWith f =
+        WriterT $ liftM  (\x -> (x, mempty)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM WriterTShM $ runInSh $ runWriterT k
+    restoreSh (WriterTShM m) = WriterT . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance (MonadShControl m, Monoid w)
---          => MonadShControl (Strict.WriterT w m) where
---     newtype ShM (Strict.WriterT w m) a = StWriterTShM (ShM m (a, w))
---     liftShWith f = Strict.WriterT $
---         defaultLiftShWith f Strict.runWriterT StWriterTShM (\x -> (x, mempty))
---     restoreSh (StWriterTShM m) = Strict.WriterT . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance (MonadShControl m, Monoid w)
+         => MonadShControl (Strict.WriterT w m) where
+    newtype ShM (Strict.WriterT w m) a = StWriterTShM (ShM m (a, w))
+    liftShWith f =
+        Strict.WriterT $ liftM (\x -> (x, mempty)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM StWriterTShM $ runInSh $ Strict.runWriterT k
+    restoreSh (StWriterTShM m) = Strict.WriterT . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance (MonadShControl m, Error e)
---          => MonadShControl (ErrorT e m) where
---     newtype ShM (ErrorT e m) a = ErrorTShM (ShM m (Either e a))
---     liftShWith f = ErrorT $ defaultLiftShWith f runErrorT ErrorTShM return
---     restoreSh (ErrorTShM m) = ErrorT . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance (MonadShControl m, Error e)
+         => MonadShControl (ErrorT e m) where
+    newtype ShM (ErrorT e m) a = ErrorTShM (ShM m (Either e a))
+    liftShWith f =
+        ErrorT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
+            liftM ErrorTShM $ runInSh $ runErrorT k
+    restoreSh (ErrorTShM m) = ErrorT . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance MonadShControl m => MonadShControl (StateT s m) where
---     newtype ShM (StateT s m) a = StateTShM (ShM m (a, s))
---     liftShWith f = StateT $ \s ->
---         defaultLiftShWith f (`runStateT` s) StateTShM (\x -> (x,s))
---     restoreSh (StateTShM m) = StateT . const . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance MonadShControl m => MonadShControl (StateT s m) where
+    newtype ShM (StateT s m) a = StateTShM (ShM m (a, s))
+    liftShWith f = StateT $ \s ->
+        liftM (\x -> (x,s)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM StateTShM $ runInSh $ runStateT k s
+    restoreSh (StateTShM m) = StateT . const . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance MonadShControl m => MonadShControl (Strict.StateT s m) where
---     newtype ShM (Strict.StateT s m) a = StStateTShM (ShM m (a, s))
---     liftShWith f = Strict.StateT $ \s ->
---         defaultLiftShWith f (`Strict.runStateT` s) StStateTShM (\x -> (x,s))
---     restoreSh (StStateTShM m) = Strict.StateT . const . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance MonadShControl m => MonadShControl (Strict.StateT s m) where
+    newtype ShM (Strict.StateT s m) a = StStateTShM (ShM m (a, s))
+    liftShWith f = Strict.StateT $ \s ->
+        liftM (\x -> (x,s)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM StStateTShM $ runInSh $ Strict.runStateT k s
+    restoreSh (StStateTShM m) = Strict.StateT . const . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance MonadShControl m => MonadShControl (ReaderT r m) where
---     newtype ShM (ReaderT r m) a = ReaderTShM (ShM m a)
---     liftShWith f = ReaderT $ \r ->
---         defaultLiftShWith f (`runReaderT` r) ReaderTShM id
---     restoreSh (ReaderTShM m) = ReaderT . const . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance MonadShControl m => MonadShControl (ReaderT r m) where
+    newtype ShM (ReaderT r m) a = ReaderTShM (ShM m a)
+    liftShWith f = ReaderT $ \r ->
+        liftM id $ liftShWith $ \runInSh -> f $ \k ->
+            liftM ReaderTShM $ runInSh $ runReaderT k r
+    restoreSh (ReaderTShM m) = ReaderT . const . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance (MonadShControl m, Monoid w)
---          => MonadShControl (RWS.RWST r w s m) where
---     newtype ShM (RWS.RWST r w s m) a = RWSTShM (ShM m (a, s ,w))
---     liftShWith f = RWS.RWST $ \r s ->
---         defaultLiftShWith f (flip (`RWS.runRWST` r) s) RWSTShM
---             (\x -> (x,s,mempty))
---     restoreSh (RWSTShM m) = RWS.RWST . const . const . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance (MonadShControl m, Monoid w)
+         => MonadShControl (RWS.RWST r w s m) where
+    newtype ShM (RWS.RWST r w s m) a = RWSTShM (ShM m (a, s ,w))
+    liftShWith f = RWS.RWST $ \r s ->
+        liftM (\x -> (x,s,mempty)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM RWSTShM $ runInSh $ RWS.runRWST k r s
+    restoreSh (RWSTShM m) = RWS.RWST . const . const . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
--- instance (MonadShControl m, Monoid w)
---          => MonadShControl (Strict.RWST r w s m) where
---     newtype ShM (Strict.RWST r w s m) a = StRWSTShM (ShM m (a, s, w))
---     liftShWith f = Strict.RWST $ \r s ->
---         defaultLiftShWith f (flip (`Strict.runRWST` r) s) StRWSTShM
---             (\x -> (x,s,mempty))
---     restoreSh (StRWSTShM m) = Strict.RWST . const . const . restoreSh $ m
---     {-# INLINE liftShWith #-}
---     {-# INLINE restoreSh #-}
+instance (MonadShControl m, Monoid w)
+         => MonadShControl (Strict.RWST r w s m) where
+    newtype ShM (Strict.RWST r w s m) a = StRWSTShM (ShM m (a, s, w))
+    liftShWith f = Strict.RWST $ \r s ->
+        liftM (\x -> (x,s,mempty)) $ liftShWith $ \runInSh -> f $ \k ->
+            liftM StRWSTShM $ runInSh $ Strict.runRWST k r s
+    restoreSh (StRWSTShM m) = Strict.RWST . const . const . restoreSh $ m
+    {-# INLINE liftShWith #-}
+    {-# INLINE restoreSh #-}
 
 controlSh :: MonadShControl m => ((forall x. m x -> Sh (ShM m x)) -> Sh (ShM m a)) -> m a
 controlSh = liftShWith >=> restoreSh
@@ -345,12 +353,6 @@ transferLinesAndCombine = (liftIO .) . S.transferLinesAndCombine
 
 get :: MonadSh m => m S.State
 get = liftSh S.get
-
-gets :: MonadSh m => (S.State -> a) -> m a
-gets = liftSh . S.gets
-
-modify :: MonadSh m => (S.State -> S.State) -> m ()
-modify = liftSh . S.modify
 
 put :: MonadSh m => S.State -> m ()
 put = liftSh . S.put
@@ -570,9 +572,6 @@ test_s = liftSh . S.test_s
 
 ls :: MonadSh m => FilePath -> m [FilePath]
 ls = liftSh . S.ls
-
-lsRelAbs :: MonadSh m => FilePath -> m ([FilePath], [FilePath])
-lsRelAbs = liftSh . S.lsRelAbs
 
 inspect :: (Show s, MonadSh m) => s -> m ()
 inspect = liftSh . S.inspect
