@@ -47,6 +47,8 @@ Library
     system-filepath           >= 0.4.7 && < 0.5,
     system-fileio             < 0.4,
     monad-control             >= 0.3.2 && < 0.4,
+    lifted-base,
+    lifted-async,
     text, bytestring, async, transformers, transformers-base
 
   if impl(ghc >= 7.6.1)

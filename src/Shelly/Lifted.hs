@@ -22,52 +22,89 @@
 -- > default (T.Text)
 module Shelly.Lifted
        (
-         module Shelly
+         MonadSh(..),
 
-         , MonadSh(..)
+         -- This is copied from Shelly.hs, so that we are sure to export the
+         -- exact same set of symbols.  Whenever that export list is updated,
+         -- please make the same updates here and implements the corresponding
+         -- lifted functions.
 
          -- * Entering Sh.
-         , sub
+         Sh, ShIO, S.shelly, S.shellyNoDir, S.shellyFailDir, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
 
          -- * Running external commands.
-         , (-|-)
+         , run, run_, runFoldLines, S.cmd, S.FoldCallback
+         , (-|-), lastStderr, setStdin, lastExitCode
+         , command, command_, command1, command1_
+         , sshPairs, sshPairs_
+         , S.ShellCmd(..), S.CmdArg (..)
+
+         -- * Running commands Using handles
+         , runHandle, runHandles, transferLinesAndCombine, S.transferFoldHandleLines
+         , S.StdHandle(..), S.StdStream(..)
+
+
+         -- * Modifying and querying environment.
+         , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
 
          -- * Environment directory
-         , chdir
+         , cd, chdir, pwd
 
          -- * Printing
-         , tag, time
+         , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
+         , tag, trace, S.show_command
+
+         -- * Querying filesystem.
+         , ls, lsT, test_e, test_f, test_d, test_s, test_px, which
+
+         -- * Filename helpers
+         , absPath, (S.</>), (S.<.>), canonic, canonicalize, relPath, relativeTo, path
+         , S.hasExt
+
+         -- * Manipulating filesystem.
+         , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
-         , withTmpDir
+         , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
+
+         -- * exiting the program
+         , exit, errorExit, quietExit, terror
+
+         -- * Exceptions
+         , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, S.ShellyHandler(..), S.catches_sh, catchany_sh
+
+         -- * convert between Text and FilePath
+         , S.toTextIgnore, toTextWarn, FP.fromText
+
+         -- * Utility Functions
+         , S.whenM, S.unlessM, time, sleep
+
+         -- * Re-exported for your convenience
+         , liftIO, S.when, S.unless, FilePath, (S.<$>)
+
+         -- * internal functions for writing extensions
+         , Shelly.Lifted.get, Shelly.Lifted.put
+
+         -- * find functions
+         , S.find, S.findWhen, S.findFold, S.findDirFilter, S.findDirFilterWhen, S.findFoldDirFilter
          ) where
 
-import Shelly hiding
-    (
-           sub
-         , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
-         , tracing, errExit
-
-         -- * Running external commands.
-         , (-|-)
-
-         -- * Environment directory
-         , chdir
-
-         -- * Printing
-         , tag, time
-
-         -- * reading/writing Files
-         , withTmpDir
-    )
 import qualified Shelly as S
-import Shelly.Base
+import Shelly.Base (Sh(..), ShIO, Text, (>=>), FilePath)
+import qualified Shelly.Base as S
 import Control.Monad ( liftM )
 import Prelude hiding ( FilePath )
+import Data.ByteString ( ByteString )
 import Data.Monoid
+import System.IO ( Handle )
+import Data.Tree ( Tree )
+import qualified Filesystem.Path.CurrentOS as FP
 
+import Control.Exception.Lifted
+import Control.Monad.IO.Class
+import Control.Monad.Trans.Control
 import Control.Monad.Trans.Identity
 import Control.Monad.Trans.List
 import Control.Monad.Trans.Maybe
@@ -274,6 +311,9 @@ print_commands shouldPrint a = controlSh $ \runInSh -> S.print_commands shouldPr
 sub :: MonadShControl m => m a -> m a
 sub a = controlSh $ \runInSh -> S.sub (runInSh a)
 
+trace :: MonadSh m => Text -> m ()
+trace = liftSh . S.trace
+
 tracing :: MonadShControl m => Bool -> m a -> m a
 tracing shouldTrace action = controlSh $ \runInSh -> S.tracing shouldTrace (runInSh action)
 
@@ -296,3 +336,249 @@ time :: MonadShControl m => m a -> m (Double, a)
 time what = controlSh $ \runInSh -> do
     (d, a) <- S.time (runInSh what)
     runInSh $ restoreSh a >>= \x -> return (d, x)
+
+toTextWarn :: MonadSh m => FilePath -> m Text
+toTextWarn = liftSh . toTextWarn
+
+transferLinesAndCombine :: MonadIO m => Handle -> Handle -> m Text
+transferLinesAndCombine = (liftIO .) . S.transferLinesAndCombine
+
+get :: MonadSh m => m S.State
+get = liftSh S.get
+
+gets :: MonadSh m => (S.State -> a) -> m a
+gets = liftSh . S.gets
+
+modify :: MonadSh m => (S.State -> S.State) -> m ()
+modify = liftSh . S.modify
+
+put :: MonadSh m => S.State -> m ()
+put = liftSh . S.put
+
+catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
+catch_sh = catch
+
+handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
+handle_sh = handle
+
+finally_sh :: Sh a -> Sh b -> Sh a
+finally_sh = finally
+
+bracket_sh :: Sh a -> (a -> Sh b) -> (a -> Sh c) -> Sh c
+bracket_sh = bracket
+
+-- catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
+-- catches_sh = catches
+
+catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
+catchany_sh = catch
+
+handleany_sh :: (SomeException -> Sh a) -> Sh a -> Sh a
+handleany_sh = handle
+
+cd :: MonadSh m => FilePath -> m ()
+cd = liftSh . S.cd
+
+mv :: MonadSh m => FilePath -> FilePath -> m ()
+mv = (liftSh .) . S.mv
+
+lsT :: MonadSh m => FilePath -> m [Text]
+lsT = liftSh . S.lsT
+
+pwd :: MonadSh m => m FilePath
+pwd = liftSh S.pwd
+
+exit :: MonadSh m => Int -> m a
+exit = liftSh . S.exit
+
+errorExit :: MonadSh m => Text -> m a
+errorExit = liftSh . S.errorExit
+
+quietExit :: MonadSh m => Int -> m a
+quietExit = liftSh . S.quietExit
+
+terror :: MonadSh m => Text -> m a
+terror = liftSh . S.terror
+
+mkdir :: MonadSh m => FilePath -> m ()
+mkdir = liftSh . S.mkdir
+
+mkdir_p :: MonadSh m => FilePath -> m ()
+mkdir_p = liftSh . S.mkdir_p
+
+mkdirTree :: MonadSh m => Tree FilePath -> m ()
+mkdirTree = liftSh . S.mkdirTree
+
+which :: MonadSh m => FilePath -> m (Maybe FilePath)
+which = liftSh . S.which
+
+test_e :: MonadSh m => FilePath -> m Bool
+test_e = liftSh . S.test_e
+
+test_f :: MonadSh m => FilePath -> m Bool
+test_f = liftSh . S.test_f
+
+test_px :: MonadSh m => FilePath -> m Bool
+test_px = liftSh . S.test_px
+
+rm_rf :: MonadSh m => FilePath -> m ()
+rm_rf = liftSh . S.rm_rf
+
+rm_f :: MonadSh m => FilePath -> m ()
+rm_f = liftSh . S.rm_f
+
+rm :: MonadSh m => FilePath -> m ()
+rm = liftSh . S.rm
+
+setenv :: MonadSh m => Text -> Text -> m ()
+setenv = (liftSh .) . S.setenv
+
+appendToPath :: MonadSh m => FilePath -> m ()
+appendToPath = liftSh . S.appendToPath
+
+get_environment :: MonadSh m => m [(String, String)]
+get_environment = liftSh S.get_environment
+
+get_env_all :: MonadSh m => m [(String, String)]
+get_env_all = liftSh S.get_env_all
+
+get_env :: MonadSh m => Text -> m (Maybe Text)
+get_env = liftSh . S.get_env
+
+getenv :: MonadSh m => Text -> m Text
+getenv = liftSh . S.getenv
+
+get_env_text :: MonadSh m => Text -> m Text
+get_env_text = liftSh . S.get_env_text
+
+get_env_def :: MonadSh m => Text -> Text -> m Text
+get_env_def = (liftSh .) . S.get_env_def
+
+sshPairs_ :: MonadSh m => Text -> [(FilePath, [Text])] -> m ()
+sshPairs_ = (liftSh .) . S.sshPairs_
+
+sshPairs :: MonadSh m => Text -> [(FilePath, [Text])] -> m Text
+sshPairs = (liftSh .) . S.sshPairs
+
+run :: MonadSh m => FilePath -> [Text] -> m Text
+run = (liftSh .) . run
+
+command :: MonadSh m => FilePath -> [Text] -> [Text] -> m Text
+command com args more_args =
+    liftSh $ S.command com args more_args
+
+command_ :: MonadSh m => FilePath -> [Text] -> [Text] -> m ()
+command_ com args more_args =
+    liftSh $ S.command_ com args more_args
+
+command1 :: MonadSh m => FilePath -> [Text] -> Text -> [Text] -> m Text
+command1 com args one_arg more_args =
+    liftSh $ S.command1 com args one_arg more_args
+
+command1_ :: MonadSh m => FilePath -> [Text] -> Text -> [Text] -> m ()
+command1_ com args one_arg more_args =
+    liftSh $ S.command1_ com args one_arg more_args
+
+run_ :: MonadSh m => FilePath -> [Text] -> m ()
+run_ = (liftSh .) . S.run_
+
+runHandle :: MonadShControl m => FilePath -- ^ command
+          -> [Text] -- ^ arguments
+          -> (Handle -> m a) -- ^ stdout handle
+          -> m a
+runHandle exe args withHandle =
+    controlSh $ \runInSh -> S.runHandle exe args (fmap runInSh withHandle)
+
+runHandles :: MonadShControl m => FilePath -- ^ command
+           -> [Text] -- ^ arguments
+           -> [S.StdHandle] -- ^ optionally connect process i/o handles to existing handles
+           -> (Handle -> Handle -> Handle -> m a) -- ^ stdin, stdout and stderr
+           -> m a
+runHandles exe args reusedHandles withHandles =
+    controlSh $ \runInSh ->
+        S.runHandles exe args reusedHandles (fmap (fmap (fmap runInSh)) withHandles)
+
+runFoldLines :: MonadSh m => a -> S.FoldCallback a -> FilePath -> [Text] -> m a
+runFoldLines start cb exe args = liftSh $ S.runFoldLines start cb exe args
+
+lastStderr :: MonadSh m => m Text
+lastStderr = liftSh S.lastStderr
+
+lastExitCode :: MonadSh m => m Int
+lastExitCode = liftSh S.lastExitCode
+
+setStdin :: MonadSh m => Text -> m ()
+setStdin = liftSh . S.setStdin
+
+cp_r :: MonadSh m => FilePath -> FilePath -> m ()
+cp_r = (liftSh .) . S.cp_r
+
+cp :: MonadSh m => FilePath -> FilePath -> m ()
+cp = (liftSh .) . S.cp
+
+writefile :: MonadSh m => FilePath -> Text -> m ()
+writefile = (liftSh .) . S.writefile
+
+touchfile :: MonadSh m => FilePath -> m ()
+touchfile = liftSh . S.touchfile
+
+appendfile :: MonadSh m => FilePath -> Text -> m ()
+appendfile = (liftSh .) . S.appendfile
+
+readfile :: MonadSh m => FilePath -> m Text
+readfile = liftSh . S.readfile
+
+readBinary :: MonadSh m => FilePath -> m ByteString
+readBinary = liftSh . S.readBinary
+
+sleep :: MonadSh m => Int -> m ()
+sleep = liftSh . S.sleep
+
+echo, echo_n, echo_err, echo_n_err :: MonadSh m => Text -> m ()
+echo       = liftSh . S.echo
+echo_n     = liftSh . S.echo_n
+echo_err   = liftSh . S.echo_err
+echo_n_err = liftSh . S.echo_n_err
+
+relPath :: MonadSh m => FilePath -> m FilePath
+relPath = liftSh . S.relPath
+
+relativeTo :: MonadSh m => FilePath -- ^ anchor path, the prefix
+           -> FilePath -- ^ make this relative to anchor path
+           -> m FilePath
+relativeTo = (liftSh .) . S.relativeTo
+
+canonic :: MonadSh m => FilePath -> m FilePath
+canonic = liftSh . canonic
+
+-- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
+-- "canonicalizePath" in system-fileio.
+canonicalize :: MonadSh m => FilePath -> m FilePath
+canonicalize = liftSh . S.canonicalize
+
+absPath :: MonadSh m => FilePath -> m FilePath
+absPath = liftSh . S.absPath
+
+path :: MonadSh m => FilePath -> m FilePath
+path = liftSh . S.path
+
+test_d :: MonadSh m => FilePath -> m Bool
+test_d = liftSh . S.test_d
+
+test_s :: MonadSh m => FilePath -> m Bool
+test_s = liftSh . S.test_s
+
+ls :: MonadSh m => FilePath -> m [FilePath]
+ls = liftSh . S.ls
+
+lsRelAbs :: MonadSh m => FilePath -> m ([FilePath], [FilePath])
+lsRelAbs = liftSh . S.lsRelAbs
+
+inspect :: (Show s, MonadSh m) => s -> m ()
+inspect = liftSh . S.inspect
+
+inspect_err :: (Show s, MonadSh m) => s -> m ()
+inspect_err = liftSh . S.inspect_err
+
+catchany :: MonadBaseControl IO m => m a -> (SomeException -> m a) -> m a
+catchany = catch
