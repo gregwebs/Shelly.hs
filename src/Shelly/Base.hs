@@ -51,6 +51,7 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
+import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT(..))
 import qualified Data.Set as S
@@ -72,6 +73,18 @@ instance MonadBaseControl IO Sh where
         Sh $ liftBaseWith $ \runInBase -> f $ \k ->
             liftM StMSh $ runInBase $ unSh k
     restoreM (StMSh m) = Sh . restoreM $ m
+
+instance Catch.MonadThrow Sh where
+  throwM = liftIO . Catch.throwM
+
+instance Catch.MonadCatch Sh where
+  catch (Sh (ReaderT m)) c =
+      Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
+  mask a = Sh $ ReaderT $ \e -> Catch.mask $ \u -> runSh (a $ q u) e
+    where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
+  uninterruptibleMask a =
+    Sh $ ReaderT $ \e -> Catch.uninterruptibleMask $ \u -> runSh (a $ q u) e
+      where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
