@@ -471,7 +471,7 @@ sshPairs :: MonadSh m => Text -> [(FilePath, [Text])] -> m Text
 sshPairs = (liftSh .) . S.sshPairs
 
 run :: MonadSh m => FilePath -> [Text] -> m Text
-run = (liftSh .) . run
+run = (liftSh .) . S.run
 
 command :: MonadSh m => FilePath -> [Text] -> [Text] -> m Text
 command com args more_args =
