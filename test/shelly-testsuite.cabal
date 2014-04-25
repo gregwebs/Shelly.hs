@@ -69,7 +69,9 @@ Executable drain
     mtl                       >= 2,
     transformers,
     transformers-base,
-    monad-control
+    monad-control,
+    lifted-base,
+    enclosed-exceptions
 
   extensions:
     CPP
@@ -93,7 +95,9 @@ Executable run-handles
     mtl                       >= 2,
     transformers,
     transformers-base,
-    monad-control
+    monad-control,
+    lifted-base,
+    enclosed-exceptions
 
   extensions:
     CPP
