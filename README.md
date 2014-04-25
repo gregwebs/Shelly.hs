@@ -39,6 +39,9 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 * [a beginning Haskeller does automation](http://www.reddit.com/r/haskell/comments/w86gu/my_current_job_task_is_boring_so_i_wrote_a_simple/)
 
+### Help
+
+* [google group for Haskell shell scripting](https://groups.google.com/forum/#!forum/haskell-shell-scripting)
 
 ## Alternatives
 
