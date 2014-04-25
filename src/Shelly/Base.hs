@@ -1,12 +1,17 @@
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
+{-# LANGUAGE MultiParamTypeClasses #-}
+{-# LANGUAGE TypeFamilies #-}
+{-# LANGUAGE FlexibleContexts #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE UndecidableInstances #-}
 -- | I started exposing multiple module (starting with one for finding)
 -- Base prevented circular dependencies
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    Sh, ShIO, unSh, runSh, State(..), ReadOnlyState(..), StdHandle(..), FilePath, Text,
+    Sh(..), ShIO, runSh, State(..), ReadOnlyState(..), StdHandle(..), FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -31,7 +36,9 @@ import Data.Text (Text)
 import System.Process( ProcessHandle, StdStream(..) )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
-import Control.Monad (when, (>=>) )
+import Control.Monad (when, (>=>), liftM)
+import Control.Monad.Base
+import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))
 import Filesystem (isDirectory, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
@@ -44,8 +51,9 @@ import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
+import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT)
+import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT(..))
 import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
@@ -55,6 +63,28 @@ type ShIO a = Sh a
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
   } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
+
+instance MonadBase IO Sh where
+    liftBase = Sh . ReaderT . const
+
+instance MonadBaseControl IO Sh where
+    newtype StM Sh a = StMSh (StM (ReaderT (IORef State) IO) a)
+    liftBaseWith f =
+        Sh $ liftBaseWith $ \runInBase -> f $ \k ->
+            liftM StMSh $ runInBase $ unSh k
+    restoreM (StMSh m) = Sh . restoreM $ m
+
+instance Catch.MonadThrow Sh where
+  throwM = liftIO . Catch.throwM
+
+instance Catch.MonadCatch Sh where
+  catch (Sh (ReaderT m)) c =
+      Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
+  mask a = Sh $ ReaderT $ \e -> Catch.mask $ \u -> runSh (a $ q u) e
+    where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
+  uninterruptibleMask a =
+    Sh $ ReaderT $ \e -> Catch.uninterruptibleMask $ \u -> runSh (a $ q u) e
+      where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
