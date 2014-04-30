@@ -47,7 +47,7 @@ module Shelly.Lifted
 
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
+         , setenv, get_env, get_env_text, get_env_all, appendToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -60,7 +60,7 @@ module Shelly.Lifted
          , ls, lsT, test_e, test_f, test_d, test_s, test_px, which
 
          -- * Filename helpers
-         , absPath, (S.</>), (S.<.>), canonic, canonicalize, relPath, relativeTo, path
+         , absPath, (S.</>), (S.<.>), canonic, canonicalize, relPath, relativeTo
          , S.hasExt
 
          -- * Manipulating filesystem.
@@ -446,23 +446,14 @@ setenv = (liftSh .) . S.setenv
 appendToPath :: MonadSh m => FilePath -> m ()
 appendToPath = liftSh . S.appendToPath
 
-get_environment :: MonadSh m => m [(String, String)]
-get_environment = liftSh S.get_environment
-
 get_env_all :: MonadSh m => m [(String, String)]
 get_env_all = liftSh S.get_env_all
 
 get_env :: MonadSh m => Text -> m (Maybe Text)
 get_env = liftSh . S.get_env
 
-getenv :: MonadSh m => Text -> m Text
-getenv = liftSh . S.getenv
-
 get_env_text :: MonadSh m => Text -> m Text
 get_env_text = liftSh . S.get_env_text
-
-get_env_def :: MonadSh m => Text -> Text -> m Text
-get_env_def = (liftSh .) . S.get_env_def
 
 sshPairs_ :: MonadSh m => Text -> [(FilePath, [Text])] -> m ()
 sshPairs_ = (liftSh .) . S.sshPairs_
@@ -568,9 +559,6 @@ canonicalize = liftSh . S.canonicalize
 
 absPath :: MonadSh m => FilePath -> m FilePath
 absPath = liftSh . S.absPath
-
-path :: MonadSh m => FilePath -> m FilePath
-path = liftSh . S.path
 
 test_d :: MonadSh m => FilePath -> m Bool
 test_d = liftSh . S.test_d
