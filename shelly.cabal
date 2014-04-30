@@ -49,7 +49,7 @@ Library
     monad-control             >= 0.3.2 && < 0.4,
     lifted-base,
     lifted-async,
-    exceptions,
+    exceptions                >= 0.4,
     enclosed-exceptions,
     text, bytestring, async, transformers, transformers-base
 
