@@ -12,6 +12,10 @@ category:            System
 build-type:          Simple
 cabal-version:       >=1.8
 
+Flag lifted
+   Description: run the tests against Shelly.Lifted
+   Default: False
+
 Executable shelly-testsuite
   hs-source-dirs: ../src/ src
   main-is: TestMain.hs
@@ -19,6 +23,9 @@ Executable shelly-testsuite
                -fno-warn-unused-do-bind -fno-warn-type-defaults
 
   extensions: OverloadedStrings, ExtendedDefaultRules
+
+  if flag(lifted)
+     cpp-options: -DLIFTED
 
   build-depends:
     base                      >= 4.6,
@@ -40,10 +47,8 @@ Executable shelly-testsuite
     monad-control,
     lifted-base,
     lifted-async,
-    enclosed-exceptions
-    -- test-framework            >= 0.6,
-    -- test-framework-hunit      >= 0.2,
-    -- test-framework-th         >= 0.2
+    enclosed-exceptions,
+    exceptions                >= 0.4
 
   extensions:
     CPP
@@ -71,7 +76,8 @@ Executable drain
     transformers-base,
     monad-control,
     lifted-base,
-    enclosed-exceptions
+    enclosed-exceptions,
+    exceptions                >= 0.4
 
   extensions:
     CPP
@@ -97,7 +103,8 @@ Executable run-handles
     transformers-base,
     monad-control,
     lifted-base,
-    enclosed-exceptions
+    enclosed-exceptions,
+    exceptions                >= 0.4
 
   extensions:
     CPP
