@@ -36,7 +36,7 @@ module Shelly
 
          -- * Running commands Using handles
          , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
-         , StdHandle(..), StdStream(..)
+         , StdHandle(..), StdStream(..), RunFailed(..)
 
 
          -- * Modifying and querying environment.

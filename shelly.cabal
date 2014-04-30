@@ -34,7 +34,7 @@ Cabal-version:       >=1.8
 
 Library
   Exposed-modules: Shelly, Shelly.Lifted, Shelly.Pipe
-  other-modules:   Shelly.Base, Shelly.Find
+     Shelly.Base, Shelly.Find
   hs-source-dirs: src
 
   Build-depends:
