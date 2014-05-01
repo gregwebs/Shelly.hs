@@ -10,7 +10,10 @@ main :: IO ()
 main = do
   let exDir = "examples"
   void $ shelly $ do
-    res <- cmd $ exDir </> "drain.sh"
+    let strs = ["a", "b"] :: [String]
+    let texts = ["a", "b"] :: [Text]
+    let inferred = ["a", "b"]
+    res <- cmd (exDir </> "drain.sh") strs texts inferred
     echo "haskell done"
     echo res
     cmd $ exDir </> "printer.sh"

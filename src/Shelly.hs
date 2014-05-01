@@ -195,6 +195,10 @@ instance ShellCmd (Sh ()) where
 instance (CmdArg arg, ShellCmd result) => ShellCmd (arg -> result) where
     cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
 
+instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
+    cmdAll fp acc x = cmdAll fp (acc ++ map toTextArg x)
+
+
 
 -- | variadic argument version of 'run'.
 -- Please see the documenation for 'run'.
