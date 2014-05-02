@@ -1,6 +1,7 @@
 {-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
              FlexibleInstances, FlexibleContexts, IncoherentInstances,
-             TypeFamilies, ExistentialQuantification, RankNTypes #-}
+             TypeFamilies, ExistentialQuantification, RankNTypes,
+             ImpredicativeTypes #-}
 
 -- | A module for shell-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
