@@ -53,7 +53,8 @@ import Control.Exception (SomeException, catch)
 import Data.Maybe (fromMaybe)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
-import Control.Monad.Reader (MonadReader, runReaderT, ask, ReaderT(..))
+import Control.Monad.Reader.Class (MonadReader, ask)
+import Control.Monad.Trans.Reader (runReaderT, ReaderT(..))
 import qualified Data.Set as S
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
