@@ -48,7 +48,7 @@ Executable shelly-testsuite
     lifted-base,
     lifted-async,
     enclosed-exceptions,
-    exceptions                >= 0.4
+    exceptions                == 0.6.*
 
   extensions:
     CPP
@@ -77,7 +77,7 @@ Executable drain
     monad-control,
     lifted-base,
     enclosed-exceptions,
-    exceptions                >= 0.4
+    exceptions                == 0.6.*
 
   extensions:
     CPP
@@ -104,7 +104,7 @@ Executable run-handles
     monad-control,
     lifted-base,
     enclosed-exceptions,
-    exceptions                >= 0.4
+    exceptions                == 0.6.*
 
   extensions:
     CPP
