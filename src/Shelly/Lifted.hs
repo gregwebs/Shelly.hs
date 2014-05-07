@@ -2,6 +2,7 @@
              FlexibleInstances, FlexibleContexts, IncoherentInstances,
              TypeFamilies, ExistentialQuantification, RankNTypes,
              ImpredicativeTypes #-}
+{-# OPTIONS_GHC -fno-warn-orphans #-}
 
 -- | A module for shell-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
