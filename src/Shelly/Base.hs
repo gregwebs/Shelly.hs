@@ -81,6 +81,8 @@ instance Catch.MonadThrow Sh where
 instance Catch.MonadCatch Sh where
   catch (Sh (ReaderT m)) c =
       Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
+
+instance Catch.MonadMask Sh where
   mask a = Sh $ ReaderT $ \e -> Catch.mask $ \u -> runSh (a $ q u) e
     where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
   uninterruptibleMask a =
