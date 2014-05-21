@@ -361,7 +361,7 @@ put :: MonadSh m => S.State -> m ()
 put = liftSh . S.put
 
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
-catch_sh = catch
+catch_sh = Control.Exception.Lifted.catch
 {-# DEPRECATED catch_sh "use Control.Exception.Lifted.catch instead" #-}
 
 handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
@@ -578,4 +578,4 @@ inspect_err :: (Show s, MonadSh m) => s -> m ()
 inspect_err = liftSh . S.inspect_err
 
 catchany :: MonadBaseControl IO m => m a -> (SomeException -> m a) -> m a
-catchany = catch
+catchany = Control.Exception.Lifted.catch
