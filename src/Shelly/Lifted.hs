@@ -52,7 +52,7 @@ module Shelly.Lifted
          , setenv, get_env, get_env_text, get_env_all, appendToPath
 
          -- * Environment directory
-         , cd, chdir, pwd
+         , cd, chdir, chdir_p, pwd
 
          -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
@@ -303,6 +303,9 @@ tag action msg = controlSh $ \runInSh -> S.tag (runInSh action) msg
 
 chdir :: MonadShControl m => FilePath -> m a -> m a
 chdir dir action = controlSh $ \runInSh -> S.chdir dir (runInSh action)
+
+chdir_p :: MonadShControl m => FilePath -> m a -> m a
+chdir_p dir action = controlSh $ \runInSh -> S.chdir_p dir (runInSh action)
 
 silently :: MonadShControl m => m a -> m a
 silently a = controlSh $ \runInSh -> S.silently (runInSh a)

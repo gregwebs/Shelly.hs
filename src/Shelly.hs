@@ -43,7 +43,7 @@ module Shelly
          , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
 
          -- * Environment directory
-         , cd, chdir, pwd
+         , cd, chdir, chdir_p, pwd
 
          -- * Printing
          , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
