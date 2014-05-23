@@ -28,6 +28,7 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 * [Yesod development installer](https://github.com/yesodweb/scripts/blob/master/install.hs)
 * [cabal-meta, a haskell install tool](https://github.com/yesodweb/cabal-meta/blob/master/main.hs)
+* [antigen-hs, a zsh plugin manager](https://github.com/Tarrasch/antigen-hs)
 
 
 ### Blog Posts
