@@ -446,10 +446,9 @@ handleany_sh = handle_sh
 -- track of its own working directory and builds absolute paths internally
 -- instead of passing down relative paths.
 cd :: FilePath -> Sh ()
-cd = canonic >=> cd'
+cd = traceCanonicPath ("cd " <>) >=> cd'
   where
     cd' dir = do
-        trace $ "cd " <> tdir
         unlessM (test_d dir) $ errorExit $ "not a directory: " <> tdir
         modify $ \st -> st { sDirectory = dir, sPathExecutables = Nothing }
       where
@@ -485,9 +484,9 @@ pack = decodeString
 -- wraps system-fileio 'FileSystem.rename', which may not work across FS boundaries
 mv :: FilePath -> FilePath -> Sh ()
 mv from' to' = do
+  trace $ "mv " <> toTextIgnore from' <> " " <> toTextIgnore to'
   from <- absPath from'
   to <- absPath to'
-  trace $ "mv " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
   let to_loc = if not to_dir then to else to FP.</> filename from
   liftIO $ rename from to_loc
@@ -525,16 +524,14 @@ terror = fail . T.unpack
 
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> Sh ()
-mkdir = absPath >=> \fp -> do
-  trace $ "mkdir " <> toTextIgnore fp
-  liftIO $ createDirectory False fp
+mkdir = traceAbsPath ("mkdir " <>) >=>
+        liftIO . createDirectory False
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> Sh ()
-mkdir_p = absPath >=> \fp -> do
-  trace $ "mkdir -p " <> toTextIgnore fp
-  liftIO $ createTree fp
+mkdir_p = traceAbsPath ("mkdir -p " <>) >=>
+          liftIO . createTree
 
 -- | Create a new directory tree. You can describe a bunch of directories as
 -- a tree and this function will create all subdirectories. An example:
@@ -666,8 +663,8 @@ test_px exe = do
 -- own. Use carefully.
 -- Uses 'removeTree'
 rm_rf :: FilePath -> Sh ()
-rm_rf = absPath >=> \f -> do
-  trace $ "rm -rf " <> toTextIgnore f
+rm_rf infp = do
+  f <- traceAbsPath ("rm -rf " <>) infp
   isDir <- (test_d f)
   if not isDir then whenM (test_f f) $ rm_f f
     else
@@ -684,15 +681,13 @@ rm_rf = absPath >=> \f -> do
 -- | Remove a file. Does not fail if the file does not exist.
 -- Does fail if the file is not a file.
 rm_f :: FilePath -> Sh ()
-rm_f = absPath >=> \f -> do
-  trace $ "rm -f " <> toTextIgnore f
+rm_f = traceAbsPath ("rm -f " <>) >=> \f ->
   whenM (test_e f) $ canonic f >>= liftIO . removeFile
 
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> Sh ()
-rm = absPath >=> \f -> do
-  trace $ "rm " <> toTextIgnore f
+rm = traceAbsPath ("rm " <>) >=> \f ->
   -- TODO: better error message for removeFile (give filename)
   canonic f >>= liftIO . removeFile
 
@@ -717,7 +712,7 @@ path_env = "PATH"
 
 -- | add the filepath onto the PATH env variable
 appendToPath :: FilePath -> Sh ()
-appendToPath = absPath >=> \filepath -> do
+appendToPath = traceAbsPath ("appendToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
   setPath $ pe <> T.singleton searchPathSeparator <> tp
@@ -1179,8 +1174,8 @@ cp_r from' to' = do
     from <- absPath from'
     fromIsDir <- (test_d from)
     if not fromIsDir then cp from' to' else do
+       trace $ "cp -r " <> toTextIgnore from <> " " <> toTextIgnore to'
        to <- absPath to'
-       trace $ "cp -r " <> toTextIgnore from <> " " <> toTextIgnore to
        toIsDir <- test_d to
 
        when (from == to) $ liftIO $ throwIO $ userError $ show $ "cp_r: " <>
@@ -1225,29 +1220,29 @@ withTmpDir act = do
 
 -- | Write a Lazy Text to a file.
 writefile :: FilePath -> Text -> Sh ()
-writefile f' bits = absPath f' >>= \f -> do
-  trace $ "writefile " <> toTextIgnore f
+writefile f' bits = do
+  f <- traceAbsPath ("writefile " <>) f'
   liftIO (TIO.writeFile (encodeString f) bits)
 
 -- | Update a file, creating (a blank file) if it does not exist.
 touchfile :: FilePath -> Sh ()
-touchfile = absPath >=> flip appendfile ""
+touchfile = traceAbsPath ("touch " <>) >=> flip appendfile ""
 
 -- | Append a Lazy Text to a file.
 appendfile :: FilePath -> Text -> Sh ()
-appendfile f' bits = absPath f' >>= \f -> do
-  trace $ "appendfile " <> toTextIgnore f
+appendfile f' bits = do
+  f <- traceAbsPath ("appendfile " <>) f'
   liftIO (TIO.appendFile (encodeString f) bits)
 
 readfile :: FilePath -> Sh Text
-readfile = absPath >=> \fp -> do
-  trace $ "readfile " <> toTextIgnore fp
+readfile = traceAbsPath ("readfile " <>) >=> \fp ->
   readBinary fp >>=
     return . TE.decodeUtf8With TE.lenientDecode
 
 -- | wraps ByteSting readFile
 readBinary :: FilePath -> Sh ByteString
-readBinary = absPath >=> liftIO . BS.readFile . encodeString
+readBinary = traceAbsPath ("readBinary " <>)
+         >=> liftIO . BS.readFile . encodeString
 
 -- | flipped hasExtension for Text
 hasExt :: Text -> FilePath -> Bool
@@ -1271,3 +1266,20 @@ asyncSh :: Sh a -> Sh (Async a)
 asyncSh proc = do
   state <- get
   liftIO $ async $ shelly (put state >> proc)
+
+-- helper because absPath can throw exceptions
+-- This helps give clear tracing messages
+tracePath :: (FilePath -> Sh FilePath) -- ^ filepath conversion
+          -> (Text -> Text) -- ^ tracing statement
+          -> FilePath
+          -> Sh FilePath -- ^ converted filepath
+tracePath convert tracer infp =
+  (convert infp >>= \fp -> traceIt fp >> return fp)
+  `catchany_sh` (\e -> traceIt infp >> liftIO (throwIO e))
+    where traceIt = trace . tracer . toTextIgnore
+
+traceAbsPath :: (Text -> Text) -> FilePath -> Sh FilePath
+traceAbsPath = tracePath absPath
+
+traceCanonicPath :: (Text -> Text) -> FilePath -> Sh FilePath
+traceCanonicPath = tracePath canonic
