@@ -682,7 +682,7 @@ rm_rf infp = do
 -- Does fail if the file is not a file.
 rm_f :: FilePath -> Sh ()
 rm_f = traceAbsPath ("rm -f " <>) >=> \f ->
-  whenM (test_e f) $ canonic f >>= liftIO . removeFile
+  whenM (test_e f) $ liftIO $ removeFile f
 
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
