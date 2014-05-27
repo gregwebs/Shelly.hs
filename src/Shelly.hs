@@ -1211,7 +1211,7 @@ withTmpDir act = do
   trace "withTmpDir"
   dir <- liftIO getTemporaryDirectory
   tid <- liftIO myThreadId
-  (pS, handle) <- liftIO $ openTempFile dir ("tmp"++filter isAlphaNum (show tid))
+  (pS, handle) <- liftIO $ openTempFile dir ("tmp" ++ filter isAlphaNum (show tid))
   let p = pack pS
   liftIO $ hClose handle -- required on windows
   rm_f p
