@@ -6,6 +6,7 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
+{-# LANGUAGE DeriveDataTypeable #-}
 -- | I started exposing multiple module (starting with one for finding)
 -- Base prevented circular dependencies
 -- However, Shelly went back to exposing a single module
@@ -49,13 +50,14 @@ import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Control.Exception (SomeException, catch)
+import Control.Exception (SomeException, catch, throwIO, Exception)
 import Data.Maybe (fromMaybe)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.Trans.Reader (runReaderT, ReaderT(..))
 import qualified Data.Set as S
+import Data.Typeable (Typeable)
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
@@ -192,11 +194,17 @@ canonicalizePath p = let was_dir = FP.null (FP.filename p) in
    if not was_dir then FS.canonicalizePath p
      else addTrailingSlash `fmap` FS.canonicalizePath p
 
+data EmptyFilePathError = EmptyFilePathError deriving Typeable
+instance Show EmptyFilePathError where
+    show _ = "Empty filepath"
+instance Exception EmptyFilePathError
+
 -- | Make a relative path absolute by combining with the working directory.
 -- An absolute path is returned as is.
 -- To create a relative path, use 'relPath'.
 absPath :: FilePath -> Sh FilePath
-absPath p | relative p = (FP.</> p) <$> gets sDirectory
+absPath p | FP.null p = liftIO $ throwIO EmptyFilePathError
+          | relative p = (FP.</> p) <$> gets sDirectory
           | otherwise = return p
 
 -- | deprecated
