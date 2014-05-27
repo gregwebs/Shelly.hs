@@ -10,14 +10,14 @@ import Control.Monad.Trans.Maybe
 import Test.Hspec.HUnit ()
 
 liftedSpec :: Spec
-liftedSpec = do
-  describe "basic actions" $ do
+liftedSpec =
+  describe "basic actions" $
     it "lifted sub" $ do
       xs <- shelly $
           runMaybeT $ do
-              xs <- sub $ withTmpDir $ \p -> async $ do
+              echo "Hello!"
+              sub $ withTmpDir $ \p -> wait =<< (async $ do
                   writefile (p </> "test.txt") "hello"
                   readfile (p </> "test.txt")
-              echo "Hello!"
-              wait xs
+                  )
       xs @?= Just "hello"
