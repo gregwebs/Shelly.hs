@@ -687,9 +687,9 @@ rm_f = traceAbsPath ("rm -f " <>) >=> \f ->
 -- | Remove a file.
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> Sh ()
-rm = traceAbsPath ("rm " <>) >=> \f ->
+rm = traceAbsPath ("rm " <>) >=>
   -- TODO: better error message for removeFile (give filename)
-  canonic f >>= liftIO . removeFile
+  liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in Sh
 -- internally, and is passed to any external commands to be executed.
