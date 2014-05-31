@@ -1,5 +1,6 @@
 module Help (
-  with_dir, within_dir
+  with_dir, within_dir,
+  (@==)
 ) where
 
 import Shelly
@@ -8,6 +9,11 @@ import Prelude hiding ( catch, FilePath )
 #else
 import Prelude hiding ( FilePath )
 #endif
+import Test.HUnit
+import Control.Monad.Trans ( MonadIO )
+
+(@==) :: (Eq a, Show a, MonadIO m) => a -> a -> m ()
+(@==) a b = liftIO (a @?= b)
 
 with_dir :: FilePath -> Sh a -> Sh a
 with_dir d action =

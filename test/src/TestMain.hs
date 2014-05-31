@@ -5,6 +5,7 @@ import ReadFileSpec
 import WhichSpec
 import WriteSpec
 import MoveSpec
+import RmSpec
 import FindSpec
 import EnvSpec
 import FailureSpec
@@ -19,6 +20,7 @@ main = hspec $ do
     whichSpec
     writeSpec
     moveSpec
+    rmSpec
     findSpec
     envSpec
     failureSpec

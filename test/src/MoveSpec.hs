@@ -1,13 +1,6 @@
-{-# LANGUAGE CPP #-}
 module MoveSpec (moveSpec) where
 
 import TestInit
-
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding ( FilePath, catch )
-#else
-import Prelude hiding ( FilePath )
-#endif
 import Help
 
 moveSpec :: Spec
