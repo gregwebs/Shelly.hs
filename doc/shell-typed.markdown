@@ -8,13 +8,13 @@ We can use a DSL in Haskell (a strongly-typed functional programming language) f
       where
         apt_get mode more = run "apt-get" (["-y", "-q", mode] ++ more)
 
-Our goal however is not imitation, but a better environment for systems programming. The main benefit we now have is type-safety: we can let the type system catch errors at compile time. But these are not ordinary C/Java types: you don't see any type signatures here because Haskell has type-inference, which lets us sparcely specify types and have the compiler figure out the rest. The type system is also more powerful: eventually we will see how it allows us to express more invariants at compile-time.
+Our goal however is not imitation, but a better environment for systems programming. The main benefit we now have is type-safety: we can let the type system catch errors at compile time. But these are not ordinary C/Java types: you don't see any type signatures here because Haskell has type-inference, which lets us sparsely specify types and have the compiler figure out the rest. The type system is also more powerful: eventually we will see how it allows us to express more invariants at compile-time.
 
 I am motivated to reduce errors in scripts because the cost of testing and failure can be higher than other programs. Automated testing of scripting is inherently more difficult because we are testing interaction with other programs. At the same time, the cost of not testing can be higher because we may leave our system in a state that requires manual work to be undone, which in the case of deployment scripts could include a non-functioning or even inaccessible state.
 
-For our purposes we can define a script as a program focused on interacting with the OS or other programs. There must be a reason why this has traditionally been left to dynamic languages. I suspect it is largely because scripting languages such as Perl, Ruby, and Bash are high-level languages that have simple interfaces for OS interatction. Lets keep high-level but instead start with strong typing and try to figure out how to make interaction with the OS as convenient as possible. The standard Haskell libraries exposes a complete set of primitives, but lacks an easy to use and flexible API. We can use the language's flexibility to create a nicer interface.
+For our purposes we can define a script as a program focused on interacting with the OS or other programs. There must be a reason why this has traditionally been left to dynamic languages. I suspect it is largely because scripting languages such as Perl, Ruby, and Bash are high-level languages that have simple interfaces for OS interaction. Let's stay high-level but instead start with strong typing and try to figure out how to make interaction with the OS as convenient as possible. The standard Haskell libraries expose a complete set of primitives, but they lack an easy-to-use and flexible API. We can use the language's flexibility to create a nicer interface.
 
-I would encourage you to follow this code more closely by first [installng Haskell](http://hackage.haskell.org/platform/) and then compiling snippets with `ghc`. You will need to first instally Shelly with the command: `cabal install shelly` Try this one out:
+I would encourage you to follow this code more closely by first [installing Haskell](http://hackage.haskell.org/platform/) and then compiling snippets with `ghc`. You will need to first install Shelly with the command: `cabal install shelly` Try this one out:
 
     {-# LANGUAGE OverloadedStrings #-}
     import Shelly
@@ -32,7 +32,7 @@ If we put a number in the second argument of appendfile, or omit the argument co
 To help follow along with basic Haskell code it might help to take a look at the Learn You a Haskell book.
 We are going to see some type signatures now. You can [learn more about them](http://learnyouahaskell.com/types-and-typeclasses).
 
-In addition to adding type-safety, Haskell is also arguably the most radical departure from the traditional scripting paradigm we can choose. Scripting is focused on interacting with the OS, but in Haskell they type system separates this from pure computation.
+In addition to adding type-safety, Haskell is also arguably the most radical departure from the traditional scripting paradigm we can choose. Scripting is focused on interacting with the OS, but in Haskell the type system separates this from pure computation.
 
     add_two :: Int -> Int
     add_two x = x + 2
@@ -54,9 +54,9 @@ Here we define `add_2_input` explicitly as a function that will perform IO, or i
 
     main = add_2_input >>= print
 
-After compiling with ghc, one can run the program. Enterng the number 5 gives:
+After compiling with ghc, one can run the program. Entering the number 5 gives:
 
-    ./add_two 
+    ./add_two
     5
     7
 
@@ -67,7 +67,7 @@ My article editor gave me the following task:
 Implement a script that reads logins and names from a CSV file and batch-creates Linux user accounts, similar to the "newusers" command.
 Allow only [a-z0-9] in LOGIN.
 
-So first lets write pure code that creates our users:
+So first let's write pure code that creates our users:
 
 
     {-# LANGUAGE OverloadedStrings #-}
@@ -120,8 +120,8 @@ Hopefully this shows that shell scripting can be about as easy in Haskell as in 
 But lets show more uses for types: requiring explicit permission requests [1]. `mk_user` will be defined as requiring sudo, and the caller should indicate that they are using sudo.
 
 
-    newtype Sudo a = Sudo { sudo :: ShIO a } 
-    
+    newtype Sudo a = Sudo { sudo :: ShIO a }
+
     run_sudo :: Text -> [Text] -> Sudo Text
     run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 
@@ -131,7 +131,7 @@ But lets show more uses for types: requiring explicit permission requests [1]. `
 
 
 Now our previous code with fail at compile time.
-The type signature of `mk_user` makes its required privledges clear, and every caller must acknowledge that by using `sudo`:
+The type signature of `mk_user` makes its required privileges clear, and every caller must acknowledge that by using `sudo`:
 
 
     main = shelly $ do
@@ -157,7 +157,7 @@ The main difference here is the insertion of `background`, a Shelly function whi
 
 Haskell threads are extremely light-weight green threads, but can handle multi-core. Haskell's runtime is always asynchronous, so for concurrency a Haskell program needs only to spawn a thread; there is no concern of blocking IO. A Haskell programmer also does not think about whether a thread is justified computationally, just whether it is the right tool for the job. Purity means we avoid the common pitfall of shared state.
 
-The library code seen here is available in the [shelly](http://hackage.haskell.org/package/shelly) library that I authored. Curently I am personally using shelly in a community installer program for Haskell called [cabal-meta](http://hackage.haskell.org/package/cabal-meta) and a personal deployment script. Combined with [shake](http://hackage.haskell.org/package/shelly), a better Haskell version of make, I have a nice deployment toolset. I let the compiler worry about most of the errors that are incidental to what I am trying to get done and get to focus on the deployment commands and logic of the program. Certainly this is not a panacea, and my current setup is lacking in configurability and sharability, but I think I have some important building blocks for even better solutions.
+The library code seen here is available in the [shelly](http://hackage.haskell.org/package/shelly) library that I authored. Currently I am personally using shelly in a community installer program for Haskell called [cabal-meta](http://hackage.haskell.org/package/cabal-meta) and a personal deployment script. Combined with [shake](http://hackage.haskell.org/package/shelly), a better Haskell version of make, I have a nice deployment toolset. I let the compiler worry about most of the errors that are incidental to what I am trying to get done and get to focus on the deployment commands and logic of the program. Certainly this is not a panacea, and my current setup is lacking in configurability and sharability, but I think I have some important building blocks for even better solutions.
 
 A Future direction of Shelly I am considering is integration with the [shqq](http://hackage.haskell.org/package/shqq-0.1) library, which features a shell command quasi-quoter.
 
@@ -171,13 +171,13 @@ The important thing here is not just that we have string interpolation, but that
     cat: foo: No such file or directory
     cat: bar: No such file or directory
 
-The author of a Haskell quasi-quotier must parse the expression and convert it into Haskell source code. The pay off is a way for an author to embed an arbitrary language within Haskell.
+The author of a Haskell quasi-quoter must parse the expression and convert it into Haskell source code. The pay off is a way for an author to embed an arbitrary language within Haskell.
 
-[HSH](http://hackage.haskell.org/package/HSH) is a neat Haskell shell library. The book Real World Haskell [goes over how to implment its functionality](http://book.realworldhaskell.org/read/systems-programming-in-haskell.html). HSH focuses on conveniently piping shell command output to other shell commands or to Haskell functions.
+[HSH](http://hackage.haskell.org/package/HSH) is a neat Haskell shell library. The book Real World Haskell [goes over how to implement its functionality](http://book.realworldhaskell.org/read/systems-programming-in-haskell.html). HSH focuses on conveniently piping shell command output to other shell commands or to Haskell functions.
 
     import HSH
 
-    runIO $ "ls -l" -|- "wc -l" 
+    runIO $ "ls -l" -|- "wc -l"
      -> 12
 
 It also uses polymorphic output to get desired information about the command execution.
@@ -188,7 +188,7 @@ The following will return a list of strings instead of just a string.
 This is a neat demonstration of Haskell's type inference.
 In practice the requirement for type signatures can be cumbersome and it can be difficult to remember the type signature for the particular needed result types.
 
-[hsshellscript](http://hackage.haskell.org/package/hsshellscript) is yet another Haskell shell library featuring a complete set of shell utitilies that improve upon the standard Haskell libraries.
+[hsshellscript](http://hackage.haskell.org/package/hsshellscript) is yet another Haskell shell library featuring a complete set of shell utilities that improve upon the standard Haskell libraries.
 
 The Haskell community seems to be recognizing that we do not have to use "scripting languages" for shell scripts, that instead we can leverage Haskell for safety. The point of this article though is not to convert everyone to use Haskell, but to make you think about bringing some of these techniques into your existing shell script environment.
 
