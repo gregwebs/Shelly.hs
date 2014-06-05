@@ -1,4 +1,4 @@
-# Shelly's Monad: an execution enviornment and DSL
+# Shelly's Monad: an execution environment and DSL
 
 `IO` is a monad. For our purposes, a monad defines an execution environment.
 The goal of Shelly is to define an optimal environment for scripting, the `Sh` monad.
@@ -29,7 +29,7 @@ chdir :: FilePath -> IO ()
 
 Some commands, like `chdir` will change the environment.
 The current working directory is a global mutable variable: multiple threads will just clobber each other.
-Instead, Shelly places a copy of the working directory and environemnt variables in its monad.
+Instead, Shelly places a copy of the working directory and environment variables in its monad.
 The Shelly apis use these values, leaving the global variable alone.
 When creating a new thread, simply enter a new `Sh` monad, and you have a new thread-safe copy of global data.
 
@@ -91,7 +91,7 @@ put state = do
 ~~~~~~~~
 
 `writeIORef` is how we update our mutable `IORef State variable.
-This code may seem verbose, but that is ok because these are library internals, and we want to be very explicit about when we are modifying state. The mutation effects must be done in `IO` using `liftIO`.
+This code may seem verbose, but that is OK because these are library internals, and we want to be very explicit about when we are modifying state. The mutation effects must be done in `IO` using `liftIO`.
 The library came to me using an IORef, so I just kept it that way, but it might make more sense to use the State Monad, which accomplishes the same thing.
 
 
@@ -115,7 +115,7 @@ run = do
    return stdout
 ~~~~~~~~
 
-With this new defintiion of `run`, we have a single interface.
+With this new definition of `run`, we have a single interface.
 Under the hood we have `State` that we are carefully mutating, but we will expose a nice interface to the user so they never directly modify `State`. Most modifications are made for the duration of a function. We can write `verbosely ...`, where only commands executing in `verbosely` have the verbose configuration
 
 ~~~~~~~~ {.hs}
