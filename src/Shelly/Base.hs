@@ -95,10 +95,11 @@ runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
 
 data ReadOnlyState = ReadOnlyState { rosFailToDir :: Bool }
-data State = State 
+data State = State
    { sCode :: Int -- ^ exit code for command that ran
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
    , sStderr :: Text -- ^ stderr for command that ran
+   , sOutputWriter :: Handle -> Text -> IO ()
    , sDirectory :: FilePath -- ^ working directory
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
    , sPrintStderr :: Bool   -- ^ print stderr of command that is executed
@@ -230,12 +231,12 @@ gets f = f <$> get
 
 get :: Sh State
 get = do
-  stateVar <- ask 
+  stateVar <- ask
   liftIO (readIORef stateVar)
 
 modify :: (State -> State) -> Sh ()
 modify f = do
-  state <- ask 
+  state <- ask
   liftIO (modifyIORef state f)
 
 -- | internally log what occurred.
@@ -297,4 +298,3 @@ traceLiftIO f msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'") >>
 -- @... `catch` \(e :: SomeException) -> ...@).
 catchany :: IO a -> (SomeException -> IO a) -> IO a
 catchany = catch
-

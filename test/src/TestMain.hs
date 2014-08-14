@@ -1,9 +1,9 @@
-
 module Main where
 
 import ReadFileSpec
 import WhichSpec
 import WriteSpec
+import WriterSpec
 import MoveSpec
 import RmSpec
 import FindSpec
@@ -19,6 +19,7 @@ main = hspec $ do
     readFileSpec
     whichSpec
     writeSpec
+    writerSpec
     moveSpec
     rmSpec
     findSpec

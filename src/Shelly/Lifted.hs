@@ -354,8 +354,10 @@ time what = controlSh $ \runInSh -> do
 toTextWarn :: MonadSh m => FilePath -> m Text
 toTextWarn = liftSh . toTextWarn
 
-transferLinesAndCombine :: MonadIO m => Handle -> Handle -> m Text
-transferLinesAndCombine = (liftIO .) . S.transferLinesAndCombine
+transferLinesAndCombine :: MonadIO m
+                        => (Handle -> Text -> IO ()) -> Handle -> Handle -> m Text
+transferLinesAndCombine writer h1 h2 =
+  liftIO $ S.transferLinesAndCombine writer h1 h2
 
 get :: MonadSh m => m S.State
 get = liftSh S.get
