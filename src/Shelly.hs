@@ -26,6 +26,7 @@ module Shelly
          Sh, ShIO, shelly, shellyNoDir, shellyFailDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
+         , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
          , run, run_, runFoldLines, cmd, FoldCallback
@@ -249,8 +250,9 @@ toTextWarn efile = case toText efile of
 -- does not close the write handle.
 --
 -- Also, return the complete contents being streamed line by line.
-transferLinesAndCombine :: Handle -> Handle -> IO Text
-transferLinesAndCombine h1 h2 = transferFoldHandleLines mempty (|>) h1 h2 >>=
+transferLinesAndCombine :: Handle -> (Text -> IO ()) -> IO Text
+transferLinesAndCombine readHandle putWrite =
+  transferFoldHandleLines mempty (|>) readHandle putWrite >>=
     return . lineSeqToText
 
 lineSeqToText :: Seq Text -> Text
@@ -264,14 +266,14 @@ type FoldCallback a = (a -> Text -> a)
 -- does not close the write handle.
 --
 -- Also, fold over the contents being streamed line by line
-transferFoldHandleLines :: a -> FoldCallback a -> Handle -> Handle -> IO a
-transferFoldHandleLines start foldLine readHandle writeHandle = go start
+transferFoldHandleLines :: a -> FoldCallback a -> Handle -> (Text -> IO ()) -> IO a
+transferFoldHandleLines start foldLine readHandle putWrite = go start
   where
     go acc = do
         mLine <- filterIOErrors $ TIO.hGetLine readHandle
         case mLine of
             Nothing -> return acc
-            Just line -> TIO.hPutStrLn writeHandle line >> go (foldLine acc line)
+            Just line -> putWrite line >> go (foldLine acc line)
 
 filterIOErrors :: IO a -> IO (Maybe a)
 filterIOErrors action = catchIOError
@@ -771,6 +773,16 @@ verbosely a = sub $ modify (\x -> x
                                  , sPrintCommands = True
                                  }) >> a
 
+-- | Create a sub-Sh in which stdout is sent to the user-defined logger
+log_stdout_with :: (Text -> IO ()) -> Sh a -> Sh a
+log_stdout_with logger a = sub $ modify (\s -> s { sPutStdout = logger })
+                                 >> a
+
+-- | Create a sub-Sh in which stderr is sent to the user-defined logger
+log_stderr_with :: (Text -> IO ()) -> Sh a -> Sh a
+log_stderr_with logger a = sub $ modify (\s -> s { sPutStderr = logger })
+                                 >> a
+
 -- | Create a sub-Sh with stdout printing on or off
 -- Defaults to True.
 print_stdout :: Bool -> Sh a -> Sh a
@@ -869,6 +881,8 @@ shelly' ros action = do
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = T.empty
+                   , sPutStdout = TIO.hPutStrLn stdout
+                   , sPutStderr = TIO.hPutStrLn stderr
                    , sPrintStdout = True
                    , sPrintStderr = True
                    , sPrintCommands = False
@@ -1058,7 +1072,8 @@ runHandle :: FilePath -- ^ command
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
 runHandle exe args withHandle = runHandles exe args [] $ \_ outH errH -> do
-    errPromise <- liftIO $ async $ transferLinesAndCombine errH stderr
+    putStderr <- gets sPutStderr
+    errPromise <- liftIO $ async $ transferLinesAndCombine errH putStderr
     res <- withHandle outH
     errs <- liftIO $ wait errPromise
 
@@ -1127,8 +1142,8 @@ runFoldLines start cb exe args =
     (errVar, outVar) <- liftIO $ do
       hClose inH -- setStdin was taken care of before the process even ran
       liftM2 (,)
-          (putHandleIntoMVar mempty (|>) errH stderr (sPrintStderr state))
-          (putHandleIntoMVar start cb outH stdout (sPrintStdout state))
+          (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
+          (putHandleIntoMVar start cb outH (sPutStdout state) (sPrintStdout state))
     errs <- liftIO $ lineSeqToText `fmap` wait errVar
     modify $ \state' -> state' { sStderr = errs }
     liftIO $ wait outVar
@@ -1136,12 +1151,12 @@ runFoldLines start cb exe args =
 
 putHandleIntoMVar :: a -> FoldCallback a
                   -> Handle -- ^ out handle
-                  -> Handle -- ^ in handle
+                  -> (Text -> IO ()) -- ^ in handle
                   -> Bool  -- ^ should it be printed while transfered?
                   -> IO (Async a)
-putHandleIntoMVar start cb outH inHandle shouldPrint = liftIO $ async $ do
+putHandleIntoMVar start cb outH putWrite shouldPrint = liftIO $ async $ do
   if shouldPrint
-    then transferFoldHandleLines start cb outH inHandle
+    then transferFoldHandleLines start cb outH putWrite
     else foldHandleLines start cb outH
 
 

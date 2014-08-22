@@ -36,7 +36,7 @@
 module Shelly.Pipe
        (
          -- * Entering Sh.
-         Sh, shs, shelly, shellyFailDir, shsFailDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit
+         Sh, shs, shelly, shellyFailDir, shsFailDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit, log_stdout_with, log_stderr_with
          -- * List functions
          , roll, unroll, liftSh
          -- * Running external commands.
@@ -235,6 +235,14 @@ verbosely = lift1 S.verbosely
 -- | see 'S.escaping'
 escaping :: Bool -> Sh a -> Sh a
 escaping b = lift1 (S.escaping b)
+
+-- | see 'S.log_stdout_with'
+log_stdout_with :: (Text -> IO ()) -> Sh a -> Sh a
+log_stdout_with logger = lift1 (S.log_stdout_with logger)
+
+-- | see 'S.log_stderr_with'
+log_stderr_with :: (Text -> IO ()) -> Sh a -> Sh a
+log_stderr_with logger = lift1 (S.log_stdout_with logger)
 
 -- | see 'S.print_stdout'
 print_stdout :: Bool -> Sh a -> Sh a

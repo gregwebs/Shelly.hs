@@ -35,6 +35,7 @@ module Shelly.Lifted
          Sh, ShIO, S.shelly, S.shellyNoDir, S.shellyFailDir, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
+         , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
          , run, run_, runFoldLines, S.cmd, S.FoldCallback
@@ -313,6 +314,12 @@ silently a = controlSh $ \runInSh -> S.silently (runInSh a)
 verbosely :: MonadShControl m => m a -> m a
 verbosely a = controlSh $ \runInSh -> S.verbosely (runInSh a)
 
+log_stdout_with :: MonadShControl m => (Text -> IO ()) -> m a -> m a
+log_stdout_with logger a = controlSh $ \runInSh -> S.log_stdout_with logger (runInSh a)
+
+log_stderr_with :: MonadShControl m => (Text -> IO ()) -> m a -> m a
+log_stderr_with logger a = controlSh $ \runInSh -> S.log_stderr_with logger (runInSh a)
+
 print_stdout :: MonadShControl m => Bool -> m a -> m a
 print_stdout shouldPrint a = controlSh $ \runInSh -> S.print_stdout shouldPrint (runInSh a)
 
@@ -354,7 +361,7 @@ time what = controlSh $ \runInSh -> do
 toTextWarn :: MonadSh m => FilePath -> m Text
 toTextWarn = liftSh . toTextWarn
 
-transferLinesAndCombine :: MonadIO m => Handle -> Handle -> m Text
+transferLinesAndCombine :: MonadIO m => Handle -> (Text -> IO ()) -> m Text
 transferLinesAndCombine = (liftIO .) . S.transferLinesAndCombine
 
 get :: MonadSh m => m S.State

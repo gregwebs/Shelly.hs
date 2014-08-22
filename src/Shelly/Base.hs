@@ -100,7 +100,9 @@ data State = State
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
    , sStderr :: Text -- ^ stderr for command that ran
    , sDirectory :: FilePath -- ^ working directory
+   , sPutStdout :: Text -> IO ()   -- ^ by default, hPutStrLn stdout
    , sPrintStdout :: Bool   -- ^ print stdout of command that is executed
+   , sPutStderr :: Text -> IO ()   -- ^ by default, hPutStrLn stderr
    , sPrintStderr :: Bool   -- ^ print stderr of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
    , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
