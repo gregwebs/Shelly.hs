@@ -68,6 +68,7 @@ module Shelly
 
          -- * Exceptions
          , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
+         , ReThrownException(..)
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, FP.fromText
@@ -997,6 +998,7 @@ sshPairs' run' server actions = escaping False $ do
 data QuietExit = QuietExit Int deriving (Show, Typeable)
 instance Exception QuietExit
 
+-- | Shelly's wrapper around exceptions thrown in its monad
 data ReThrownException e = ReThrownException e String deriving (Typeable)
 instance Exception e => Exception (ReThrownException e)
 instance Exception e => Show (ReThrownException e) where
