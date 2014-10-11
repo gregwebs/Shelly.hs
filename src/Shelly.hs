@@ -604,7 +604,7 @@ which originalFp = whichFull
                 L.find (S.member fp . snd) pathExecutables
 
 
-        pathDirs = mapM absPath =<< ((map FP.fromText . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
+        pathDirs = mapM absPath =<< ((map FP.fromText . filter (not . T.null) . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
 
         cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
         cachedPathExecutables = do
