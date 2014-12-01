@@ -863,7 +863,7 @@ shellyNoDir :: MonadIO m => Sh a -> m a
 shellyNoDir = shelly' ReadOnlyState { rosFailToDir = False }
 {-# DEPRECATED shellyNoDir "Just use shelly. The default settings have changed" #-}
 
--- Using this entry point creates a @.shelly@ directory in the case
+-- | Using this entry point creates a @.shelly@ directory in the case
 -- of failure where errors are recorded.
 shellyFailDir :: MonadIO m => Sh a -> m a
 shellyFailDir = shelly' ReadOnlyState { rosFailToDir = True }
