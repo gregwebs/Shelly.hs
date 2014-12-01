@@ -22,7 +22,7 @@ Description: Shelly provides convenient systems programming in Haskell,
              An overview is available in the README: <https://github.com/yesodweb/Shelly.hs/blob/master/README.md>
 
 
-Homepage:            https://github.com/yesodweb/Shelly.hs
+Homepage:            https://github.com/yesodweb/Shelly.hs.git
 License:             BSD3
 License-file:        LICENSE
 Author:              Greg Weber, Petr Rockai
