@@ -138,6 +138,10 @@ instance Applicative Sh where
     pure = return
     (<*>) = ap
 
+instance Alternative Sh where
+    empty = mzero
+    (<|>) = mplus
+
 instance MonadPlus Sh where
     mzero = Sh $ return []
     mplus a b = Sh $ liftA2 (++) (unSh a) (unSh b)
