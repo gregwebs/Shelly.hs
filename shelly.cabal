@@ -46,7 +46,7 @@ Library
     unix-compat               < 0.5,
     system-filepath           >= 0.4.7 && < 0.5,
     system-fileio             < 0.4,
-    monad-control             >= 0.3.2 && < 0.4,
+    monad-control             >= 0.3.2 && < 1.1,
     lifted-base,
     lifted-async,
     exceptions                == 0.6.*,

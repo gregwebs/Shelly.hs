@@ -71,11 +71,19 @@ instance MonadBase IO Sh where
     liftBase = Sh . ReaderT . const
 
 instance MonadBaseControl IO Sh where
+#if MIN_VERSION_monad_control(1,0,0)
+    type StM Sh a = StM (ReaderT (IORef State) IO) a
+    liftBaseWith f =
+        Sh $ liftBaseWith $ \runInBase -> f $ \k ->
+            runInBase $ unSh k
+    restoreM = Sh . restoreM
+#else
     newtype StM Sh a = StMSh (StM (ReaderT (IORef State) IO) a)
     liftBaseWith f =
         Sh $ liftBaseWith $ \runInBase -> f $ \k ->
             liftM StMSh $ runInBase $ unSh k
     restoreM (StMSh m) = Sh . restoreM $ m
+#endif
 
 instance Catch.MonadThrow Sh where
   throwM = liftIO . Catch.throwM
