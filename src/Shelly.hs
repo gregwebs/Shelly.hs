@@ -107,7 +107,7 @@ import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOp
 import System.Exit
 import System.Environment
 import Control.Applicative
-import Control.Exception hiding (handle)
+import Control.Exception
 import Control.Concurrent
 import Control.Concurrent.Async (async, wait, Async)
 import Data.Time.Clock( getCurrentTime, diffUTCTime  )
@@ -397,22 +397,22 @@ run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 
 -- | Same as a normal 'catch' but specialized for the Sh monad.
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
-catch_sh action handle = do
+catch_sh action handler = do
     ref <- ask
-    liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
+    liftIO $ catch (runSh action ref) (\e -> runSh (handler e) ref)
 
--- | Same as a normal 'catch' but specialized for the Sh monad.
-handle_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
-handle_sh action handle = do
+-- | Same as a normal 'handle' but specialized for the Sh monad.
+handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
+handle_sh handler action = do
     ref <- ask
-    liftIO $ catch (runSh action ref) (\e -> runSh (handle e) ref)
+    liftIO $ handle (\e -> runSh (handler e) ref) (runSh action ref)
 
 
 -- | Same as a normal 'finally' but specialized for the 'Sh' monad.
 finally_sh :: Sh a -> Sh b -> Sh a
-finally_sh action handle = do
+finally_sh action handler = do
     ref <- ask
-    liftIO $ finally (runSh action ref) (runSh handle ref)
+    liftIO $ finally (runSh action ref) (runSh handler ref)
 
 bracket_sh :: Sh a -> (a -> Sh b) -> (a -> Sh c) -> Sh c
 bracket_sh acquire release main = do
@@ -434,14 +434,14 @@ catches_sh action handlers = do
     liftIO $ catches (runner action) $ map (toHandler runner) handlers
   where
     toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
-    toHandler runner (ShellyHandler handle) = Handler (\e -> runner (handle e))
+    toHandler runner (ShellyHandler handler) = Handler (\e -> runner (handler e))
 
 -- | Catch any exception in the Sh monad.
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
 catchany_sh = catch_sh
 
--- | Handle an exception in the Sh monad.
-handleany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
+-- | Handle any exception in the Sh monad.
+handleany_sh :: (SomeException -> Sh a) -> Sh a -> Sh a
 handleany_sh = handle_sh
 
 -- | Change current working directory of Sh. This does *not* change the
@@ -1228,9 +1228,9 @@ withTmpDir act = do
   trace "withTmpDir"
   dir <- liftIO getTemporaryDirectory
   tid <- liftIO myThreadId
-  (pS, handle) <- liftIO $ openTempFile dir ("tmp" ++ filter isAlphaNum (show tid))
+  (pS, fhandle) <- liftIO $ openTempFile dir ("tmp" ++ filter isAlphaNum (show tid))
   let p = pack pS
-  liftIO $ hClose handle -- required on windows
+  liftIO $ hClose fhandle -- required on windows
   rm_f p
   mkdir p
   act p `finally_sh` rm_rf p
