@@ -48,10 +48,21 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 ### Haskell shell scripting libarires
 
+
 * [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
 * [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
+* [shell-conduit](http://hackage.haskell.org/package/shell-conduit) - efficient streaming via conduits. Makes some portability sacrifices by
+  * encouraging one to just use the shell instead of cross-platform Haskell code
+  * encouraging one to use a convenience function that searches the PATH at compile-time
+* [shell-monad](http://hackage.haskell.org/package/shell-monad) - compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
+* [turtle](http://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](http://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
 
-Both of these libraries (unlike Shelly currently) also implement very efficient mechanisms for piping/redirecting.
+HSH and HsShellScript (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
+I think that turtle, like Shelly offers folding as a way to efficiently deal with a stream.
+
+None of the alternatives to Shelly offer command tracing.
+For some this is an absolutely critical feature, particularly given that Haskell does not yet offer up stack traces.
+
 
 ### Haskell supplements
 
