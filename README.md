@@ -58,7 +58,7 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 * [turtle](http://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](http://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
 
 HSH and HsShellScript (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
-I think that turtle, like Shelly offers folding as a way to efficiently deal with a stream.
+turtle, like Shelly offers folding as a way to efficiently deal with a stream.
 
 None of the alternatives to Shelly offer command tracing.
 For some this is an absolutely critical feature, particularly given that Haskell does not yet offer up stack traces.
