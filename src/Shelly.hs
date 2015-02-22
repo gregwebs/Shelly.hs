@@ -1062,10 +1062,19 @@ command1_ com args one_arg more_args = run_ com ([one_arg] ++ args ++ more_args)
 -- | the same as 'run', but return @()@ instead of the stdout content
 -- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
-run_ = runFoldLines () (\_ _ -> ())
+run_ exe args =
+  -- same a runFoldLines except Inherit Stdout
+  runHandles exe args [OutHandle Inherit] $ \inH _ errH -> do
+    state <- get
+    errVar <- liftIO $ do
+      hClose inH -- setStdin was taken care of before the process even ran
+      (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
+    errs <- liftIO $ lineSeqToText `fmap` wait errVar
+    modify $ \state' -> state' { sStderr = errs }
+    return ()
 
 liftIO_ :: IO a -> Sh ()
-liftIO_ action = void (liftIO action)
+liftIO_ = void . liftIO
 
 -- | Similar to 'run' but gives the raw stdout handle in a callback.
 -- If you want even more control, use 'runHandles'.
