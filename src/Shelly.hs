@@ -1063,7 +1063,7 @@ command1_ com args one_arg more_args = run_ com (args ++ [one_arg] ++ more_args)
 -- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
 run_ exe args =
-  -- same a runFoldLines except Inherit Stdout
+  -- same a runFoldLines except ignore outH
   runHandles exe args [] $ \inH _ errH -> do
     state <- get
     errVar <- liftIO $ do
