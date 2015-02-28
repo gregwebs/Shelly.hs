@@ -1062,16 +1062,23 @@ command1_ com args one_arg more_args = run_ com (args ++ [one_arg] ++ more_args)
 -- | the same as 'run', but return @()@ instead of the stdout content
 -- stdout will be read and discarded line-by-line
 run_ :: FilePath -> [Text] -> Sh ()
-run_ exe args =
-  -- same a runFoldLines except Inherit Stdout
-  runHandles exe args [OutHandle Inherit] $ \inH _ errH -> do
+run_ exe args = do
     state <- get
-    errVar <- liftIO $ do
-      hClose inH -- setStdin was taken care of before the process even ran
-      (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
-    errs <- liftIO $ lineSeqToText `fmap` wait errVar
-    modify $ \state' -> state' { sStderr = errs }
-    return ()
+    if sPrintStdout state
+      then runWithColor_
+      else runFoldLines () (\_ _ -> ()) exe args
+  where
+    -- same a runFoldLines except Inherit Stdout
+    -- That allows color to show up
+    runWithColor_ =
+        runHandles exe args [OutHandle Inherit] $ \inH _ errH -> do
+          state <- get
+          errVar <- liftIO $ do
+            hClose inH -- setStdin was taken care of before the process even ran
+            (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
+          errs <- liftIO $ lineSeqToText `fmap` wait errVar
+          modify $ \state' -> state' { sStderr = errs }
+          return ()
 
 liftIO_ :: IO a -> Sh ()
 liftIO_ = void . liftIO
