@@ -1251,7 +1251,7 @@ withTmpDir act = do
   mkdir p
   act p `finally_sh` rm_rf p
 
--- | Write a Lazy Text to a file.
+-- | Write a Text to a file.
 writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = do
   f <- traceAbsPath ("writefile " <>) f'
@@ -1261,7 +1261,7 @@ writefile f' bits = do
 touchfile :: FilePath -> Sh ()
 touchfile = traceAbsPath ("touch " <>) >=> flip appendfile ""
 
--- | Append a Lazy Text to a file.
+-- | Append a Text to a file.
 appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = do
   f <- traceAbsPath ("appendfile " <>) f'
