@@ -756,17 +756,6 @@ get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
 {-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
--- | Initialize a handle before using it
-type HandleInitializer = Handle -> IO ()
-
--- | A collection of initializers for the three standard process handles
-data StdInit =
-    StdInit {
-      inInit :: HandleInitializer,
-      outInit :: HandleInitializer,
-      errInit :: HandleInitializer
-    }
-
 -- | Apply a single initializer to the two output process handles (stdout and stderr)
 initOutputHandles :: HandleInitializer -> StdInit
 initOutputHandles f = StdInit (const $ return ()) f f
@@ -781,15 +770,7 @@ initAllHandles f = StdInit f f f
 -- handles or set them into binary mode.
 onCommandHandles :: StdInit -> Sh a -> Sh a
 onCommandHandles initHandles a =
-    sub $ modify (\x -> x { sRun = applyAction (sRun x) }) >> a
-   where
-       applyAction underlyingRun handles st exe args = do
-          res@(inH, outH, errH, _) <- underlyingRun handles st exe args
-          liftIO $ do
-            inInit initHandles inH
-            outInit initHandles outH
-            errInit initHandles errH
-          return res
+    sub $ modify (\x -> x { sInitCommandHandles = initHandles }) >> a
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
 -- commands are not printed.
@@ -876,9 +857,7 @@ tracing shouldTrace action = sub $ do
 -- see the 'run' documentation.
 escaping :: Bool -> Sh a -> Sh a
 escaping shouldEscape action = sub $ do
-  modify $ \st -> st { sRun =
-      if shouldEscape then runCommand else runCommandNoEscape
-    }
+  modify $ \st -> st { sCommandEscaping = shouldEscape }
   action
 
 -- | named after bash -e errexit. Defaults to @True@.
@@ -924,7 +903,8 @@ shelly' ros action = do
                    , sPrintStdout = True
                    , sPrintStderr = True
                    , sPrintCommands = False
-                   , sRun = runCommand
+                   , sInitCommandHandles = initAllHandles (const $ return ())
+                   , sCommandEscaping = True
                    , sEnvironment = environment
                    , sTracing = True
                    , sTrace = T.empty
@@ -1156,10 +1136,18 @@ runHandles exe args reusedHandles withHandles = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
+    let doRun = if sCommandEscaping state then runCommand else runCommandNoEscape
+
     bracket_sh
-      ((sRun state) reusedHandles state exe args)
+      (doRun reusedHandles state exe args)
       (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
+
+        liftIO $ do
+          inInit (sInitCommandHandles state) inH
+          outInit (sInitCommandHandles state) outH
+          errInit (sInitCommandHandles state) errH
+
         liftIO $ case mStdin of
           Just input -> TIO.hPutStr inH input
           Nothing -> return ()

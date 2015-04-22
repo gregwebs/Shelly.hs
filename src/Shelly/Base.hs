@@ -12,7 +12,9 @@
 -- However, Shelly went back to exposing a single module
 module Shelly.Base
   (
-    Sh(..), ShIO, runSh, State(..), ReadOnlyState(..), StdHandle(..), FilePath, Text,
+    Sh(..), ShIO, runSh, State(..), ReadOnlyState(..), StdHandle(..),
+    HandleInitializer, StdInit(..),
+    FilePath, Text,
     relPath, path, absPath, canonic, canonicalize,
     test_d, test_s,
     unpack, gets, get, modify, trace,
@@ -113,7 +115,10 @@ data State = State
    , sPutStderr :: Text -> IO ()   -- ^ by default, hPutStrLn stderr
    , sPrintStderr :: Bool   -- ^ print stderr of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
-   , sRun :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle) -- ^ command runner, a different runner is used when escaping, probably better to just hold the escaping flag
+   , sInitCommandHandles :: StdInit -- ^ initializers for the standard process handles
+                                    -- when running a command
+   , sCommandEscaping :: Bool -- ^ when running a command, escape shell characters such as '*' rather
+                              -- than passing to the shell for expansion
    , sEnvironment :: [(String, String)]
    , sPathExecutables :: Maybe [(FilePath, S.Set FilePath)] -- ^ cache of executables in the PATH
    , sTracing :: Bool -- ^ should we trace command execution
@@ -125,6 +130,17 @@ data State = State
 data StdHandle = InHandle StdStream
                | OutHandle StdStream
                | ErrorHandle StdStream
+
+-- | Initialize a handle before using it
+type HandleInitializer = Handle -> IO ()
+
+-- | A collection of initializers for the three standard process handles
+data StdInit =
+    StdInit {
+      inInit :: HandleInitializer,
+      outInit :: HandleInitializer,
+      errInit :: HandleInitializer
+    }
 
 -- | A monadic-conditional version of the "when" guard.
 whenM :: Monad m => m Bool -> m () -> m ()
