@@ -26,14 +26,14 @@ findSpec = do
 
   describe "relative listing" $ do
     it "lists relative files" $ do
-      res <- shelly $ cd "src" >> ls "."
+      res <- shelly $ cd "test/src" >> ls "."
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./RmSpec.hs", "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
     it "finds relative files" $ do
-      res <- shelly $ cd "src" >> find "."
+      res <- shelly $ cd "test/src" >> find "."
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./RmSpec.hs", "./TestInit.hs", "./TestMain.hs",
@@ -50,14 +50,14 @@ findSpec = do
       res @?= []
 
     it "lists relative files" $ do
-      res <- shelly $ find "src"
-      sort res @?= ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
-                    "src/FindSpec.hs", "src/Help.hs", "src/LiftedSpec.hs", "src/LogWithSpec.hs", "src/MoveSpec.hs", "src/ReadFileSpec.hs", "src/RmSpec.hs",
-                    "src/TestInit.hs", "src/TestMain.hs", "src/WhichSpec.hs", "src/WriteSpec.hs",
-                    "src/sleep.hs"]
+      res <- shelly $ find "test/src"
+      sort res @?= ["test/src/CopySpec.hs", "test/src/EnvSpec.hs", "test/src/FailureSpec.hs",
+                    "test/src/FindSpec.hs", "test/src/Help.hs", "test/src/LiftedSpec.hs", "test/src/LogWithSpec.hs", "test/src/MoveSpec.hs", "test/src/ReadFileSpec.hs", "test/src/RmSpec.hs",
+                    "test/src/TestInit.hs", "test/src/TestMain.hs", "test/src/WhichSpec.hs", "test/src/WriteSpec.hs",
+                    "test/src/sleep.hs"]
 
     it "lists absolute files" $ do
-      res <- shelly $ relPath "src" >>= find >>= mapM (relativeTo "src")
+      res <- shelly $ relPath "test/src" >>= find >>= mapM (relativeTo "test/src")
       sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs",
                     "Help.hs", "LiftedSpec.hs", "LogWithSpec.hs", "MoveSpec.hs", "ReadFileSpec.hs", "RmSpec.hs", "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
