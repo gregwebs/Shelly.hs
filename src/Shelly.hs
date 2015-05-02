@@ -25,6 +25,7 @@ module Shelly
          -- * Entering Sh.
          Sh, ShIO, shelly, shellyNoDir, shellyFailDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
+         , onCommandHandles
          , tracing, errExit
          , log_stdout_with, log_stderr_with
 
@@ -39,6 +40,8 @@ module Shelly
          , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
          , StdHandle(..), StdStream(..)
 
+         -- * Handle manipulation
+         , HandleInitializer, StdInit(..), initOutputHandles, initAllHandles
 
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
@@ -753,6 +756,40 @@ get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
 {-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
+-- | Initialize a handle before using it
+type HandleInitializer = Handle -> IO ()
+
+-- | A collection of initializers for the three standard process handles
+data StdInit =
+    StdInit {
+      inInit :: HandleInitializer,
+      outInit :: HandleInitializer,
+      errInit :: HandleInitializer
+    }
+
+-- | Apply a single initializer to the two output process handles (stdout and stderr)
+initOutputHandles :: HandleInitializer -> StdInit
+initOutputHandles f = StdInit (const $ return ()) f f
+
+-- | Apply a single initializer to all three standard process handles (stdin, stdout and stderr)
+initAllHandles :: HandleInitializer -> StdInit
+initAllHandles f = StdInit f f f
+
+-- | When running an external command, apply the given initializers to
+-- the specified handles for that command.
+-- This can for example be used to change the encoding of the
+-- handles or set them into binary mode.
+onCommandHandles :: StdInit -> Sh a -> Sh a
+onCommandHandles initHandles a =
+    sub $ modify (\x -> x { sRun = applyAction (sRun x) }) >> a
+   where
+       applyAction underlyingRun handles st exe args = do
+          res@(inH, outH, errH, _) <- underlyingRun handles st exe args
+          liftIO $ do
+            inInit initHandles inH
+            outInit initHandles outH
+            errInit initHandles errH
+          return res
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
 -- commands are not printed.
