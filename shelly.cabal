@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.6.2.1
+Version:     1.6.2.2
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -31,6 +31,8 @@ Category:            Development
 Build-type:          Simple
 Cabal-version:       >=1.8
 
+-- for the sdist of the test suite
+extra-source-files: test/src/*.hs
 
 Library
   Exposed-modules: Shelly, Shelly.Lifted, Shelly.Pipe
@@ -68,7 +70,6 @@ Library
   extensions:
     CPP
 
-
 source-repository head
   type:     git
   location: https://github.com/yesodweb/Shelly.hs
@@ -83,6 +84,7 @@ Test-Suite shelly-testsuite
   main-is: TestMain.hs
   ghc-options: -O2 -Wall -fhpc -fwarn-tabs -funbox-strict-fields -threaded
                -fno-warn-unused-do-bind -fno-warn-type-defaults
+
 
   extensions: OverloadedStrings, ExtendedDefaultRules
 
