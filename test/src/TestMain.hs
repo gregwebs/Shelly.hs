@@ -11,6 +11,7 @@ import EnvSpec
 import FailureSpec
 import CopySpec
 import LiftedSpec
+import RunSpec
 
 import Test.Hspec
 
@@ -26,3 +27,5 @@ main = hspec $ do
     failureSpec
     copySpec
     liftedSpec
+    runSpec
+

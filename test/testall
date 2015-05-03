@@ -9,14 +9,15 @@ fi
 SUITE=./dist/build/shelly-testsuite/shelly-testsuite
 
 rm -f shelly-testsuite.tix
-cabal install
+cabal build
 
 if [ ! -f $SUITE ]; then
     cat <<EOF
 Testsuite executable not found, please run:
-    cabal configure
+    cabal configure --enable-tests
 then
     cabal build
+Note this script should be run from the root of the checkout
 EOF
     exit;
 fi

@@ -25,6 +25,7 @@ module Shelly
          -- * Entering Sh.
          Sh, ShIO, shelly, shellyNoDir, shellyFailDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
+         , onCommandHandles
          , tracing, errExit
          , log_stdout_with, log_stderr_with
 
@@ -39,6 +40,8 @@ module Shelly
          , runHandle, runHandles, transferLinesAndCombine, transferFoldHandleLines
          , StdHandle(..), StdStream(..)
 
+         -- * Handle manipulation
+         , HandleInitializer, StdInit(..), initOutputHandles, initAllHandles
 
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
@@ -753,6 +756,21 @@ get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
 {-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
+-- | Apply a single initializer to the two output process handles (stdout and stderr)
+initOutputHandles :: HandleInitializer -> StdInit
+initOutputHandles f = StdInit (const $ return ()) f f
+
+-- | Apply a single initializer to all three standard process handles (stdin, stdout and stderr)
+initAllHandles :: HandleInitializer -> StdInit
+initAllHandles f = StdInit f f f
+
+-- | When running an external command, apply the given initializers to
+-- the specified handles for that command.
+-- This can for example be used to change the encoding of the
+-- handles or set them into binary mode.
+onCommandHandles :: StdInit -> Sh a -> Sh a
+onCommandHandles initHandles a =
+    sub $ modify (\x -> x { sInitCommandHandles = initHandles }) >> a
 
 -- | Create a sub-Sh in which external command outputs are not echoed and
 -- commands are not printed.
@@ -839,9 +857,7 @@ tracing shouldTrace action = sub $ do
 -- see the 'run' documentation.
 escaping :: Bool -> Sh a -> Sh a
 escaping shouldEscape action = sub $ do
-  modify $ \st -> st { sRun =
-      if shouldEscape then runCommand else runCommandNoEscape
-    }
+  modify $ \st -> st { sCommandEscaping = shouldEscape }
   action
 
 -- | named after bash -e errexit. Defaults to @True@.
@@ -887,7 +903,8 @@ shelly' ros action = do
                    , sPrintStdout = True
                    , sPrintStderr = True
                    , sPrintCommands = False
-                   , sRun = runCommand
+                   , sInitCommandHandles = initAllHandles (const $ return ())
+                   , sCommandEscaping = True
                    , sEnvironment = environment
                    , sTracing = True
                    , sTrace = T.empty
@@ -1119,10 +1136,18 @@ runHandles exe args reusedHandles withHandles = do
     when (sPrintCommands state) $ echo cmdString
     trace cmdString
 
+    let doRun = if sCommandEscaping state then runCommand else runCommandNoEscape
+
     bracket_sh
-      ((sRun state) reusedHandles state exe args)
+      (doRun reusedHandles state exe args)
       (\(_,_,_,procH) -> (liftIO $ terminateProcess procH))
       (\(inH,outH,errH,procH) -> do
+
+        liftIO $ do
+          inInit (sInitCommandHandles state) inH
+          outInit (sInitCommandHandles state) outH
+          errInit (sInitCommandHandles state) errH
+
         liftIO $ case mStdin of
           Just input -> TIO.hPutStr inH input
           Nothing -> return ()
