@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.6.2.2
+Version:     1.6.2.3
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -33,6 +33,11 @@ Cabal-version:       >=1.8
 
 -- for the sdist of the test suite
 extra-source-files: test/src/*.hs
+                    test/examples/*.sh
+                    test/examples/*.hs
+                    test/data/zshrc
+                    test/data/nonascii.txt
+                    test/testall
 
 Library
   Exposed-modules: Shelly, Shelly.Lifted, Shelly.Pipe
