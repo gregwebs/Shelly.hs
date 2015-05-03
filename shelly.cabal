@@ -110,7 +110,7 @@ Test-Suite shelly-testsuite
     lifted-base,
     lifted-async,
     enclosed-exceptions,
-    exceptions                == 0.6.*
+    exceptions
 
   extensions:
     CPP
