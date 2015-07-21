@@ -28,4 +28,3 @@ main = hspec $ do
     copySpec
     liftedSpec
     runSpec
-

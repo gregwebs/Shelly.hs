@@ -30,7 +30,7 @@ module Shelly
          , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
-         , run, run_, runFoldLines, cmd, FoldCallback
+         , run, run_, bash, bash_, runFoldLines, cmd, FoldCallback
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
@@ -1049,6 +1049,18 @@ instance Exception e => Show (ReThrownException e) where
 --
 run :: FilePath -> [Text] -> Sh Text
 run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
+
+-- | Like `run`, but it invokes the user-requested program with _bash_,
+-- setting _pipefail_ appropriately.
+bash :: FilePath -> [Text] -> Sh Text
+bash fp args = escaping False $ do
+  let sanitise = T.replace "'" "\'" . T.intercalate " "
+  run "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
+
+bash_ :: FilePath -> [Text] -> Sh ()
+bash_ fp args = escaping False $ do
+  let sanitise = T.replace "'" "\'" . T.intercalate " "
+  run_ "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
 
 -- | bind some arguments to run for re-use. Example:
 --
