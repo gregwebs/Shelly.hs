@@ -1058,7 +1058,9 @@ bash fp args = escaping False $ do
   run "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
 
 bash_ :: FilePath -> [Text] -> Sh ()
-bash_ fp args = const () <$> bash fp args
+bash_ fp args = escaping False $ do
+  let sanitise = T.replace "'" "\'" . T.intercalate " "
+  run_ "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
 
 -- | bind some arguments to run for re-use. Example:
 --
