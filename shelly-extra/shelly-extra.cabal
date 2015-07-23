@@ -1,6 +1,6 @@
 Name:       shelly-extra
 
-Version:     0.3
+Version:     0.3.0.1
 Synopsis:    shelly features that require extra dependencies
 
 Description: A background job implementation for performing tasks in parallel.
