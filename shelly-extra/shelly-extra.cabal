@@ -38,6 +38,7 @@ test-suite test
     type:           exitcode-stdio-1.0
     main-is:        main.hs
     hs-source-dirs: ., test
+    build-depends: hspec, async, mtl
     ghc-options: -Wall
 
     Build-depends: base, text, shelly, SafeSemaphore, HUnit

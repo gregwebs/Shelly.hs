@@ -42,9 +42,9 @@ runSpec = do
 
     it "can detect failing commands in pipes" $ do
       eCode <- shelly $ escaping False $ errExit False $ do
-        bash_ "echo" [ "'foo'", "|", "ls", "\"eoueouoe\"", "|", "echo", "'bar'" ]
+        bash_ "echo" [ "'foo'", "|", "ls", "\"eoueouoe\"", "2>/dev/null", "|", "echo", "'bar'" ]
         lastExitCode
-      eCode @?= 1
+      eCode `shouldSatisfy` (/= 0)
 
     it "preserve pipe behaviour" $ do
       (eCode, res) <- shelly $ escaping False $ errExit False $ do
