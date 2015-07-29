@@ -64,9 +64,13 @@ None of the alternatives to Shelly offer command tracing.
 For some this is an absolutely critical feature, particularly given that Haskell does not yet offer up stack traces.
 
 
-### Haskell supplements
+### Haskell file-finding supplements
 
-* [FileManip](hackage.haskell.org/package/FileManip) - more efficient file finding code (uses Lazy IO). Shelly's finders are currently being re-worked
+* [find-conduit](http://hackage.haskell.org/package/find-conduit) - uses conduits, similar speed to GNU find
+* [FileManip](hackage.haskell.org/package/FileManip) - uses Lazy IO
+
+Shelly's finders load all files into memory. This is simpler to use if you control the filesystem structure and know the system is bounded in size. However, if the filesystem structure is unbounded it consumes unbounded memory.
+
 
 ### Shell commands with richer input/output
 
