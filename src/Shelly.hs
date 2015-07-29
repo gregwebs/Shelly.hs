@@ -317,9 +317,9 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
   where
     findExe :: FilePath -> Sh FilePath
     findExe fp = do
-        mExe <- which exe
+        mExe <- whichEith exe
         case mExe of
-          Just execFp -> return execFp
+          Right execFp -> return execFp
           -- windows looks in extra places besides the PATH, so just give
           -- up even if the behavior is not properly specified anymore
           --
@@ -327,11 +327,9 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
           -- https://github.com/yesodweb/Shelly.hs/issues/56
           -- it would be better to specifically detect that bug
 #if defined(mingw32_HOST_OS) || (defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 708)
-          Nothing -> return fp
+          Left _ -> return fp
 #else
-          Nothing -> liftIO $ throwIO $ userError $
-            "shelly did not find " `mappend` encodeString fp `mappend`
-              if absolute exe then "" else " in the PATH"
+          Left err -> liftIO $ throwIO $ userError err
 #endif
 
 
@@ -570,12 +568,17 @@ mkdirTree = mk . unrollPath
 isExecutable :: FilePath -> IO Bool
 isExecutable f = (executable `fmap` getPermissions (encodeString f)) `catch` (\(_ :: IOError) -> return False)
 
-
 -- | Get a full path to an executable by looking at the @PATH@ environement
 -- variable. Windows normally looks in additional places besides the
 -- @PATH@: this does not duplicate that behavior.
 which :: FilePath -> Sh (Maybe FilePath)
-which originalFp = whichFull
+which fp = either (const Nothing) Just <$> whichEith fp
+
+-- | Get a full path to an executable by looking at the @PATH@ environement
+-- variable. Windows normally looks in additional places besides the
+-- @PATH@: this does not duplicate that behavior.
+whichEith :: FilePath -> Sh (Either String FilePath)
+whichEith originalFp = whichFull
 #if defined(mingw32_HOST_OS)
     $ case extension originalFp of
         Nothing -> originalFp <.> "exe"
@@ -587,22 +590,41 @@ which originalFp = whichFull
     whichFull fp = do
       (trace . mappend "which " . toTextIgnore) fp >> whichUntraced
       where
-        whichUntraced | absolute fp                      = checkFile
-                      | length (splitDirectories fp) > 0 = lookupPath
-                      | otherwise                        = lookupCache
+        whichUntraced | absolute fp            = checkFile
+                      | dotSlash splitOnDirs   = checkFile
+                      | length splitOnDirs > 0 = lookupPath  >>= leftPathError
+                      | otherwise              = lookupCache >>= leftPathError
+
+        splitOnDirs = splitDirectories fp
+        dotSlash ("./":_) = True
+        dotSlash _ = False
+
+        checkFile :: Sh (Either String FilePath)
         checkFile = do
             exists <- liftIO $ isFile fp
-            return $ toMaybe exists fp
+            return $ if exists then Right fp else
+              Left $ "did not find file: " <> encodeString fp
 
-        lookupPath =
-            (pathDirs >>=) $ findMapM $ \dir -> do
-                let fullFp = dir </> fp
-                res <- liftIO $ isExecutable fullFp
-                return $ toMaybe res fullFp
+        leftPathError :: Maybe FilePath -> Sh (Either String FilePath)
+        leftPathError Nothing  = Left <$> pathLookupError
+        leftPathError (Just x) = return $ Right x
 
+        pathLookupError :: Sh String
+        pathLookupError = do
+          pATH <- get_env_text "PATH"
+          return $
+            "shelly did not find " `mappend` encodeString fp `mappend`
+            " in the PATH: " `mappend` T.unpack pATH
+
+        lookupPath :: Sh (Maybe FilePath)
+        lookupPath = (pathDirs >>=) $ findMapM $ \dir -> do
+            let fullFp = dir </> fp
+            res <- liftIO $ isExecutable fullFp
+            return $ if res then Just fullFp else Nothing
+
+        lookupCache :: Sh (Maybe FilePath)
         lookupCache = do
             pathExecutables <- cachedPathExecutables
-            liftIO $ print pathExecutables
             return $ fmap (flip (</>) fp . fst) $
                 L.find (S.member fp . snd) pathExecutables
 
@@ -626,11 +648,6 @@ which originalFp = whichFull
                 modify $ \x -> x { sPathExecutables = Just cachedExecutables }
                 return $ cachedExecutables
 
-
--- | Returns 'Just' if the precondition is fulfilled.
-toMaybe :: Bool -> a -> Maybe a
-toMaybe False _ = Nothing
-toMaybe True x = Just x
 
 -- | A monadic findMap, taken from MissingM package
 findMapM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
@@ -738,7 +755,7 @@ get_env k = do
   mval <- return . fmap T.pack . lookup (T.unpack k) =<< gets sEnvironment
   return $ case mval of
     Nothing  -> Nothing
-    Just val -> toMaybe (not $ T.null val) val
+    Just val -> if (not $ T.null val) then Just val else Nothing
 
 -- | deprecated
 getenv :: Text -> Sh Text
