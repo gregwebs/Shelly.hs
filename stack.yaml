@@ -1,0 +1,7 @@
+flags: {}
+packages:
+- '.'
+- shelly-extra/
+resolver: lts-2.19
+extra-deps:
+  - SafeSemaphore-0.10.1
