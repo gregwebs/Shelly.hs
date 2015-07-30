@@ -88,7 +88,7 @@ Test-Suite shelly-testsuite
   type: exitcode-stdio-1.0
   hs-source-dirs: src test/src
   main-is: TestMain.hs
-  ghc-options: -O2 -Wall -fhpc -fwarn-tabs -funbox-strict-fields -threaded
+  ghc-options: -O2 -Wall -fwarn-tabs -funbox-strict-fields -threaded
                -fno-warn-unused-do-bind -fno-warn-type-defaults
 
 
