@@ -1070,14 +1070,16 @@ run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
 -- | Like `run`, but it invokes the user-requested program with _bash_,
 -- setting _pipefail_ appropriately.
 bash :: FilePath -> [Text] -> Sh Text
-bash fp args = escaping False $ do
-  let sanitise = T.replace "'" "\'" . T.intercalate " "
-  run "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
+bash fp args = escaping False $ run "bash" $ bashArgs fp args
 
 bash_ :: FilePath -> [Text] -> Sh ()
-bash_ fp args = escaping False $ do
-  let sanitise = T.replace "'" "\'" . T.intercalate " "
-  run_ "bash" ["-c", "'set -o pipefail && " <> sanitise (toTextIgnore fp : args) <> "'"]
+bash_ fp args = escaping False $ run_ "bash" $ bashArgs fp args
+
+bashArgs :: FilePath -> [Text] -> [Text]
+bashArgs fp args =
+  ["-c", "'set -o pipefail; " <> sanitise (toTextIgnore fp : args) <> "'"]
+  where
+    sanitise = T.replace "'" "\'" . T.intercalate " "
 
 -- | bind some arguments to run for re-use. Example:
 --
