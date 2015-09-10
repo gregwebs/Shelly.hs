@@ -2,6 +2,6 @@ flags: {}
 packages:
 - '.'
 - shelly-extra/
-resolver: lts-2.19
+resolver: lts-3.4
 extra-deps:
   - SafeSemaphore-0.10.1
