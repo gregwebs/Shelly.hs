@@ -1077,7 +1077,11 @@ bash_ fp args = escaping False $ run_ "bash" $ bashArgs fp args
 
 bashArgs :: FilePath -> [Text] -> [Text]
 bashArgs fp args =
-  ["-c", "'set -o pipefail; " <> sanitise (toTextIgnore fp : args) <> "'"]
+  -- trapping PIPE is needed to avoid random failures from setting pipefail
+  --
+  -- https://github.com/yesodweb/Shelly.hs/issues/106
+  -- http://stackoverflow.com/questions/22464786/ignoring-bash-pipefail-for-error-code-141
+  ["-c", "'set -o pipefail; trap '' PIPE; " <> sanitise (toTextIgnore fp : args) <> "'"]
   where
     sanitise = T.replace "'" "\'" . T.intercalate " "
 
