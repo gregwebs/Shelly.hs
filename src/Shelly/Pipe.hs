@@ -1,14 +1,14 @@
-{-# LANGUAGE FlexibleInstances, TypeSynonymInstances, 
+{-# LANGUAGE FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, ExistentialQuantification #-}
--- | This module is a wrapper for the module "Shelly". 
--- The only difference is a main type 'Sh'. In this module 
+-- | This module is a wrapper for the module "Shelly".
+-- The only difference is a main type 'Sh'. In this module
 -- 'Sh' contains a list of results. Actual definition of the type 'Sh' is:
 --
 -- > import qualified Shelly as S
 -- >
 -- > newtype Sh a = Sh { unSh :: S.Sh [a] }
 --
--- This definition can simplify some filesystem commands. 
+-- This definition can simplify some filesystem commands.
 -- A monad bind operator becomes a pipe operator and we can write
 --
 -- > findExt ext = findWhen (pure . hasExt ext)
@@ -17,12 +17,12 @@
 -- > main = shs $ do
 -- >     mkdir "new"
 -- >     findExt "hs"  "." >>= flip cp "new"
--- >     findExt "cpp" "." >>= rm_f 
+-- >     findExt "cpp" "." >>= rm_f
 -- >     liftIO $ putStrLn "done"
 --
 -- Monad methods "return" and ">>=" behave like methods for
--- @ListT Shelly.Sh@, but ">>" forgets the number of 
--- the empty effects. So the last line prints @\"done\"@ only once. 
+-- @ListT Shelly.Sh@, but ">>" forgets the number of
+-- the empty effects. So the last line prints @\"done\"@ only once.
 --
 -- Documentation in this module mostly just reference documentation from
 -- the main "Shelly" module.
@@ -45,7 +45,7 @@ module Shelly.Pipe
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
- 
+
          -- * Modifying and querying environment.
          , setenv, get_env, get_env_text, get_env_def, appendToPath
 
@@ -73,7 +73,7 @@ module Shelly.Pipe
          , exit, errorExit, quietExit, terror
 
          -- * Exceptions
-         , catchany, catch_sh, finally_sh 
+         , catchany, catch_sh, finally_sh
          , ShellyHandler(..), catches_sh
          , catchany_sh
 
@@ -89,7 +89,7 @@ module Shelly.Pipe
          -- * internal functions for writing extensions
          , get, put
 
-         -- * find functions 
+         -- * find functions
          , find, findWhen, findFold
          , findDirFilter, findDirFilterWhen, findFoldDirFilter
          ) where
@@ -101,7 +101,7 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Exception hiding (handle)
 
-import Filesystem.Path(FilePath)
+import Path
 
 import qualified Shelly as S
 
@@ -123,14 +123,14 @@ default (T.Text)
 
 
 -- | This type is a simple wrapper for a type @Shelly.Sh@.
--- 'Sh' contains a list of results. 
+-- 'Sh' contains a list of results.
 newtype Sh a = Sh { unSh :: S.Sh [a] }
 
 instance Functor Sh where
-    fmap f = Sh . fmap (fmap f) . unSh    
+    fmap f = Sh . fmap (fmap f) . unSh
 
 instance Monad Sh where
-    return  = Sh . return . return 
+    return  = Sh . return . return
     a >>= f = Sh $ fmap concat $ mapM (unSh . f) =<< unSh a
     a >> b  = Sh $ unSh a >> unSh b
 
@@ -155,29 +155,29 @@ instance MonadIO Sh where
 sh0 :: S.Sh a -> Sh a
 sh0 = Sh . fmap return
 
-sh1 :: (a -> S.Sh b) -> (a -> Sh b) 
+sh1 :: (a -> S.Sh b) -> (a -> Sh b)
 sh1 f = \a -> sh0 (f a)
 
-sh2 :: (a1 -> a2 -> S.Sh b) -> (a1 -> a2 -> Sh b) 
+sh2 :: (a1 -> a2 -> S.Sh b) -> (a1 -> a2 -> Sh b)
 sh2 f = \a b -> sh0 (f a b)
 
-sh3 :: (a1 -> a2 -> a3 -> S.Sh b) -> (a1 -> a2 -> a3 -> Sh b) 
+sh3 :: (a1 -> a2 -> a3 -> S.Sh b) -> (a1 -> a2 -> a3 -> Sh b)
 sh3 f = \a b c -> sh0 (f a b c)
 
-sh4 :: (a1 -> a2 -> a3 -> a4 -> S.Sh b) -> (a1 -> a2 -> a3 -> a4 -> Sh b) 
+sh4 :: (a1 -> a2 -> a3 -> a4 -> S.Sh b) -> (a1 -> a2 -> a3 -> a4 -> Sh b)
 sh4 f = \a b c d -> sh0 (f a b c d)
 
 sh0s :: S.Sh [a] -> Sh a
 sh0s = Sh
 
-sh1s :: (a -> S.Sh [b]) -> (a -> Sh b) 
+sh1s :: (a -> S.Sh [b]) -> (a -> Sh b)
 sh1s f = \a -> sh0s (f a)
 
 {-  Just in case ...
-sh2s :: (a1 -> a2 -> S.Sh [b]) -> (a1 -> a2 -> Sh b) 
+sh2s :: (a1 -> a2 -> S.Sh [b]) -> (a1 -> a2 -> Sh b)
 sh2s f = \a b -> sh0s (f a b)
 
-sh3s :: (a1 -> a2 -> a3 -> S.Sh [b]) -> (a1 -> a2 -> a3 -> Sh b) 
+sh3s :: (a1 -> a2 -> a3 -> S.Sh [b]) -> (a1 -> a2 -> a3 -> Sh b)
 sh3s f = \a b c -> sh0s (f a b c)
 -}
 
@@ -189,19 +189,19 @@ lift2 f a b = Sh $ join $ liftA2 (mapM2 f') (unSh a) (unSh b)
     where f' = \x y -> f (return x) (return y)
 
 mapM2 :: Monad m => (a -> b -> m c)-> [a] -> [b] -> m [c]
-mapM2 f as bs = sequence $ liftA2 f as bs 
+mapM2 f as bs = sequence $ liftA2 f as bs
 
 -----------------------------------------------------------
 
 -- | Unpack list of results.
 unroll :: Sh a -> Sh [a]
-unroll = Sh . fmap return . unSh 
+unroll = Sh . fmap return . unSh
 
 -- | Pack list of results. It performs @concat@ inside 'Sh'.
 roll :: Sh [a] -> Sh a
 roll = Sh . fmap concat . unSh
 
--- | Transform result as list. It can be useful for filtering. 
+-- | Transform result as list. It can be useful for filtering.
 liftSh :: ([a] -> [b]) -> Sh a -> Sh b
 liftSh f = Sh . fmap f . unSh
 
@@ -212,7 +212,7 @@ liftSh f = Sh . fmap f . unSh
 shelly :: MonadIO m => Sh a -> m [a]
 shelly = S.shelly . unSh
 
--- | Performs 'shelly' and then an empty action @return ()@. 
+-- | Performs 'shelly' and then an empty action @return ()@.
 shs :: MonadIO m => Sh () -> m ()
 shs x = shelly x >> return ()
 
@@ -287,7 +287,7 @@ lastStderr = sh0 S.lastStderr
 
 -- | see 'S.setStdin'
 setStdin :: Text -> Sh ()
-setStdin = sh1 S.setStdin 
+setStdin = sh1 S.setStdin
 
 -- | see 'S.lastExitCode'
 lastExitCode :: Sh Int
@@ -352,7 +352,7 @@ pwd :: Sh FilePath
 pwd = sh0 S.pwd
 
 -----------------------------------------------------------------
--- Printing 
+-- Printing
 
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
@@ -522,15 +522,15 @@ findFold cons nil a = Sh $ S.findFold cons' nil' a
 -- | see 'S.findDirFilter'
 findDirFilter :: (FilePath -> Sh Bool) -> FilePath -> Sh FilePath
 findDirFilter p a = Sh $ S.findDirFilter (fmap and . unSh . p) a
-    
+
 -- | see 'S.findDirFilterWhen'
 findDirFilterWhen :: (FilePath -> Sh Bool) -- ^ directory filter
                   -> (FilePath -> Sh Bool) -- ^ file filter
                   -> FilePath -- ^ directory
                   -> Sh FilePath
-findDirFilterWhen dirPred filePred a = 
-    Sh $ S.findDirFilterWhen  
-            (fmap and . unSh . dirPred) 
+findDirFilterWhen dirPred filePred a =
+    Sh $ S.findDirFilterWhen
+            (fmap and . unSh . dirPred)
             (fmap and . unSh . filePred)
             a
 
@@ -541,9 +541,9 @@ findFoldDirFilter cons nil p a = Sh $ S.findFoldDirFilter cons' nil' p' a
     where p'    = fmap and . unSh . p
           nil'  = return nil
           cons' as dir = unSh $ roll $ mapM (flip cons dir) as
-           
+
 -----------------------------------------------------------
--- exiting the program 
+-- exiting the program
 
 -- | see 'S.exit'
 exit :: Int -> Sh ()
@@ -591,14 +591,14 @@ catches_sh a hs = Sh $ S.catches_sh (unSh a) (fmap convert hs)
           convert (ShellyHandler f) = S.ShellyHandler (unSh . f)
 
 ------------------------------------------------------------
--- convert between Text and FilePath 
+-- convert between Text and FilePath
 
 -- | see 'S.toTextWarn'
 toTextWarn :: FilePath -> Sh Text
 toTextWarn = sh1 S.toTextWarn
 
 -------------------------------------------------------------
--- internal functions for writing extension 
+-- internal functions for writing extension
 
 get :: Sh State
 get = sh0 S.get

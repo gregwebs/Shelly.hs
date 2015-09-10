@@ -103,7 +103,7 @@ import Data.ByteString ( ByteString )
 import Data.Monoid
 import System.IO ( Handle )
 import Data.Tree ( Tree )
-import qualified Filesystem.Path.CurrentOS as FP
+import qualified Path as FP
 
 import Control.Exception.Lifted
 import Control.Exception.Enclosed

@@ -30,9 +30,7 @@ module Shelly.Base
   ) where
 
 #if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding (FilePath, catch)
-#else
-import Prelude hiding (FilePath)
+import Prelude hiding (catch)
 #endif
 
 import Data.Text (Text)
@@ -43,11 +41,9 @@ import Control.Monad (when, (>=>), liftM)
 import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))
-import Filesystem (isDirectory, listDirectory)
+import Path
+import qualified Path as FP
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
-import qualified Filesystem.Path.CurrentOS as FP
-import qualified Filesystem as FS
 import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text as T
@@ -105,7 +101,7 @@ runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
 
 data ReadOnlyState = ReadOnlyState { rosFailToDir :: Bool }
-data State = State 
+data State = State
    { sCode :: Int -- ^ exit code for command that ran
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
    , sStderr :: Text -- ^ stderr for command that ran
@@ -245,23 +241,23 @@ test_d = absPath >=> liftIO . isDirectory
 -- | Does a path point to a symlink?
 test_s :: FilePath -> Sh Bool
 test_s = absPath >=> liftIO . \f -> do
-  stat <- getSymbolicLinkStatus (encodeString f)
+  stat <- getSymbolicLinkStatus (toFilePath f)
   return $ isSymbolicLink stat
 
 unpack :: FilePath -> String
-unpack = encodeString
+unpack = toFilePath
 
 gets :: (State -> a) -> Sh a
 gets f = f <$> get
 
 get :: Sh State
 get = do
-  stateVar <- ask 
+  stateVar <- ask
   liftIO (readIORef stateVar)
 
 modify :: (State -> State) -> Sh ()
 modify f = do
-  state <- ask 
+  state <- ask
   liftIO (modifyIORef state f)
 
 -- | internally log what occurred.

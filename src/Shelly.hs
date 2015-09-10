@@ -133,10 +133,6 @@ infixr 5 <>
 import Data.Monoid ((<>))
 #endif
 
-import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
-import Filesystem hiding (canonicalizePath)
-import qualified Filesystem.Path.CurrentOS as FP
-
 import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory )
 import Data.Char (isDigit)
 
