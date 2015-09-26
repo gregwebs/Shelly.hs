@@ -30,7 +30,8 @@ module Shelly
          , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
-         , run, run_, bash, bash_, runFoldLines, cmd, FoldCallback
+         , run, run_, runFoldLines, cmd, FoldCallback
+         , bash, bash_, bashPipeFail
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
@@ -1067,8 +1068,7 @@ instance Exception e => Show (ReThrownException e) where
 run :: FilePath -> [Text] -> Sh Text
 run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
 
--- | Like `run`, but it invokes the user-requested program with _bash_,
--- setting _pipefail_ appropriately.
+-- | Like `run`, but it invokes the user-requested program with _bash_.
 bash :: FilePath -> [Text] -> Sh Text
 bash fp args = escaping False $ run "bash" $ bashArgs fp args
 
@@ -1076,14 +1076,15 @@ bash_ :: FilePath -> [Text] -> Sh ()
 bash_ fp args = escaping False $ run_ "bash" $ bashArgs fp args
 
 bashArgs :: FilePath -> [Text] -> [Text]
-bashArgs fp args =
-  -- trapping PIPE is needed to avoid random failures from setting pipefail
-  --
-  -- https://github.com/yesodweb/Shelly.hs/issues/106
-  -- http://stackoverflow.com/questions/22464786/ignoring-bash-pipefail-for-error-code-141
-  ["-c", "'set -o pipefail; trap '' PIPE; " <> sanitise (toTextIgnore fp : args) <> "'"]
+bashArgs fp args = ["-c", "'" <> sanitise (toTextIgnore fp : args) <> "'"]
   where
     sanitise = T.replace "'" "\'" . T.intercalate " "
+
+-- | Use this with `bash` to set _pipefail_
+--
+-- > bashPipeFail $ bash "echo foo | echo"
+bashPipeFail :: (FilePath -> [Text] -> Sh a) -> FilePath -> [Text] -> Sh a
+bashPipeFail runner fp args = runner "set -o pipefail;" (toTextIgnore fp : args)
 
 -- | bind some arguments to run for re-use. Example:
 --

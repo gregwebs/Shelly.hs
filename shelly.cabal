@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.6.3.4
+Version:     1.6.4
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -88,6 +88,25 @@ Test-Suite shelly-testsuite
   type: exitcode-stdio-1.0
   hs-source-dirs: src test/src
   main-is: TestMain.hs
+  other-modules:
+    CopySpec
+    EnvSpec
+    FailureSpec
+    FindSpec
+    Help
+    LiftedSpec
+    MoveSpec
+    ReadFileSpec
+    RmSpec
+    RunSpec
+    Shelly
+    Shelly.Base
+    Shelly.Find
+    Shelly.Lifted
+    TestInit
+    WhichSpec
+    WriteSpec
+
   ghc-options: -O2 -Wall -fwarn-tabs -funbox-strict-fields -threaded
                -fno-warn-unused-do-bind -fno-warn-type-defaults
 
