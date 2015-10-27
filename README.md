@@ -111,15 +111,15 @@ I recommend using the boilerplate at the top of this example in your projects.
         then do d <- cmd "date"
                 c <- escaping False $ cmd "git" "log -1 | head -1 | awk '{print $2}'"
                 appendfile "log/deploy.log" $ T.intercalate " - " [T.stripEnd d, c]
-                uploads ["deploy"]
-                shPairs_ "my-server" [("./deploy", [])]
+                uploads "my-server:/remote/path/" ["deploy"]
+                sshPairs_ "my-server" [("cd", ["/remote/path"]), ("./deploy", [])]
         else do
               cmd "./script/angel"
 
     -- same path on remote host
     -- will create directories
-    uploads :: [Text] -> Sh ()
-    uploads locals login = rsync $ ["--relative"] ++ locals ++ [login]
+    uploads :: Text -> [Text] -> Sh ()
+    uploads remote locals = rsync $ ["--relative"] ++ locals ++ [remote]
 
     rsync args = run_ "rsync" $ ["--delete", "-avz", "--no-g"] ++ args
 ~~~~~
