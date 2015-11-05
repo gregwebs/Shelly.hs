@@ -26,6 +26,7 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 ## Examples
 
+* [A small deployment script](http://www.alfredodinapoli.com/posts/2015-11-03-how-i-deploy-haskell-code.html)
 * [Yesod development installer](https://github.com/yesodweb/scripts/blob/master/install.hs)
 * [cabal-meta, a haskell install tool](https://github.com/yesodweb/cabal-meta/blob/master/main.hs)
 * [antigen-hs, a zsh plugin manager](https://github.com/Tarrasch/antigen-hs)
