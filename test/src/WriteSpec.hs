@@ -18,9 +18,14 @@ createsFile f action = do
 writeSpec :: Spec
 writeSpec = do
   describe "writefile" $
-    it "creates and overwites a file" $ createsFile "foo" $ \f -> do
+    it "creates and overwrites a file" $ createsFile "foo" $ \f -> do
       assert . (== "a") =<< (shelly $ writefile f "a" >> readfile f)
       assert . (== "b") =<< (shelly $ writefile f "b" >> readfile f)
+
+  describe "writeBinary" $
+    it "creates and overwrites a file" $ createsFile "foo" $ \f -> do
+      assert . (== "a") =<< (shelly $ writeBinary f "a" >> readBinary f)
+      assert . (== "b") =<< (shelly $ writeBinary f "b" >> readBinary f)
 
   describe "appendfile" $
     it "creates and appends a file" $ createsFile "foo" $ \f -> do
