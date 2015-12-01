@@ -65,7 +65,7 @@ module Shelly
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
-         , readfile, readBinary, writefile, appendfile, touchfile, withTmpDir
+         , readfile, readBinary, writefile, writeBinary, appendfile, touchfile, withTmpDir
 
          -- * exiting the program
          , exit, errorExit, quietExit, terror
@@ -1326,6 +1326,11 @@ writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = do
   f <- traceAbsPath ("writefile " <>) f'
   liftIO (TIO.writeFile (encodeString f) bits)
+
+writeBinary :: FilePath -> ByteString -> Sh ()
+writeBinary f' bytes = do
+  f <- traceAbsPath ("writeBinary " <>) f'
+  liftIO (BS.writeFile (encodeString f) bytes)
 
 -- | Update a file, creating (a blank file) if it does not exist.
 touchfile :: FilePath -> Sh ()
