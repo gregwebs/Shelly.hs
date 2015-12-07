@@ -25,6 +25,7 @@
 module Shelly.Lifted
        (
          MonadSh(..),
+         MonadShControl(..),
 
          -- This is copied from Shelly.hs, so that we are sure to export the
          -- exact same set of symbols.  Whenever that export list is updated,
