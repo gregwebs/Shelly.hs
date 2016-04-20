@@ -45,9 +45,9 @@ module Shelly.Pipe
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
- 
+
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, get_env_def, appendToPath
+         , setenv, get_env, get_env_text, get_env_def, appendToPath, prependToPath
 
          -- * Environment directory
          , cd, chdir, pwd
@@ -338,6 +338,10 @@ get_env_def a d = sh0 $ fmap (fromMaybe d) $ S.get_env a
 -- | see 'S.appendToPath'
 appendToPath :: FilePath -> Sh ()
 appendToPath = sh1 S.appendToPath
+
+-- | see 'S.prependToPath'
+prependToPath :: FilePath -> Sh ()
+prependToPath = sh1 S.prependToPath
 
 -- | see 'S.cd'
 cd :: FilePath -> Sh ()
