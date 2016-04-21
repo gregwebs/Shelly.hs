@@ -750,7 +750,8 @@ appendToPath = traceAbsPath ("appendToPath: " <>) >=> \filepath -> do
   pe <- get_env_text path_env
   setPath $ pe <> T.singleton searchPathSeparator <> tp
 
--- | like `appendToPath` but add the given `FilePath` at the front of the PATH env variable.
+-- | prepend the filepath to the PATH env variable
+-- similar to `appendToPath` but gives high priority to the filepath instead of low priority.
 prependToPath :: FilePath -> Sh ()
 prependToPath = traceAbsPath ("prependToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
