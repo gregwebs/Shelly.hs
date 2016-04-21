@@ -45,7 +45,7 @@ module Shelly
          , HandleInitializer, StdInit(..), initOutputHandles, initAllHandles
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath
+         , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath, prependToPath
 
          -- * Environment directory
          , cd, chdir, chdir_p, pwd
@@ -749,6 +749,13 @@ appendToPath = traceAbsPath ("appendToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
   setPath $ pe <> T.singleton searchPathSeparator <> tp
+
+-- | like `appendToPath` but add the given `FilePath` at the front of the PATH env variable.
+prependToPath :: FilePath -> Sh ()
+prependToPath = traceAbsPath ("prependToPath: " <>) >=> \filepath -> do
+  tp <- toTextWarn filepath
+  pe <- get_env_text path_env
+  setPath $ tp <> T.singleton searchPathSeparator <> pe
 
 get_environment :: Sh [(String, String)]
 get_environment = gets sEnvironment

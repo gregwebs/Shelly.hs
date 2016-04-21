@@ -51,7 +51,7 @@ module Shelly.Lifted
 
 
          -- * Modifying and querying environment.
-         , setenv, get_env, get_env_text, get_env_all, appendToPath
+         , setenv, get_env, get_env_text, get_env_all, appendToPath, prependToPath
 
          -- * Environment directory
          , cd, chdir, chdir_p, pwd
@@ -458,6 +458,9 @@ setenv = (liftSh .) . S.setenv
 
 appendToPath :: MonadSh m => FilePath -> m ()
 appendToPath = liftSh . S.appendToPath
+
+prependToPath :: MonadSh m => FilePath -> m ()
+prependToPath = liftSh . S.prependToPath
 
 get_env_all :: MonadSh m => m [(String, String)]
 get_env_all = liftSh S.get_env_all
