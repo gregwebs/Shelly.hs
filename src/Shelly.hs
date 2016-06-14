@@ -1037,6 +1037,9 @@ sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
 sshPairs server cmds = sshPairs2' run server [] cmds
 
+sshPairs' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
+sshPairs' run' server actions = sshPairs2' run' server [] actions
+   
 -- | Like 'sshPairs', but allows for arguments to the call to ssh. 
 sshPairs2 :: Text -> [Text] -> [(FilePath, [Text])] -> Sh Text
 sshPairs2 _ _ [] = return ""
