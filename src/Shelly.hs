@@ -73,6 +73,7 @@ module Shelly
          -- * Exceptions
          , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, ShellyHandler(..), catches_sh, catchany_sh
          , ReThrownException(..)
+         , RunFailed(..)
 
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, FP.fromText
