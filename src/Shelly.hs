@@ -1144,10 +1144,10 @@ run_ exe args = do
     runWithColor_ =
         runHandles exe args [OutHandle Inherit] $ \inH _ errH -> do
           state <- get
-          errVar <- liftIO $ do
+          errs <- liftIO $ do
             hClose inH -- setStdin was taken care of before the process even ran
-            (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
-          errs <- liftIO $ lineSeqToText `fmap` wait errVar
+            errVar <- (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
+            lineSeqToText `fmap` wait errVar
           modify $ \state' -> state' { sStderr = errs }
           return ()
 
@@ -1161,11 +1161,11 @@ runHandle :: FilePath -- ^ command
           -> (Handle -> Sh a) -- ^ stdout handle
           -> Sh a
 runHandle exe args withHandle = runHandles exe args [] $ \_ outH errH -> do
-    putStderr <- gets sPutStderr
-    errPromise <- liftIO $ async $ transferLinesAndCombine errH putStderr
+    state <- get
+    errVar <- liftIO $
+      (putHandleIntoMVar mempty (|>) errH (sPutStderr state) (sPrintStderr state))
     res <- withHandle outH
-    errs <- liftIO $ wait errPromise
-
+    errs <- liftIO $ lineSeqToText `fmap` wait errVar
     modify $ \state' -> state' { sStderr = errs }
     return res
 
