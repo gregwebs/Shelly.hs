@@ -311,9 +311,9 @@ inspect_err x = do
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: Text -> Sh ()
-echo       msg = traceEcho msg >> liftIO (TIO.putStrLn msg)
+echo       msg = traceEcho msg >> liftIO (TIO.putStrLn msg >> hFlush stdout)
 echo_n     msg = traceEcho msg >> liftIO (TIO.putStr msg >> hFlush stdout)
-echo_err   msg = traceEcho msg >> liftIO (TIO.hPutStrLn stderr msg)
+echo_err   msg = traceEcho msg >> liftIO (TIO.hPutStrLn stderr msg >> hFlush stdout)
 echo_n_err msg = traceEcho msg >> liftIO (TIO.hPutStr stderr msg >> hFlush stderr)
 
 traceEcho :: Text -> Sh ()
