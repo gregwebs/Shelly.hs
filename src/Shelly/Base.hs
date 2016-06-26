@@ -105,7 +105,7 @@ runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
 
 data ReadOnlyState = ReadOnlyState { rosFailToDir :: Bool }
-data State = State 
+data State = State
    { sCode :: Int -- ^ exit code for command that ran
    , sStdin :: Maybe Text -- ^ stdin for the command to be run
    , sStderr :: Text -- ^ stderr for command that ran
@@ -256,12 +256,12 @@ gets f = f <$> get
 
 get :: Sh State
 get = do
-  stateVar <- ask 
+  stateVar <- ask
   liftIO (readIORef stateVar)
 
 modify :: (State -> State) -> Sh ()
 modify f = do
-  state <- ask 
+  state <- ask
   liftIO (modifyIORef state f)
 
 -- | internally log what occurred.
@@ -311,13 +311,13 @@ inspect_err x = do
 -- | Echo text to standard (error, when using _err variants) output. The _n
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: Text -> Sh ()
-echo       = traceLiftIO TIO.putStrLn
-echo_n     = traceLiftIO $ (>> hFlush stdout) . TIO.putStr
-echo_err   = traceLiftIO $ TIO.hPutStrLn stderr
-echo_n_err = traceLiftIO $ (>> hFlush stderr) . TIO.hPutStr stderr
+echo       msg = traceEcho msg >> liftIO (TIO.putStrLn msg >> hFlush stdout)
+echo_n     msg = traceEcho msg >> liftIO (TIO.putStr msg >> hFlush stdout)
+echo_err   msg = traceEcho msg >> liftIO (TIO.hPutStrLn stderr msg >> hFlush stdout)
+echo_n_err msg = traceEcho msg >> liftIO (TIO.hPutStr stderr msg >> hFlush stderr)
 
-traceLiftIO :: (Text -> IO ()) -> Text -> Sh ()
-traceLiftIO f msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'") >> liftIO (f msg)
+traceEcho :: Text -> Sh ()
+traceEcho msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'")
 
 -- | A helper to catch any exception (same as
 -- @... `catch` \(e :: SomeException) -> ...@).
