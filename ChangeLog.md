@@ -1,3 +1,7 @@
+# 1.6.8
+
+* added sshPairsWithOptions function
+
 # 1.6.7
 
 * flush stdout when using `echo`, not just `echo_n`
