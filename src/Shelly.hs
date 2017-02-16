@@ -27,6 +27,7 @@ module Shelly
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , onCommandHandles
          , tracing, errExit
+         , followSymlink
          , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
@@ -905,6 +906,15 @@ errExit shouldExit action = sub $ do
   modify $ \st -> st { sErrExit = shouldExit }
   action
 
+-- | 'find'-command follows symbolic links. Defaults to @False@.
+-- When @True@, follow symbolic links.
+-- When @False@, never follow symbolic links.
+followSymlink :: Bool -> Sh a -> Sh a
+followSymlink enableFollowSymlink action = sub $ do
+  modify $ \st -> st { sFollowSymlink = enableFollowSymlink }
+  action
+
+
 defReadOnlyState :: ReadOnlyState
 defReadOnlyState = ReadOnlyState { rosFailToDir = False }
 
@@ -948,6 +958,7 @@ shelly' ros action = do
                    , sPathExecutables = Nothing
                    , sErrExit = True
                    , sReadOnly = ros
+                   , sFollowSymlink = False
                    }
   stref <- liftIO $ newIORef def
   let caught =

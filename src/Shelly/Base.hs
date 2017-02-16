@@ -125,6 +125,7 @@ data State = State
    , sTrace :: Text -- ^ the trace of command execution
    , sErrExit :: Bool -- ^ should we exit immediately on any error
    , sReadOnly :: ReadOnlyState
+   , sFollowSymlink :: Bool -- ^ 'find'-command follows symlinks.
    }
 
 data StdHandle = InHandle StdStream
