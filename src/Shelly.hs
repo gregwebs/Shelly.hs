@@ -27,7 +27,6 @@ module Shelly
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , onCommandHandles
          , tracing, errExit
-         , followSymlink
          , log_stdout_with, log_stderr_with
 
          -- * Running external commands.
@@ -90,6 +89,7 @@ module Shelly
 
          -- * find functions
          , find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
+         , followSymlink
          ) where
 
 import Shelly.Base

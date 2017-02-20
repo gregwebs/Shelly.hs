@@ -93,6 +93,7 @@ module Shelly.Lifted
 
          -- * find functions
          , S.find, S.findWhen, S.findFold, S.findDirFilter, S.findDirFilterWhen, S.findFoldDirFilter
+         , followSymlink
          ) where
 
 import qualified Shelly as S
@@ -344,6 +345,9 @@ escaping shouldEscape action = controlSh $ \runInSh -> S.escaping shouldEscape (
 
 errExit :: MonadShControl m => Bool -> m a -> m a
 errExit shouldExit action = controlSh $ \runInSh -> S.errExit shouldExit (runInSh action)
+
+followSymlink :: MonadShControl m => Bool -> m a -> m a
+followSymlink enableFollowSymlink action = controlSh $ \runInSh -> S.followSymlink enableFollowSymlink (runInSh action)
 
 (-|-) :: (MonadShControl m, MonadSh m) => m Text -> m b -> m b
 one -|- two = controlSh $ \runInSh -> do
