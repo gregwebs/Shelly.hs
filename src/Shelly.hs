@@ -828,12 +828,18 @@ verbosely a = sub $ modify (\x -> x
                                  , sPrintCommands = True
                                  }) >> a
 
--- | Create a sub-Sh in which stdout is sent to the user-defined logger
+-- | Create a sub-Sh in which stdout is sent to the user-defined
+-- logger.  When running with 'silently' the given log will not be
+-- called for any output. Likewise the log will also not be called for
+-- output from 'run_' and 'bash_' commands.
 log_stdout_with :: (Text -> IO ()) -> Sh a -> Sh a
 log_stdout_with logger a = sub $ modify (\s -> s { sPutStdout = logger })
                                  >> a
 
--- | Create a sub-Sh in which stderr is sent to the user-defined logger
+-- | Create a sub-Sh in which stderr is sent to the user-defined
+-- logger.  When running with 'silently' the given log will not be
+-- called for any output. However, unlike 'log_stdout_with' the log
+-- will be called for output from 'run_' and 'bash_' commands.
 log_stderr_with :: (Text -> IO ()) -> Sh a -> Sh a
 log_stderr_with logger a = sub $ modify (\s -> s { sPutStderr = logger })
                                  >> a
