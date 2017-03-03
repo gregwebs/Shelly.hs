@@ -39,7 +39,9 @@ import Data.Text (Text)
 import System.Process( ProcessHandle, StdStream(..) )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
-import Control.Monad (when, (>=>), liftM)
+import Control.Monad (when, (>=>),
+         liftM
+       )
 import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))

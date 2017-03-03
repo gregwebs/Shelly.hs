@@ -1,6 +1,6 @@
 Name:       shelly-extra
 
-Version:     0.3.0.1
+Version:     0.3.0.2
 Synopsis:    shelly features that require extra dependencies
 
 Description: A background job implementation for performing tasks in parallel.
@@ -42,6 +42,7 @@ test-suite test
     ghc-options: -Wall
 
     Build-depends: base, text, shelly, SafeSemaphore, HUnit
+    other-modules: Shelly.Background
 
 source-repository head
   type:     git

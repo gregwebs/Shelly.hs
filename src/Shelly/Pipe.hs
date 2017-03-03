@@ -119,8 +119,6 @@ import Data.Tree(Tree)
 
 import Data.Text as T hiding (concat, all, find, cons)
 
-default (T.Text)
-
 
 -- | This type is a simple wrapper for a type @Shelly.Sh@.
 -- 'Sh' contains a list of results. 
