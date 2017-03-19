@@ -178,10 +178,11 @@ cmd fp args = run fp $ toTextArgs args
 
 -- | Argument converter for the variadic argument version of 'run' called 'cmd'.
 -- Useful for a type signature of a function that uses 'cmd'
-class CmdArg a where toTextArg :: a -> Text
-instance CmdArg Text     where toTextArg = id
-instance CmdArg FilePath where toTextArg = toTextIgnore
-instance CmdArg String   where toTextArg = T.pack
+class CmdArg a where toTextArg :: a -> [Text]
+instance CmdArg Text     where toTextArg = (: []) . id
+instance CmdArg FilePath where toTextArg = (: []) . toTextIgnore
+instance CmdArg String   where toTextArg = (: []) . T.pack
+instance CmdArg a => CmdArg [a] where toTextArg = concatMap toTextArg
 
 -- | For the variadic function 'cmd'
 --
@@ -200,10 +201,7 @@ instance ShellCmd (Sh ()) where
     cmdAll = run_
 
 instance (CmdArg arg, ShellCmd result) => ShellCmd (arg -> result) where
-    cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
-
-instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
-    cmdAll fp acc x = cmdAll fp (acc ++ map toTextArg x)
+    cmdAll fp acc x = cmdAll fp (acc ++ toTextArg x)
 
 
 
