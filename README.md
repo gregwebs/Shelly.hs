@@ -47,7 +47,7 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 ## Alternatives
 
-### Haskell shell scripting libarires
+### Haskell shell scripting libraries
 
 
 * [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
