@@ -67,3 +67,13 @@ findSpec = do
                     "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs",
                     "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
+
+    it "follow symlinks" $ do
+      res <- shelly $ followSymlink True $ relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
+      sort res @?=  ["dir","nonascii.txt","symlinked_dir","zshrc","dir/symlinked_dir",
+                     "dir/symlinked_dir/hoge_file","symlinked_dir/hoge_file"]
+
+    it "not follow symlinks" $ do
+      res <- shelly $ followSymlink False $ relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
+      sort res @?=  ["dir","nonascii.txt","symlinked_dir","zshrc","dir/symlinked_dir",
+                     "symlinked_dir/hoge_file"]
