@@ -1073,7 +1073,7 @@ sshPairsWithOptions' run' server sshargs actions = escaping False $ do
           (map toSSH actions)
     run' "ssh" ([server] ++ sshargs ++ [ssh_commands])
   where
-    toSSH (exe,args) = show_command exe args
+    toSSH (exe,args) = T.replace "'" "'\"'\"'" $ show_command exe args
 
 
 data QuietExit = QuietExit Int deriving (Show, Typeable)
