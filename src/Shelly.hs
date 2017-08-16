@@ -1393,7 +1393,10 @@ readBinary = traceAbsPath ("readBinary " <>)
 hasExt :: Text -> FilePath -> Bool
 hasExt = flip hasExtension
 
--- | Run a Sh computation and collect timing  information.
+-- | Run a Sh computation and collect timing information.
+--   The value returned is the amount of _real_ time spent running the computation
+--   in seconds, as measured by the system clock.
+--   The precision is determined by the resolution of `getCurrentTime`.
 time :: Sh a -> Sh (Double, a)
 time what = sub $ do
   trace "time"
