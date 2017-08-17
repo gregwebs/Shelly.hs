@@ -34,7 +34,7 @@ module Shelly
          , bash, bash_, bashPipeFail
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
-         , sshPairs,sshPairsP, sshPairs_, sshPairsWithOptions
+         , sshPairs,sshPairsP, sshPairs_,sshPairsP_, sshPairsWithOptions
          , ShellCmd(..), CmdArg (..)
 
          -- * Running commands Using handles
