@@ -363,6 +363,9 @@ shellyProcess reusedHandles st cmdSpec =  do
         , child_group = Nothing
         , child_user = Nothing
 #endif
+#if MIN_VERSION_process(1,5,0)
+        , use_process_jobs = False
+#endif
         }
     return ( just $ createdInH <|> toHandle mInH
            , just $ createdOutH <|> toHandle mOutH
