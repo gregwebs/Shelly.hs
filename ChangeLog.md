@@ -1,3 +1,7 @@
+# 1.6.8.5
+
+* Fix Windows build [#155](https://github.com/yesodweb/Shelly.hs/pull/155)
+
 # 1.6.8
 
 * added sshPairsWithOptions function
