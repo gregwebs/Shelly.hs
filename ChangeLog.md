@@ -1,3 +1,7 @@
+# 1.6.8.6
+
+* Fix Build issue [#156](https://github.com/yesodweb/Shelly.hs/issues/156)
+
 # 1.6.8.5
 
 * Fix Windows build [#155](https://github.com/yesodweb/Shelly.hs/pull/155)
