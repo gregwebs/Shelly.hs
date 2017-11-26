@@ -1,3 +1,7 @@
+# 1.6.8.7
+
+* Relax unix-compat constraints
+
 # 1.6.8.6
 
 * Fix Build issue [#156](https://github.com/yesodweb/Shelly.hs/issues/156)
