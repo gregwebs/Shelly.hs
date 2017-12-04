@@ -34,7 +34,7 @@ module Shelly
          , bash, bash_, bashPipeFail
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
-         , sshPairs, sshPairs_, sshPairsWithOptions
+         , sshPairs,sshPairsP, sshPairs_,sshPairsP_, sshPairsWithOptions
          , ShellCmd(..), CmdArg (..)
 
          -- * Running commands Using handles
@@ -1039,10 +1039,18 @@ show_command exe args =
 surround :: Char -> Text -> Text
 surround c t = T.cons c $ T.snoc t c
 
+data SshMode = Par | Seq
+
 -- | same as 'sshPairs', but returns ()
 sshPairs_ :: Text -> [(FilePath, [Text])] -> Sh ()
 sshPairs_ _ [] = return ()
 sshPairs_ server cmds = sshPairs' run_ server cmds
+
+-- | same as 'sshPairsP', but returns ()
+
+sshPairsP_ :: Text -> [(FilePath, [Text])] -> Sh ()
+sshPairsP_ _ [] = return ()
+sshPairsP_ server cmds = sshPairsP' run_ server cmds
 
 -- | run commands over SSH.
 -- An ssh executable is expected in your path.
@@ -1056,10 +1064,19 @@ sshPairs_ server cmds = sshPairs' run_ server cmds
 -- Internally the list of commands are combined with the string @&&@ before given to ssh.
 sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
-sshPairs server cmds = sshPairsWithOptions' run server [] cmds
+sshPairs server cmds = sshPairsWithOptions' run server [] cmds Seq
+
+-- | Same as sshPairs, but combines commands with the string @&@, so they will be started in parallell.
+
+sshPairsP :: Text -> [(FilePath, [Text])] -> Sh Text 
+sshPairsP _ [] = return ""
+sshPairsP server cmds = sshPairsWithOptions' run server [] cmds Par
+
+sshPairsP' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
+sshPairsP' run' server actions = sshPairsWithOptions' run' server [] actions Par
 
 sshPairs' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
-sshPairs' run' server actions = sshPairsWithOptions' run' server [] actions
+sshPairs' run' server actions = sshPairsWithOptions' run' server [] actions Seq
    
 -- | Like 'sshPairs', but allows for arguments to the call to ssh. 
 sshPairsWithOptions :: Text                  -- ^ Server name.
@@ -1067,12 +1084,14 @@ sshPairsWithOptions :: Text                  -- ^ Server name.
                     -> [(FilePath, [Text])]  -- ^ Pairs of commands to run on the remote.
                     -> Sh Text               -- ^ Returns the standard output.
 sshPairsWithOptions _ _ [] = return ""
-sshPairsWithOptions server sshargs cmds = sshPairsWithOptions' run server sshargs cmds
+sshPairsWithOptions server sshargs cmds = sshPairsWithOptions' run server sshargs cmds Seq
 
-sshPairsWithOptions' :: (FilePath -> [Text] -> Sh a) -> Text -> [Text] -> [(FilePath, [Text])] -> Sh a
-sshPairsWithOptions' run' server sshargs actions = escaping False $ do
+sshPairsWithOptions' :: (FilePath -> [Text] -> Sh a) -> Text -> [Text] -> [(FilePath, [Text])] -> SshMode  -> Sh a
+sshPairsWithOptions' run' server sshargs actions mode = escaping False $ do
     let ssh_commands = surround '\'' $ foldl1
-          (\memo next -> memo <> " && " <> next)
+          (\memo next -> case mode of 
+                         Seq -> memo <> " && " <> next
+                         Par -> memo <> " & " <> next)
           (map toSSH actions)
     run' "ssh" ([server] ++ sshargs ++ [ssh_commands])
   where
