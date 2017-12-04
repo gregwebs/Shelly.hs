@@ -78,10 +78,9 @@ Shelly's finders load all files into memory. This is simpler to use if you contr
 Shelly does not change the nature of shell scripting (text in, text out).
 If you want something more revolutionary you might try these:
 
-* [Plush](https://github.com/mzero/plush) shell with nice GUI. Written in Haskell. Actively developed, unlike [TermKit](https://github.com/unconed/TermKit/)
-* PowerShell is proably the best known.
+* PowerShell is probably the best known.
 * [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
-* [untyped JSON](https://github.com/benbernard/RecordStream)
+* [RecordStream](https://github.com/benbernard/RecordStream) untyped JSON]
 
 
 ## Usage
