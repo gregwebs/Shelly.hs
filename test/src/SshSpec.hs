@@ -4,15 +4,15 @@ import TestInit
 
 sshSpec :: Spec
 sshSpec = do
-  describe "sshCommand" $ do
+  describe "sshCommandText" $ do
     it "simple command" $ do
-      let res = sshCommand [("wibble", [])] SeqSsh
+      let res = sshCommandText [("wibble", [])] SeqSsh
       res @?= "\"wibble\""
 
     it "space command" $ do
-      let res = sshCommand [("to", ["outer space"])] SeqSsh
+      let res = sshCommandText [("to", ["outer space"])] SeqSsh
       res @?= "\"to 'outer space'\""
 
     it "multiple space commands" $ do
-      let res = sshCommand [("to", ["outer space"]), ("and", ["back again"])] SeqSsh
+      let res = sshCommandText [("to", ["outer space"]), ("and", ["back again"])] SeqSsh
       res @?= "\"to 'outer space' && and 'back again'\""

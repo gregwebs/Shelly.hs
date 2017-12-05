@@ -35,7 +35,7 @@ module Shelly
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs,sshPairsPar, sshPairs_,sshPairsPar_, sshPairsWithOptions
-         , sshCommand, SshMode(..)
+         , sshCommandText, SshMode(..)
          , ShellCmd(..), CmdArg (..)
 
          -- * Running commands Using handles
@@ -1094,10 +1094,10 @@ sshPairsWithOptions server sshargs cmds = sshPairsWithOptions' run server ssharg
 
 sshPairsWithOptions' :: (FilePath -> [Text] -> Sh a) -> Text -> [Text] -> [(FilePath, [Text])] -> SshMode  -> Sh a
 sshPairsWithOptions' run' server sshargs actions mode = escaping False $ do
-    run' "ssh" ([server] ++ sshargs ++ [sshCommand actions mode])
+    run' "ssh" ([server] ++ sshargs ++ [sshCommandText actions mode])
 
-sshCommand :: [(FilePath, [Text])] -> SshMode -> Text
-sshCommand actions mode =
+sshCommandText :: [(FilePath, [Text])] -> SshMode -> Text
+sshCommandText actions mode =
     surround '"' (foldl1 joiner (map toSSH actions))
   where
     toSSH (exe,args) = show_command exe args
