@@ -1100,7 +1100,7 @@ sshCommand :: [(FilePath, [Text])] -> SshMode -> Text
 sshCommand actions mode =
     surround '\'' (foldl1 joiner (map toSSH actions))
   where
-    toSSH (exe,args) = show_command exe args
+    toSSH (exe,args) = T.replace "'" "'\"'\"'" (show_command exe args)
     joiner memo next = case mode of
         SeqSsh -> memo <> " && " <> next
         ParSsh -> memo <> " & " <> next
