@@ -29,7 +29,7 @@ findSpec = do
       res <- shelly $ cd "test/src" >> ls "."
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
-                    "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs",
+                    "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
@@ -37,7 +37,7 @@ findSpec = do
       res <- shelly $ cd "test/src" >> find "."
       sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
-                    "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs",
+                    "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
@@ -56,7 +56,7 @@ findSpec = do
       sort res @?= ["test/src/CopySpec.hs", "test/src/EnvSpec.hs", "test/src/FailureSpec.hs",
                     "test/src/FindSpec.hs", "test/src/Help.hs", "test/src/LiftedSpec.hs",
                     "test/src/LogWithSpec.hs", "test/src/MoveSpec.hs", "test/src/ReadFileSpec.hs",
-                    "test/src/RmSpec.hs", "test/src/RunSpec.hs",
+                    "test/src/RmSpec.hs", "test/src/RunSpec.hs", "test/src/SshSpec.hs",
                     "test/src/TestInit.hs", "test/src/TestMain.hs", "test/src/WhichSpec.hs", "test/src/WriteSpec.hs",
                     "test/src/sleep.hs"]
 
@@ -64,7 +64,7 @@ findSpec = do
       res <- shelly $ relPath "test/src" >>= find >>= mapM (relativeTo "test/src")
       sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs",
                     "Help.hs", "LiftedSpec.hs", "LogWithSpec.hs", "MoveSpec.hs",
-                    "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs",
+                    "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs", "SshSpec.hs",
                     "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
 

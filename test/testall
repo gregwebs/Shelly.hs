@@ -41,6 +41,7 @@ ReadFileSpec
 WhichSpec
 WriteSpec
 RunSpec
+SshSpec
 '
 
 EXCL=""

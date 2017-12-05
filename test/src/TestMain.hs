@@ -12,6 +12,7 @@ import FailureSpec
 import CopySpec
 import LiftedSpec
 import RunSpec
+import SshSpec
 
 import Test.Hspec
 
@@ -28,3 +29,4 @@ main = hspec $ do
     copySpec
     liftedSpec
     runSpec
+    sshSpec

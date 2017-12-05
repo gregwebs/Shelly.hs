@@ -100,6 +100,7 @@ Test-Suite shelly-testsuite
     ReadFileSpec
     RmSpec
     RunSpec
+    SshSpec
     Shelly
     Shelly.Base
     Shelly.Find
