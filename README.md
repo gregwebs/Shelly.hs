@@ -144,7 +144,7 @@ Building up abstractions with cmd will require type signatures.
 ### Escaping
 
 By default, all commands are shell escaped.
-If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...` 
+If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...`
 
 ### Using Text and FilePath together
 
@@ -179,6 +179,4 @@ You can turn tracing off (not generally recommended) by setting `tracing False`.
 
 ## Future plans
 
-* improved SSH API
-* more efficient piping/redirecting (issue #18)
-* more efficient find functions (issue #23)
+* Don't use the filepath library
