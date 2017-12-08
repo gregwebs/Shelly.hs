@@ -1093,17 +1093,26 @@ sshPairsWithOptions _ _ [] = return ""
 sshPairsWithOptions server sshargs cmds = sshPairsWithOptions' run server sshargs cmds SeqSsh
 
 sshPairsWithOptions' :: (FilePath -> [Text] -> Sh a) -> Text -> [Text] -> [(FilePath, [Text])] -> SshMode  -> Sh a
-sshPairsWithOptions' run' server sshargs actions mode = escaping False $ do
-    run' "ssh" ([server] ++ sshargs ++ [sshCommandText actions mode])
+sshPairsWithOptions' run' server sshargs actions mode = do
+  state <- get
+  escaping False $ do
+    run' "ssh" ([server] ++ sshargs ++ [sshCommandText actions (sCommandEscaping state) mode])
 
-sshCommandText :: [(FilePath, [Text])] -> SshMode -> Text
-sshCommandText actions mode =
+sshCommandText :: [(FilePath, [Text])] -> Bool -> SshMode -> Text
+sshCommandText actions shouldEscape mode =
     surround '"' (foldl1 joiner (map toSSH actions))
   where
-    toSSH (exe,args) = show_command exe args
+    toSSH (exe,args) = (if shouldEscape then quoteCommand else show_command) exe args
     joiner memo next = case mode of
         SeqSsh -> memo <> " && " <> next
         ParSsh -> memo <> " & " <> next
+
+    quoteCommand :: FilePath -> [Text] -> Text
+    quoteCommand exe args =
+        T.intercalate " " $ map quote (toTextIgnore exe : args)
+      where
+        quote t | T.any (== '\'') t = t
+        quote t | otherwise = surround '\'' t
 
 data QuietExit = QuietExit Int deriving (Show, Typeable)
 instance Exception QuietExit
