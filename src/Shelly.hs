@@ -1046,10 +1046,8 @@ show_command exe args =
 -- quote one argument
 quoteOne :: Text -> Text
 quoteOne t =
-    surround '\'' $ T.concatMap mapSingleQuote t
-    where
-      mapSingleQuote c | c == '\'' = "'\\''"
-      mapSingleQuote c | otherwise = T.pack [c]
+    surround '\'' $ T.replace "'" "'\\''" t
+
 
 -- returns a string that can be executed by a shell.
 -- NOTE: all parts are treated literally, which means that
