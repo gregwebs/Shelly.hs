@@ -1043,6 +1043,19 @@ show_command exe args =
     quote t | T.any isSpace t = surround '\'' t
     quote t | otherwise = t
 
+-- quote one argument
+quoteOne :: Text -> Text
+quoteOne t =
+    surround '\'' $ T.replace "'" "'\\''" t
+
+
+-- returns a string that can be executed by a shell.
+-- NOTE: all parts are treated literally, which means that
+-- things like variable expansion will not be available.
+quoteCommand :: FilePath -> [Text] -> Text
+quoteCommand exe args =
+    T.intercalate " " $ map quoteOne (toTextIgnore exe : args)
+
 surround :: Char -> Text -> Text
 surround c t = T.cons c $ T.snoc t c
 
@@ -1067,7 +1080,13 @@ sshPairsPar_ server cmds = sshPairsPar' run_ server cmds
 --
 -- This interface is crude, but it works for now.
 --
--- Please note this sets 'escaping' to False: the commands will not be shell escaped.
+-- Please note this sets 'escaping' to False, and the remote commands are
+-- quoted with single quotes, in a way such that the remote commands will see
+-- the literal values you passed, this means that no variable expansion and
+-- alike will done on either the local shell or the remote shell, and that
+-- if there are a single or double quotes in your arguments, they need not
+-- to be quoted manually.
+--
 -- Internally the list of commands are combined with the string @&&@ before given to ssh.
 sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
@@ -1098,9 +1117,8 @@ sshPairsWithOptions' run' server sshargs actions mode = escaping False $ do
 
 sshCommandText :: [(FilePath, [Text])] -> SshMode -> Text
 sshCommandText actions mode =
-    surround '"' (foldl1 joiner (map toSSH actions))
+    quoteOne (foldl1 joiner (map (uncurry quoteCommand) actions))
   where
-    toSSH (exe,args) = show_command exe args
     joiner memo next = case mode of
         SeqSsh -> memo <> " && " <> next
         ParSsh -> memo <> " & " <> next
