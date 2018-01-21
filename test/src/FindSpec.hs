@@ -2,6 +2,22 @@ module FindSpec ( findSpec ) where
 
 import TestInit
 import Data.List (sort)
+import System.Directory (createDirectoryIfMissing)
+import System.PosixCompat.Files (createSymbolicLink, fileExist)
+import qualified System.FilePath as SF
+
+createSymlinkForTest :: IO ()
+createSymlinkForTest = do
+  createDirectoryIfMissing False symDir
+  fexist <- fileExist (symDir SF.</> "symlinked_dir")
+  if fexist
+    then return ()
+    else createSymbolicLink
+           (".." SF.</> "symlinked_dir")
+           (symDir SF.</> "symlinked_dir")
+  where
+    rootDir = "test" SF.</> "data"
+    symDir = rootDir SF.</> "dir"
 
 findSpec :: Spec
 findSpec = do
@@ -68,12 +84,32 @@ findSpec = do
                     "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
 
-    it "follow symlinks" $ do
-      res <- shelly $ followSymlink True $ relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
-      sort res @?=  ["dir","nonascii.txt","symlinked_dir","zshrc","dir/symlinked_dir",
-                     "dir/symlinked_dir/hoge_file","symlinked_dir/hoge_file"]
+    before createSymlinkForTest $ do
+      it "follow symlinks" $
+         do res <-
+              shelly $
+              followSymlink True $
+              relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
+            sort res @?=
+              [ "dir"
+              , "nonascii.txt"
+              , "symlinked_dir"
+              , "zshrc"
+              , "dir/symlinked_dir"
+              , "dir/symlinked_dir/hoge_file"
+              , "symlinked_dir/hoge_file"
+              ]
+      it "not follow symlinks" $
+         do res <-
+              shelly $
+              followSymlink False $
+              relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
+            sort res @?=
+              [ "dir"
+              , "nonascii.txt"
+              , "symlinked_dir"
+              , "zshrc"
+              , "dir/symlinked_dir"
+              , "symlinked_dir/hoge_file"
+              ]
 
-    it "not follow symlinks" $ do
-      res <- shelly $ followSymlink False $ relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
-      sort res @?=  ["dir","nonascii.txt","symlinked_dir","zshrc","dir/symlinked_dir",
-                     "symlinked_dir/hoge_file"]
