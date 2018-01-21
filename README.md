@@ -1,5 +1,10 @@
 # Shelly
 
+[![Build Status](https://travis-ci.org/yesodweb/Shelly.hs.svg?branch=master)](https://travis-ci.org/yesodweb/Shelly.hs)
+[![Hackage](https://img.shields.io/hackage/v/shelly.svg)](https://hackage.haskell.org/package/shelly)
+[![Stackage Nightly](http://stackage.org/package/shelly/badge/nightly)](http://stackage.org/nightly/package/shelly)
+[![Stackage LTS](http://stackage.org/package/shelly/badge/lts)](http://stackage.org/lts/package/shelly)
+
 Shelly provides a single module for convenient systems programming in Haskell.
 
 * is aimed at convenience and getting things done rather than being a demonstration of elegance.
