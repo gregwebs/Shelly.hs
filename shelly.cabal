@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.7.0
+Version:     1.7.0.1
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -37,6 +37,7 @@ extra-source-files: test/src/*.hs
                     test/examples/*.hs
                     test/data/zshrc
                     test/data/nonascii.txt
+                    test/data/symlinked_dir/hoge_file
                     test/testall
                     README.md
                     ChangeLog.md
@@ -135,6 +136,7 @@ Test-Suite shelly-testsuite
     hspec                     >= 1.5,
     transformers,
     transformers-base,
+    filepath,
     monad-control,
     lifted-base,
     lifted-async,
