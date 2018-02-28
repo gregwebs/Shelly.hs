@@ -33,4 +33,7 @@ envSpec = do
         get_env_text "SHELLY"
       assert $ res == "test"
  
-
+  describe "get_env \"PATH\" (OS compatibility test)" $ do
+    it "get_env" $ do
+      res <- shelly $ get_env "PATH"
+      assert $ isJust res

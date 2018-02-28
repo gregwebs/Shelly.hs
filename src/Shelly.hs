@@ -103,7 +103,7 @@ import Prelude hiding ( readFile, FilePath, catch)
 #else
 import Prelude hiding ( readFile, FilePath)
 #endif
-import Data.Char ( isAlphaNum, isSpace )
+import Data.Char ( isAlphaNum, isSpace, toLower )
 import Data.Typeable
 import Data.IORef
 import Data.Sequence (Seq, (|>))
@@ -744,7 +744,8 @@ setenv k v = if k == path_env then setPath v else setenvRaw k v
 setenvRaw :: Text -> Text -> Sh ()
 setenvRaw k v = modify $ \x -> x { sEnvironment = wibble $ sEnvironment x }
   where
-    (kStr, vStr) = (T.unpack k, T.unpack v)
+    normK = normalizeEnvVarNameText k
+    (kStr, vStr) = (T.unpack normK, T.unpack v)
     wibble environment = (kStr, vStr) : filter ((/=kStr) . fst) environment
 
 setPath :: Text -> Sh ()
@@ -753,7 +754,7 @@ setPath newPath = do
   setenvRaw path_env newPath
 
 path_env :: Text
-path_env = "PATH"
+path_env = normalizeEnvVarNameText "PATH"
 
 -- | add the filepath onto the PATH env variable
 appendToPath :: FilePath -> Sh ()
@@ -778,14 +779,40 @@ get_environment = gets sEnvironment
 get_env_all :: Sh [(String, String)]
 get_env_all = gets sEnvironment
 
+-- On Windows, normalize all environment variable names (to lowercase)
+-- to account for case insensitivity.
+#if defined(mingw32_HOST_OS)
+
+normalizeEnvVarNameText :: Text -> Text
+normalizeEnvVarNameText = T.toLower
+
+normalizeEnvVarNameString :: String -> String
+normalizeEnvVarNameString = fmap toLower
+
+-- On other systems, keep the variable names as-is.
+#else
+
+normalizeEnvVarNameText :: Text -> Text
+normalizeEnvVarNameText = id
+
+normalizeEnvVarNameString :: String -> String
+normalizeEnvVarNameString = id
+
+#endif
+
 -- | Fetch the current value of an environment variable.
 -- if non-existant or empty text, will be Nothing
 get_env :: Text -> Sh (Maybe Text)
 get_env k = do
-  mval <- return . fmap T.pack . lookup (T.unpack k) =<< gets sEnvironment
+  mval <- return
+          . fmap T.pack
+          . lookup (T.unpack normK)
+          =<< gets sEnvironment
   return $ case mval of
     Nothing  -> Nothing
     Just val -> if (not $ T.null val) then Just val else Nothing
+  where
+  normK = normalizeEnvVarNameText k
 
 -- | deprecated
 getenv :: Text -> Sh Text
@@ -946,6 +973,17 @@ shellyNoDir = shelly' ReadOnlyState { rosFailToDir = False }
 shellyFailDir :: MonadIO m => Sh a -> m a
 shellyFailDir = shelly' ReadOnlyState { rosFailToDir = True }
 
+getNormalizedEnvironment :: IO [(String, String)]
+getNormalizedEnvironment =
+#if defined(mingw32_HOST_OS)
+  -- On Windows, normalize all environment variable names (to lowercase)
+  -- to account for case insensitivity.
+  fmap (\(a, b) -> (normalizeEnvVarNameString a, b)) <$> getEnvironment
+#else
+  -- On other systems, keep the environment as-is.
+  getEnvironment
+#endif
+
 -- | Enter a Sh from (Monad)IO. The environment and working directories are
 -- inherited from the current process-wide values. Any subsequent changes in
 -- processwide working directory or environment are not reflected in the
@@ -955,7 +993,7 @@ shelly = shelly' defReadOnlyState
 
 shelly' :: MonadIO m => ReadOnlyState -> Sh a -> m a
 shelly' ros action = do
-  environment <- liftIO getEnvironment
+  environment <- liftIO getNormalizedEnvironment
   dir <- liftIO getWorkingDirectory
   let def  = State { sCode = 0
                    , sStdin = Nothing
