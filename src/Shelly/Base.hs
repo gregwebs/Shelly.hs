@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE InstanceSigs#-}
 -- | I started exposing multiple module (starting with one for finding)
 -- Base prevented circular dependencies
 -- However, Shelly went back to exposing a single module
@@ -102,6 +104,23 @@ instance Catch.MonadMask Sh where
   uninterruptibleMask a =
     Sh $ ReaderT $ \e -> Catch.uninterruptibleMask $ \u -> runSh (a $ q u) e
       where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
+#if MIN_VERSION_exceptions(0,9,0)
+  generalBracket
+    :: Sh a
+    -> (a -> Sh ignored1)
+    -> (a -> SomeException -> Sh ignored2)
+    -> (a -> Sh b)
+    -> Sh b
+  generalBracket acquire release cleanup use =
+    Sh $
+    ReaderT $
+    \(r :: IORef State) ->
+       Catch.generalBracket
+         ((runReaderT . unSh) acquire r)
+         (\resource -> (runReaderT . unSh) (release resource) r)
+         (\resource e -> (runReaderT . unSh) (cleanup resource e) r)
+         (\resource -> (runReaderT . unSh) (use resource) r)
+#endif
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
