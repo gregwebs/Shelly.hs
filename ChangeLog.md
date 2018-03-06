@@ -1,3 +1,7 @@
+# 1.7.2
+
+* Support exceptions-0.9
+
 # 1.7.0.1
 
 * Fix FindSpec.hs tests. Fixes [#150](https://github.com/yesodweb/Shelly.hs/issues/150), [#162](https://github.com/yesodweb/Shelly.hs/issues/162)

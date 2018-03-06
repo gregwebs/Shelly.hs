@@ -1,3 +1,4 @@
+{-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE CPP #-}
 {-# LANGUAGE GeneralizedNewtypeDeriving #-}
@@ -7,6 +8,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE InstanceSigs#-}
 -- | I started exposing multiple module (starting with one for finding)
 -- Base prevented circular dependencies
 -- However, Shelly went back to exposing a single module
@@ -69,7 +71,7 @@ type ShIO a = Sh a
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
+  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor, Catch.MonadMask)
 
 instance MonadBase IO Sh where
     liftBase = Sh . ReaderT . const
@@ -95,13 +97,6 @@ instance Catch.MonadThrow Sh where
 instance Catch.MonadCatch Sh where
   catch (Sh (ReaderT m)) c =
       Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
-
-instance Catch.MonadMask Sh where
-  mask a = Sh $ ReaderT $ \e -> Catch.mask $ \u -> runSh (a $ q u) e
-    where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
-  uninterruptibleMask a =
-    Sh $ ReaderT $ \e -> Catch.uninterruptibleMask $ \u -> runSh (a $ q u) e
-      where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
