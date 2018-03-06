@@ -71,7 +71,7 @@ type ShIO a = Sh a
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor)
+  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor, Catch.MonadMask)
 
 instance MonadBase IO Sh where
     liftBase = Sh . ReaderT . const
@@ -97,30 +97,6 @@ instance Catch.MonadThrow Sh where
 instance Catch.MonadCatch Sh where
   catch (Sh (ReaderT m)) c =
       Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
-
-instance Catch.MonadMask Sh where
-  mask a = Sh $ ReaderT $ \e -> Catch.mask $ \u -> runSh (a $ q u) e
-    where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
-  uninterruptibleMask a =
-    Sh $ ReaderT $ \e -> Catch.uninterruptibleMask $ \u -> runSh (a $ q u) e
-      where q u (Sh (ReaderT b)) = Sh (ReaderT (u . b))
-#if MIN_VERSION_exceptions(0,9,0)
-  generalBracket
-    :: Sh a
-    -> (a -> Sh ignored1)
-    -> (a -> SomeException -> Sh ignored2)
-    -> (a -> Sh b)
-    -> Sh b
-  generalBracket acquire release cleanup use =
-    Sh $
-    ReaderT $
-    \(r :: IORef State) ->
-       Catch.generalBracket
-         ((runReaderT . unSh) acquire r)
-         (\resource -> (runReaderT . unSh) (release resource) r)
-         (\resource e -> (runReaderT . unSh) (cleanup resource e) r)
-         (\resource -> (runReaderT . unSh) (use resource) r)
-#endif
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
