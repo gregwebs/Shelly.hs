@@ -7,7 +7,7 @@ import Test.Hspec
 import Shelly.Lifted
 import Control.Concurrent.Async.Lifted
 import Control.Monad.Trans.Maybe
-import Test.Hspec.HUnit ()
+import Test.Hspec.Contrib.HUnit ()
 
 liftedSpec :: Spec
 liftedSpec =
