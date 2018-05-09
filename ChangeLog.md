@@ -1,3 +1,7 @@
+# 1.8.0
+
+* `cp_r` now uses upper case R: `cp -R`
+
 # 1.7.2
 
 * Support exceptions-0.9
