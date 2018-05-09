@@ -1399,7 +1399,7 @@ cp_r from' to' = do
     from <- absPath from'
     fromIsDir <- (test_d from)
     if not fromIsDir then cp from' to' else do
-       trace $ "cp -r " <> toTextIgnore from <> " " <> toTextIgnore to'
+       trace $ "cp -R " <> toTextIgnore from <> " " <> toTextIgnore to'
        to <- absPath to'
        toIsDir <- test_d to
 
