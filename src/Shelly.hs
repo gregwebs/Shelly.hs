@@ -141,7 +141,7 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory )
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink, getSymbolicLinkTarget, createFileLink )
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
@@ -1398,7 +1398,7 @@ cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
     from <- absPath from'
     fromIsDir <- (test_d from)
-    if not fromIsDir then cp from' to' else do
+    if not fromIsDir then cp' False from' to' else do
        trace $ "cp_r " <> toTextIgnore from <> " " <> toTextIgnore to'
        to <- absPath to'
        toIsDir <- test_d to
@@ -1415,17 +1415,25 @@ cp_r from' to' = do
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
 cp :: FilePath -> FilePath -> Sh ()
-cp from' to' = do
+cp = cp' True
+
+cp' :: Bool -> FilePath -> FilePath -> Sh ()
+cp' shouldFollowSymlinks from' to' = do
   from <- absPath from'
   to <- absPath to'
   trace $ "cp " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
-  liftIO $ copyFile from to_loc `catchany` (\e -> throwIO $
-      ReThrownException e (extraMsg to_loc from)
-    )
+  if shouldFollowSymlinks then copyNormal from to_loc else do
+    isSymlink <- liftIO $ pathIsSymbolicLink from
+    if not isSymlink then copyNormal from to_loc else do
+      target <- liftIO $ getSymbolicLinkTarget from
+      liftIO $ createFileLink target to_loc
   where
     extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
+    copyNormal from to = liftIO $ copyFile from to `catchany` (\e -> throwIO $
+          ReThrownException e (extraMsg to from)
+        )
 
 
 
