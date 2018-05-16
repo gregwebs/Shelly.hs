@@ -1448,7 +1448,7 @@ createFileLink
 createFileLink target link =
   (`ioeAddLocation` "createFileLink") `modifyIOError` do
 #ifdef mingw32_HOST_OS
-    createSymbolicLink False target link
+    Win32.createSymbolicLink False target link
 #else
     Posix.createSymbolicLink target link
 #endif
@@ -1457,7 +1457,7 @@ getSymbolicLinkTarget :: String -> IO String
 getSymbolicLinkTarget path =
   (`ioeAddLocation` "getSymbolicLinkTarget") `modifyIOError` do
 #ifdef mingw32_HOST_OS
-    readSymbolicLink path
+    Win32.readSymbolicLink path
 #else
     Posix.readSymbolicLink path
 #endif
