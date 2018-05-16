@@ -110,7 +110,7 @@ import Data.Sequence (Seq, (|>))
 import Data.Foldable (toList)
 import Data.Maybe
 import System.IO ( hClose, stderr, stdout, openTempFile)
-import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
+import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation, modifyIOError, ioeSetLocation, ioeGetLocation)
 import System.Exit
 import System.Environment
 import Control.Applicative
@@ -128,6 +128,12 @@ import qualified Data.Text as T
 import qualified Data.ByteString as BS
 import Data.ByteString (ByteString)
 
+#ifdef mingw32_HOST_OS
+import qualified System.Win32 as Win32
+#else
+import qualified System.Posix as Posix
+#endif
+
 import Data.Monoid (Monoid, mempty, mappend)
 #if __GLASGOW_HASKELL__ < 704
 infixr 5 <>
@@ -141,7 +147,7 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink, getSymbolicLinkTarget, createFileLink)
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink)
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
@@ -1435,7 +1441,33 @@ cp_should_follow_symlinks shouldFollowSymlinks from' to' = do
           ReThrownException e (extraMsg to from)
         )
 
+createFileLink
+  :: String                           -- ^ path to the target file
+  -> String                           -- ^ path of the link to be created
+  -> IO ()
+createFileLink target link =
+  (`ioeAddLocation` "createFileLink") `modifyIOError` do
+#ifdef mingw32_HOST_OS
+    createSymbolicLink False target link
+#else
+    Posix.createSymbolicLink target link
+#endif
 
+getSymbolicLinkTarget :: String -> IO String
+getSymbolicLinkTarget path =
+  (`ioeAddLocation` "getSymbolicLinkTarget") `modifyIOError` do
+#ifdef mingw32_HOST_OS
+    readSymbolicLink path
+#else
+    Posix.readSymbolicLink path
+#endif
+
+ioeAddLocation :: IOError -> String -> IOError
+ioeAddLocation e loc = do
+  ioeSetLocation e newLoc
+  where
+    newLoc = loc <> if Prelude.null oldLoc then "" else ":" <> oldLoc
+    oldLoc = ioeGetLocation e
 
 -- | Create a temporary directory and pass it as a parameter to a Sh
 -- computation. The directory is nuked afterwards.
