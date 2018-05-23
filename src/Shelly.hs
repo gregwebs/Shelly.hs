@@ -110,7 +110,6 @@ import Data.IORef
 import Data.Sequence (Seq, (|>))
 import Data.Foldable (toList)
 import Data.Maybe
-import System.Directory (pathIsSymbolicLink)
 import System.IO ( hClose, stderr, stdout, openTempFile)
 import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
 import System.Exit
@@ -143,7 +142,7 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory)
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink )
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
