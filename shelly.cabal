@@ -44,7 +44,7 @@ extra-source-files: test/src/*.hs
 
 Library
   Exposed-modules: Shelly, Shelly.Lifted, Shelly.Pipe, Shelly.Unix
-  other-modules:   Shelly.Base, Shelly.Find
+  other-modules:   Shelly.Base, Shelly.Find, Shelly.Directory
   hs-source-dirs: src
 
   Build-depends:
