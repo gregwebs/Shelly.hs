@@ -111,7 +111,7 @@ Test-Suite shelly-testsuite
     WhichSpec
     WriteSpec
 
-  ghc-options: -O2 -Wall -fwarn-tabs -funbox-strict-fields -threaded
+  ghc-options: -Wall -fwarn-tabs -funbox-strict-fields -threaded
                -fno-warn-unused-do-bind -fno-warn-type-defaults
 
 
