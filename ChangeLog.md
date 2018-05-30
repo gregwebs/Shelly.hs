@@ -1,3 +1,7 @@
+# 1.8.1
+
+There is a new function `cp_should_follow_symlinks` to specify whether a copy should follow symlinks.
+
 # 1.8.0
 
 * `cp_r` now uses upper case R: `cp -R`
