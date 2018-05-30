@@ -94,6 +94,7 @@ module Shelly
          ) where
 
 import Shelly.Base
+import Shelly.Directory
 import Shelly.Find
 import Control.Monad ( when, unless, void, forM, filterM, liftM2 )
 import Control.Monad.Trans ( MonadIO )
@@ -141,7 +142,7 @@ import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
 import Filesystem hiding (canonicalizePath)
 import qualified Filesystem.Path.CurrentOS as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory )
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink )
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
@@ -1398,8 +1399,8 @@ cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
     from <- absPath from'
     fromIsDir <- (test_d from)
-    if not fromIsDir then cp from' to' else do
-       trace $ "cp -R " <> toTextIgnore from <> " " <> toTextIgnore to'
+    if not fromIsDir then cp_should_follow_symlinks False from' to' else do
+       trace $ "cp_r " <> toTextIgnore from <> " " <> toTextIgnore to'
        to <- absPath to'
        toIsDir <- test_d to
 
@@ -1415,19 +1416,25 @@ cp_r from' to' = do
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
 cp :: FilePath -> FilePath -> Sh ()
-cp from' to' = do
+cp = cp_should_follow_symlinks True
+
+cp_should_follow_symlinks :: Bool -> FilePath -> FilePath -> Sh ()
+cp_should_follow_symlinks shouldFollowSymlinks from' to' = do
   from <- absPath from'
   to <- absPath to'
   trace $ "cp " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
   let to_loc = if to_dir then to FP.</> filename from else to
-  liftIO $ copyFile from to_loc `catchany` (\e -> throwIO $
-      ReThrownException e (extraMsg to_loc from)
-    )
+  if shouldFollowSymlinks then copyNormal from to_loc else do
+    isSymlink <- liftIO $ pathIsSymbolicLink (encodeString from)
+    if not isSymlink then copyNormal from to_loc else do
+      target <- liftIO $ getSymbolicLinkTarget (encodeString from)
+      liftIO $ createFileLink target (encodeString to_loc)
   where
     extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
-
-
+    copyNormal from to = liftIO $ copyFile from to `catchany` (\e -> throwIO $
+          ReThrownException e (extraMsg to from)
+        )
 
 -- | Create a temporary directory and pass it as a parameter to a Sh
 -- computation. The directory is nuked afterwards.
