@@ -47,11 +47,11 @@ import Control.Monad (when, (>=>),
 import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))
-import Filesystem (isDirectory, listDirectory)
+import System.Directory( doesDirectoryExist, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import Filesystem.Path.CurrentOS (FilePath, encodeString, relative)
-import qualified Filesystem.Path.CurrentOS as FP
-import qualified Filesystem as FS
+import System.FilePath  ( FilePath, isRelative)
+import qualified System.FilePath as FP
+import qualified System.Directory as FS
 import Data.IORef (readIORef, modifyIORef, IORef)
 import Data.Monoid (mappend)
 import qualified Data.Text as T
@@ -169,12 +169,16 @@ eitherRelativeTo relativeFP fp = do
           fpCan  <- canonic fullFp
           stripIt relCan fpCan $ return $ Left fpCan
   where
+    stripIt
+      :: FilePath
+      -> FilePath
+      -> Sh (Either FilePath FilePath)
+      -> Sh (Either FilePath FilePath)
     stripIt rel toStrip nada =
-      case FP.stripPrefix rel toStrip of
-        Just stripped ->
-          if stripped == toStrip then nada
-            else return $ Right stripped
-        Nothing -> nada
+      let stripped = FP.makeRelative rel toStrip
+      in if stripped == toStrip 
+        then nada 
+        else return $ Right stripped
 
 -- | make the second path relative to the first
 -- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
@@ -196,9 +200,7 @@ maybeRelativeTo relativeFP fp = do
 
 -- | add a trailing slash to ensure the path indicates a directory
 addTrailingSlash :: FilePath -> FilePath
-addTrailingSlash p =
-  if FP.null (FP.filename p) then p else
-    p FP.</> FP.empty
+addTrailingSlash = FP.addTrailingPathSeparator
 
 -- | makes an absolute path.
 -- Like 'canonicalize', but on an exception returns 'absPath'
@@ -214,7 +216,7 @@ canonicalize = absPath >=> liftIO . canonicalizePath
 
 -- | bugfix older version of canonicalizePath (system-fileio <= 0.3.7) loses trailing slash
 canonicalizePath :: FilePath -> IO FilePath
-canonicalizePath p = let was_dir = FP.null (FP.filename p) in
+canonicalizePath p = let was_dir = null (FP.takeFileName p) in
    if not was_dir then FS.canonicalizePath p
      else addTrailingSlash `fmap` FS.canonicalizePath p
 
@@ -227,8 +229,11 @@ instance Exception EmptyFilePathError
 -- An absolute path is returned as is.
 -- To create a relative path, use 'relPath'.
 absPath :: FilePath -> Sh FilePath
-absPath p | FP.null p = liftIO $ throwIO EmptyFilePathError
-          | relative p = (FP.</> p) <$> gets sDirectory
+absPath p | null p = liftIO $ throwIO EmptyFilePathError
+          | isRelative p = do 
+            cwd <-  gets sDirectory
+            trace $ "Make path abs: " <> toTextIgnore (cwd FP.</> p)
+            return (cwd FP.</> p)
           | otherwise = return p
 
 -- | deprecated
@@ -238,16 +243,16 @@ path = absPath
 
 -- | Does a path point to an existing directory?
 test_d :: FilePath -> Sh Bool
-test_d = absPath >=> liftIO . isDirectory
+test_d = absPath >=> liftIO . doesDirectoryExist
 
 -- | Does a path point to a symlink?
 test_s :: FilePath -> Sh Bool
 test_s = absPath >=> liftIO . \f -> do
-  stat <- getSymbolicLinkStatus (encodeString f)
+  stat <- getSymbolicLinkStatus f
   return $ isSymbolicLink stat
 
 unpack :: FilePath -> String
-unpack = encodeString
+unpack = id
 
 gets :: (State -> a) -> Sh a
 gets f = f <$> get
@@ -279,19 +284,15 @@ ls fp = do
 
 lsRelAbs :: FilePath -> Sh ([FilePath], [FilePath])
 lsRelAbs f = absPath f >>= \fp -> do
-  filt <- if not (relative f) then return return
-             else do
-               wd <- gets sDirectory
-               return (relativeTo wd)
-  absolute <- liftIO $ listDirectory fp
-  relativized <- mapM filt absolute
+  trace $ "Abs Path of f: " <> toTextIgnore fp
+  files <- liftIO $ listDirectory fp
+  let absolute = map (fp FP.</>) files
+  let relativized = map (\p -> FP.joinPath [f, p]) files
   return (relativized, absolute)
 
 -- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextIgnore :: FilePath -> Text
-toTextIgnore fp = case FP.toText fp of
-                    Left  f -> f
-                    Right f -> f
+toTextIgnore = T.pack
 
 -- | a print lifted into 'Sh'
 inspect :: (Show s) => s -> Sh ()

@@ -77,7 +77,7 @@ module Shelly
          , RunFailed(..)
 
          -- * convert between Text and FilePath
-         , toTextIgnore, toTextWarn, FP.fromText
+         , toTextIgnore, toTextWarn, fromText
 
          -- * Utility Functions
          , whenM, unlessM, time, sleep
@@ -138,23 +138,19 @@ infixr 5 <>
 import Data.Monoid ((<>))
 #endif
 
-import Filesystem.Path.CurrentOS hiding (concat, fromText, (</>), (<.>))
-import Filesystem hiding (canonicalizePath)
-import qualified Filesystem.Path.CurrentOS as FP
+import System.FilePath hiding ((</>), (<.>))
+import qualified System.FilePath as FP
 
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink )
+import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink
+                        , copyFile, removeFile, doesFileExist, doesDirectoryExist, listDirectory
+                        , renameFile, renameDirectory, removeDirectoryRecursive, createDirectoryIfMissing
+                        , getCurrentDirectory )
+import System.IO (Handle)
 import Data.Char (isDigit)
 
 import Data.Tree(Tree(..))
 import qualified Data.Set as S
 import qualified Data.List as L
-
-searchPathSeparator :: Char
-#if defined(mingw32_HOST_OS)
-searchPathSeparator = ';'
-#else
-searchPathSeparator = ':'
-#endif
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
@@ -183,7 +179,6 @@ cmd fp args = run fp $ toTextArgs args
 -- Useful for a type signature of a function that uses 'cmd'
 class CmdArg a where toTextArg :: a -> Text
 instance CmdArg Text     where toTextArg = id
-instance CmdArg FilePath where toTextArg = toTextIgnore
 instance CmdArg String   where toTextArg = T.pack
 
 -- | For the variadic function 'cmd'
@@ -229,28 +224,31 @@ instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
 cmd :: (ShellCmd result) => FilePath -> result
 cmd fp = cmdAll fp []
 
+-- | Convert Text to a FilePath-
+fromText :: Text -> FilePath
+fromText = T.unpack
+
 -- | Helper to convert a Text to a FilePath. Used by '(</>)' and '(<.>)'
 class ToFilePath a where
   toFilePath :: a -> FilePath
 
 instance ToFilePath FilePath where toFilePath = id
-instance ToFilePath Text     where toFilePath = FP.fromText
-instance ToFilePath String   where toFilePath = FP.fromText . T.pack
+instance ToFilePath Text     where toFilePath = T.unpack
 
 
--- | uses System.FilePath.CurrentOS, but can automatically convert a Text
+-- | uses System.FilePath, but can automatically convert a Text
 (</>) :: (ToFilePath filepath1, ToFilePath filepath2) => filepath1 -> filepath2 -> FilePath
 x </> y = toFilePath x FP.</> toFilePath y
 
--- | uses System.FilePath.CurrentOS, but can automatically convert a Text
+-- | uses System.FilePath, but can automatically convert a Text
 (<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
-x <.> y = toFilePath x FP.<.> y
+x <.> y = toFilePath x FP.<.> T.unpack y
 
 
 toTextWarn :: FilePath -> Sh Text
-toTextWarn efile = case toText efile of
-    Left f -> encodeError f >> return f
-    Right f -> return f
+toTextWarn efile = do
+  when (not $ isValid efile) $ encodeError (T.pack $ makeValid efile)
+  return (T.pack $ makeValid efile)
   where
     encodeError f = echo ("non-unicode file name: " <> f)
 
@@ -318,7 +316,7 @@ runCommandNoEscape handles st exe args = liftIO $ shellyProcess handles st $
 runCommand :: [StdHandle] -> State -> FilePath -> [Text] -> Sh (Handle, Handle, Handle, ProcessHandle)
 runCommand handles st exe args = findExe exe >>= \fullExe ->
   liftIO $ shellyProcess handles st $
-    RawCommand (encodeString fullExe) (map T.unpack args)
+    RawCommand fullExe (map T.unpack args)
   where
     findExe :: FilePath -> Sh FilePath
     findExe
@@ -350,7 +348,7 @@ shellyProcess :: [StdHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, 
 shellyProcess reusedHandles st cmdSpec =  do
     (createdInH, createdOutH, createdErrorH, pHandle) <- createProcess CreateProcess {
           cmdspec = cmdSpec
-        , cwd = Just $ encodeString $ sDirectory st
+        , cwd = Just $ sDirectory st
         , env = Just $ sEnvironment st
         , std_in  = createUnless mInH
         , std_out = createUnless mOutH
@@ -504,24 +502,31 @@ asString f = pack . f . unpack
 -}
 
 pack :: String -> FilePath
-pack = decodeString
+pack = id
 
 -- | Move a file. The second path could be a directory, in which case the
 -- original file is moved into that directory.
--- wraps system-fileio 'FileSystem.rename', which may not work across FS boundaries
+-- wraps directory 'System.Directory.renameFile', which may not work across FS boundaries
 mv :: FilePath -> FilePath -> Sh ()
 mv from' to' = do
   trace $ "mv " <> toTextIgnore from' <> " " <> toTextIgnore to'
   from <- absPath from'
+  from_dir <- test_d from
   to <- absPath to'
   to_dir <- test_d to
-  let to_loc = if not to_dir then to else to FP.</> filename from
-  liftIO $ rename from to_loc
-    `catchany` (\e -> throwIO $
-      ReThrownException e (extraMsg to_loc from)
-    )
+  let to_loc = if not to_dir then to else to FP.</> (FP.takeFileName from)
+  liftIO $ createDirectoryIfMissing True (takeDirectory to_loc)
+  if not from_dir 
+    then liftIO $ renameFile from to_loc
+      `catchany` (\e -> throwIO $
+        ReThrownException e (extraMsg to_loc from)
+      )
+    else liftIO $ renameDirectory from to_loc
+      `catchany` (\e -> throwIO $
+        ReThrownException e (extraMsg to_loc from)
+      )
   where
-    extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
+    extraMsg t f = "during copy from: " ++ f ++ " to: " ++ t
 
 -- | Get back [Text] instead of [FilePath]
 lsT :: FilePath -> Sh [Text]
@@ -552,13 +557,13 @@ terror = fail . T.unpack
 -- | Create a new directory (fails if the directory exists).
 mkdir :: FilePath -> Sh ()
 mkdir = traceAbsPath ("mkdir " <>) >=>
-        liftIO . createDirectory False
+        liftIO . createDirectoryIfMissing False
 
 -- | Create a new directory, including parents (succeeds if the directory
 -- already exists).
 mkdir_p :: FilePath -> Sh ()
 mkdir_p = traceAbsPath ("mkdir -p " <>) >=>
-          liftIO . createTree
+          liftIO . createDirectoryIfMissing True
 
 -- | Create a new directory tree. You can describe a bunch of directories as
 -- a tree and this function will create all subdirectories. An example:
@@ -589,7 +594,7 @@ mkdirTree = mk . unrollPath
 
 
 isExecutable :: FilePath -> IO Bool
-isExecutable f = (executable `fmap` getPermissions (encodeString f)) `catch` (\(_ :: IOError) -> return False)
+isExecutable f = (executable `fmap` getPermissions f) `catch` (\(_ :: IOError) -> return False)
 
 -- | Get a full path to an executable by looking at the @PATH@ environement
 -- variable. Windows normally looks in additional places besides the
@@ -613,7 +618,7 @@ whichEith originalFp = whichFull
     whichFull fp = do
       (trace . mappend "which " . toTextIgnore) fp >> whichUntraced
       where
-        whichUntraced | absolute fp            = checkFile
+        whichUntraced | isAbsolute fp          = checkFile
                       | dotSlash splitOnDirs   = checkFile
                       | length splitOnDirs > 0 = lookupPath  >>= leftPathError
                       | otherwise              = lookupCache >>= leftPathError
@@ -624,9 +629,9 @@ whichEith originalFp = whichFull
 
         checkFile :: Sh (Either String FilePath)
         checkFile = do
-            exists <- liftIO $ isFile fp
+            exists <- liftIO $ doesFileExist fp
             return $ if exists then Right fp else
-              Left $ "did not find file: " <> encodeString fp
+              Left $ "did not find file: " <> fp
 
         leftPathError :: Maybe FilePath -> Sh (Either String FilePath)
         leftPathError Nothing  = Left <$> pathLookupError
@@ -636,7 +641,7 @@ whichEith originalFp = whichFull
         pathLookupError = do
           pATH <- get_env_text "PATH"
           return $
-            "shelly did not find " `mappend` encodeString fp `mappend`
+            "shelly did not find " `mappend` fp `mappend`
             " in the PATH: " `mappend` T.unpack pATH
 
         lookupPath :: Sh (Maybe FilePath)
@@ -652,7 +657,7 @@ whichEith originalFp = whichFull
                 L.find (S.member fp . snd) pathExecutables
 
 
-        pathDirs = mapM absPath =<< ((map FP.fromText . filter (not . T.null) . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
+        pathDirs = mapM absPath =<< ((map T.unpack . filter (not . T.null) . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
 
         cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
         cachedPathExecutables = do
@@ -664,7 +669,7 @@ whichEith originalFp = whichFull
                 executables <- forM dirs (\dir -> do
                     files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
                     exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
-                      map (\f -> (f, filename f)) files
+                      map (\f -> (f, takeFileName f)) files
                     return $ S.fromList exes
                   )
                 let cachedExecutables = zip dirs executables
@@ -689,12 +694,12 @@ unlessM c a = c >>= \res -> unless res a
 test_e :: FilePath -> Sh Bool
 test_e = absPath >=> \f ->
   liftIO $ do
-    file <- isFile f
-    if file then return True else isDirectory f
+    file <- doesFileExist f
+    if file then return True else doesDirectoryExist f
 
 -- | Does a path point to an existing file?
 test_f :: FilePath -> Sh Bool
-test_f = absPath >=> liftIO . isFile
+test_f = absPath >=> liftIO . doesFileExist
 
 -- | Test that a file is in the PATH and also executable
 test_px :: FilePath -> Sh Bool
@@ -707,17 +712,17 @@ test_px exe = do
 -- | A swiss army cannon for removing things. Actually this goes farther than a
 -- normal rm -rf, as it will circumvent permission problems for the files we
 -- own. Use carefully.
--- Uses 'removeTree'
+-- Uses 'removeDirectoryRecursive'
 rm_rf :: FilePath -> Sh ()
 rm_rf infp = do
   f <- traceAbsPath ("rm -rf " <>) infp
   isDir <- (test_d f)
   if not isDir then whenM (test_f f) $ rm_f f
     else
-      (liftIO_ $ removeTree f) `catch_sh` (\(e :: IOError) ->
+      (liftIO_ $ removeDirectoryRecursive f) `catch_sh` (\(e :: IOError) ->
         when (isPermissionError e) $ do
-          find f >>= mapM_ (\file -> liftIO_ $ fixPermissions (encodeString file) `catchany` \_ -> return ())
-          liftIO $ removeTree f
+          find f >>= mapM_ (\file -> liftIO_ $ fixPermissions file `catchany` \_ -> return ())
+          liftIO $ removeDirectoryRecursive f
         )
   where fixPermissions file =
           do permissions <- liftIO $ getPermissions file
@@ -734,7 +739,7 @@ rm_f = traceAbsPath ("rm -f " <>) >=> \f ->
 -- Does fail if the file does not exist (use 'rm_f' instead) or is not a file.
 rm :: FilePath -> Sh ()
 rm = traceAbsPath ("rm " <>) >=>
-  -- TODO: better error message for removeFile (give filename)
+  -- TODO: better error message for removeFile (give takeFileName)
   liftIO . removeFile
 
 -- | Set an environment variable. The environment is maintained in Sh
@@ -995,7 +1000,7 @@ shelly = shelly' defReadOnlyState
 shelly' :: MonadIO m => ReadOnlyState -> Sh a -> m a
 shelly' ros action = do
   environment <- liftIO getNormalizedEnvironment
-  dir <- liftIO getWorkingDirectory
+  dir <- liftIO getCurrentDirectory
   let def  = State { sCode = 0
                    , sStdin = Nothing
                    , sStderr = T.empty
@@ -1037,7 +1042,7 @@ shelly' ros action = do
           d <- pwd
           sf <- shellyFile
           let logFile = d</>shelly_dir</>sf
-          (writefile logFile trc >> return ("log of commands saved to: " <> encodeString logFile))
+          (writefile logFile trc >> return ("log of commands saved to: " <> logFile))
             `catchany_sh` (\_ -> ranCommands)
 
       where
@@ -1051,7 +1056,7 @@ shelly' ros action = do
 
     nextNum :: [FilePath] -> Int
     nextNum [] = 1
-    nextNum fs = (+ 1) . maximum . map (readDef 1 . filter isDigit . encodeString . filename) $ fs
+    nextNum fs = (+ 1) . maximum . map (readDef 1 . filter isDigit . takeFileName) $ fs
 
 -- from safe package
 readDef :: Read a => a -> String -> a
@@ -1407,11 +1412,16 @@ cp_r from' to' = do
        when (from == to) $ liftIO $ throwIO $ userError $ show $ "cp_r: " <>
          toTextIgnore from <> " and " <> toTextIgnore to <> " are identical"
 
-       finalTo <- if not toIsDir then mkdir to >> return to else do
-                   let d = to </> dirname (addTrailingSlash from)
-                   mkdir_p d >> return d
-
-       ls from >>= mapM_ (\item -> cp_r (from FP.</> filename item) (finalTo FP.</> filename item))
+       finalTo <- if not toIsDir then do 
+            mkdir to 
+            return to 
+          else do
+            -- this takes the name of the from directory 
+            -- because filepath has no builtin function like `dirname`
+            let d = to </> (last . splitPath $ takeDirectory (addTrailingPathSeparator from))
+            mkdir_p d >> return d
+       ls from >>= mapM_ (\item -> do
+         cp_r (from FP.</> takeFileName item) (finalTo FP.</> takeFileName item))
 
 -- | Copy a file. The second path could be a directory, in which case the
 -- original file name is used, in that directory.
@@ -1424,14 +1434,14 @@ cp_should_follow_symlinks shouldFollowSymlinks from' to' = do
   to <- absPath to'
   trace $ "cp " <> toTextIgnore from <> " " <> toTextIgnore to
   to_dir <- test_d to
-  let to_loc = if to_dir then to FP.</> filename from else to
+  let to_loc = if to_dir then to FP.</> takeFileName from else to
   if shouldFollowSymlinks then copyNormal from to_loc else do
-    isSymlink <- liftIO $ pathIsSymbolicLink (encodeString from)
+    isSymlink <- liftIO $ pathIsSymbolicLink from
     if not isSymlink then copyNormal from to_loc else do
-      target <- liftIO $ getSymbolicLinkTarget (encodeString from)
-      liftIO $ createFileLink target (encodeString to_loc)
+      target <- liftIO $ getSymbolicLinkTarget from
+      liftIO $ createFileLink target to_loc
   where
-    extraMsg t f = "during copy from: " ++ encodeString f ++ " to: " ++ encodeString t
+    extraMsg t f = "during copy from: " ++ f ++ " to: " ++ t
     copyNormal from to = liftIO $ copyFile from to `catchany` (\e -> throwIO $
           ReThrownException e (extraMsg to from)
         )
@@ -1454,12 +1464,12 @@ withTmpDir act = do
 writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = do
   f <- traceAbsPath ("writefile " <>) f'
-  liftIO (TIO.writeFile (encodeString f) bits)
+  liftIO (TIO.writeFile f bits)
 
 writeBinary :: FilePath -> ByteString -> Sh ()
 writeBinary f' bytes = do
   f <- traceAbsPath ("writeBinary " <>) f'
-  liftIO (BS.writeFile (encodeString f) bytes)
+  liftIO (BS.writeFile f bytes)
 
 -- | Update a file, creating (a blank file) if it does not exist.
 touchfile :: FilePath -> Sh ()
@@ -1469,7 +1479,7 @@ touchfile = traceAbsPath ("touch " <>) >=> flip appendfile ""
 appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = do
   f <- traceAbsPath ("appendfile " <>) f'
-  liftIO (TIO.appendFile (encodeString f) bits)
+  liftIO (TIO.appendFile f bits)
 
 readfile :: FilePath -> Sh Text
 readfile = traceAbsPath ("readfile " <>) >=> \fp ->
@@ -1479,11 +1489,11 @@ readfile = traceAbsPath ("readfile " <>) >=> \fp ->
 -- | wraps ByteSting readFile
 readBinary :: FilePath -> Sh ByteString
 readBinary = traceAbsPath ("readBinary " <>)
-         >=> liftIO . BS.readFile . encodeString
+         >=> liftIO . BS.readFile
 
 -- | flipped hasExtension for Text
 hasExt :: Text -> FilePath -> Bool
-hasExt = flip hasExtension
+hasExt ext fp = T.pack (FP.takeExtension fp) == ext
 
 -- | Run a Sh computation and collect timing information.
 --   The value returned is the amount of _real_ time spent running the computation
