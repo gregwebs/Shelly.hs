@@ -526,6 +526,7 @@ mv from' to' = do
         ReThrownException e (extraMsg to_loc from)
       )
   where
+    extraMsg :: String -> String -> String
     extraMsg t f = "during copy from: " ++ f ++ " to: " ++ t
 
 -- | Get back [Text] instead of [FilePath]
@@ -1441,6 +1442,7 @@ cp_should_follow_symlinks shouldFollowSymlinks from' to' = do
       target <- liftIO $ getSymbolicLinkTarget from
       liftIO $ createFileLink target to_loc
   where
+    extraMsg :: String -> String -> String
     extraMsg t f = "during copy from: " ++ f ++ " to: " ++ t
     copyNormal from to = liftIO $ copyFile from to `catchany` (\e -> throwIO $
           ReThrownException e (extraMsg to from)
