@@ -232,7 +232,6 @@ absPath :: FilePath -> Sh FilePath
 absPath p | null p = liftIO $ throwIO EmptyFilePathError
           | isRelative p = do 
             cwd <-  gets sDirectory
-            trace $ "Make path abs: " <> toTextIgnore (cwd FP.</> p)
             return (cwd FP.</> p)
           | otherwise = return p
 
@@ -284,7 +283,6 @@ ls fp = do
 
 lsRelAbs :: FilePath -> Sh ([FilePath], [FilePath])
 lsRelAbs f = absPath f >>= \fp -> do
-  trace $ "Abs Path of f: " <> toTextIgnore fp
   files <- liftIO $ listDirectory fp
   let absolute = map (fp FP.</>) files
   let relativized = map (\p -> FP.joinPath [f, p]) files
