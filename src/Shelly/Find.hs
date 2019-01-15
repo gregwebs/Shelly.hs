@@ -4,17 +4,23 @@
 -- If you don't just want a list, use the folding variants like 'findFold'.
 -- If you want to avoid traversing certain directories, use the directory filtering variants like 'findDirFilter'
 module Shelly.Find
- (
-   find, findWhen, findFold, findDirFilter, findDirFilterWhen, findFoldDirFilter
- ) where
+  ( find
+  , findWhen
+  , findFold
+  , findDirFilter
+  , findDirFilterWhen
+  , findFoldDirFilter
+  )
+where
 
-import Prelude hiding (FilePath)
-import Shelly.Base
-import Control.Monad (foldM)
-import Data.Monoid (mappend)
-import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import Filesystem (isDirectory)
-import Filesystem.Path.CurrentOS (encodeString)
+import           Prelude                 hiding ( FilePath )
+import           Shelly.Base
+import           Control.Monad                  ( foldM )
+import           Data.Monoid                    ( mappend )
+import           System.PosixCompat.Files       ( getSymbolicLinkStatus
+                                                , isSymbolicLink
+                                                )
+import           System.Directory               ( doesDirectoryExist )
 
 -- | List directory recursively (like the POSIX utility "find").
 -- listing is relative if the path given is relative.
@@ -31,7 +37,8 @@ findWhen = findDirFilterWhen (const $ return True)
 -- | Fold an arbitrary folding function over files froma a 'find'.
 -- Like 'findWhen' but use a more general fold rather than a filter.
 findFold :: (a -> FilePath -> Sh a) -> a -> FilePath -> Sh a
-findFold folder startValue = findFoldDirFilter folder startValue (const $ return True)
+findFold folder startValue =
+  findFoldDirFilter folder startValue (const $ return True)
 
 -- | 'find' that filters out directories as it finds
 -- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
@@ -41,36 +48,39 @@ findDirFilter filt = findDirFilterWhen filt (const $ return True)
 -- | similar 'findWhen', but also filter out directories
 -- Alternatively, similar to 'findDirFilter', but also filter out files
 -- Filtering out directories makes the find much more efficient
-findDirFilterWhen :: (FilePath -> Sh Bool) -- ^ directory filter
-                  -> (FilePath -> Sh Bool) -- ^ file filter
-                  -> FilePath -- ^ directory
-                  -> Sh [FilePath]
+findDirFilterWhen
+  :: (FilePath -> Sh Bool) -- ^ directory filter
+  -> (FilePath -> Sh Bool) -- ^ file filter
+  -> FilePath -- ^ directory
+  -> Sh [FilePath]
 findDirFilterWhen dirFilt fileFilter = findFoldDirFilter filterIt [] dirFilt
-  where
-    filterIt paths fp = do
-      yes <- fileFilter fp
-      return $ if yes then paths ++ [fp] else paths
+ where
+  filterIt paths fp = do
+    yes <- fileFilter fp
+    return $ if yes then paths ++ [fp] else paths
 
 -- | like 'findDirFilterWhen' but use a folding function rather than a filter
 -- The most general finder: you likely want a more specific one
-findFoldDirFilter :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
+findFoldDirFilter
+  :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
 findFoldDirFilter folder startValue dirFilter dir = do
   absDir <- absPath dir
   trace ("find " `mappend` toTextIgnore absDir)
+  files <- ls absDir
   filt <- dirFilter absDir
-  if not filt then return startValue
+  if not filt
+    then return startValue
     -- use possible relative path, not absolute so that listing will remain relative
     else do
-      (rPaths, aPaths) <- lsRelAbs dir 
+      (rPaths, aPaths) <- lsRelAbs dir
       foldM traverse startValue (zip rPaths aPaths)
-  where
-    traverse acc (relativePath, absolutePath) = do
-      -- optimization: don't use Shelly API since our path is already good
-      isDir <- liftIO $ isDirectory absolutePath
-      sym   <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus (encodeString absolutePath)
-      newAcc <- folder acc relativePath
-      follow <- fmap sFollowSymlink get
-      if isDir && (follow || not sym)
-        then findFoldDirFilter folder newAcc 
-                dirFilter relativePath
-        else return newAcc
+ where
+  traverse acc (relativePath, absolutePath) = do
+    -- optimization: don't use Shelly API since our path is already good
+    isDir  <- liftIO $ doesDirectoryExist absolutePath
+    sym    <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus absolutePath
+    newAcc <- folder acc relativePath
+    follow <- fmap sFollowSymlink get
+    if isDir && (follow || not sym)
+      then findFoldDirFilter folder newAcc dirFilter relativePath
+      else return newAcc

@@ -5,10 +5,11 @@ import Data.List (sort)
 import System.Directory (createDirectoryIfMissing)
 import System.PosixCompat.Files (createSymbolicLink, fileExist)
 import qualified System.FilePath as SF
+import Shelly
 
 createSymlinkForTest :: IO ()
 createSymlinkForTest = do
-  createDirectoryIfMissing False symDir
+  createDirectoryIfMissing True symDir
   fexist <- fileExist (symDir SF.</> "symlinked_dir")
   if fexist
     then return ()
@@ -48,6 +49,14 @@ findSpec = do
                     "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
+
+    it "lists relative files in folder" $ do
+      res <- shelly $ cd "test" >> ls "src"
+      sort res @?= ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
+                    "src/FindSpec.hs", "src/Help.hs", "src/LiftedSpec.hs", "src/LogWithSpec.hs", "src/MoveSpec.hs",
+                    "src/ReadFileSpec.hs", "src/RmSpec.hs", "src/RunSpec.hs", "src/SshSpec.hs",
+                    "src/TestInit.hs", "src/TestMain.hs",
+                    "src/WhichSpec.hs", "src/WriteSpec.hs", "src/sleep.hs"]
 
     it "finds relative files" $ do
       res <- shelly $ cd "test/src" >> find "."
@@ -92,12 +101,12 @@ findSpec = do
               relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
             sort res @?=
               [ "dir"
-              , "nonascii.txt"
-              , "symlinked_dir"
-              , "zshrc"
               , "dir/symlinked_dir"
               , "dir/symlinked_dir/hoge_file"
+              , "nonascii.txt"
+              , "symlinked_dir"
               , "symlinked_dir/hoge_file"
+              , "zshrc"
               ]
       it "not follow symlinks" $
          do res <-
@@ -106,10 +115,10 @@ findSpec = do
               relPath "test/data" >>= find >>= mapM (relativeTo "test/data")
             sort res @?=
               [ "dir"
+              , "dir/symlinked_dir"
               , "nonascii.txt"
               , "symlinked_dir"
-              , "zshrc"
-              , "dir/symlinked_dir"
               , "symlinked_dir/hoge_file"
+              , "zshrc"
               ]
 

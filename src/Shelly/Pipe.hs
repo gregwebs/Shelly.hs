@@ -78,7 +78,7 @@ module Shelly.Pipe
          , catchany_sh
 
          -- * convert between Text and FilePath
-         , toTextIgnore, toTextWarn, fromText
+         , toTextIgnore, toTextWarn, S.fromText
 
          -- * Utilities.
          , (<$>), whenM, unlessM, time
@@ -102,14 +102,14 @@ import Control.Monad
 import Control.Monad.Trans
 import Control.Exception hiding (handle)
 
-import Filesystem.Path(FilePath)
+import System.FilePath(FilePath)
 
 import qualified Shelly as S
 
 import Shelly(
       (</>), (<.>), hasExt
     , whenM, unlessM, toTextIgnore
-    , fromText, catchany
+    , catchany
     , FoldCallback)
 
 import Data.Maybe(fromMaybe)

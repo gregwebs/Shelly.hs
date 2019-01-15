@@ -2,7 +2,7 @@
 module Shelly.Directory where
 
 import System.IO.Error (modifyIOError, ioeSetLocation, ioeGetLocation)
-import qualified Filesystem.Path.CurrentOS as FP
+import qualified System.Directory as FP
 
 #ifdef mingw32_HOST_OS
 import qualified System.Win32 as Win32

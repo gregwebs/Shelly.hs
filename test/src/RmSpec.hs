@@ -1,6 +1,7 @@
 module RmSpec (rmSpec) where
 
 import TestInit
+import Data.Text as T
 import Help
 
 rmSpec :: Spec
@@ -56,7 +57,7 @@ rmSpec = do
     it "rm" $ do
       res <- shelly $ do
         writefile b "b"
-        cmd "ln" "-s" b l
+        cmd "ln" "-s" (T.pack b) (T.pack l)
         rm l
         test_f b
       assert res
@@ -65,7 +66,7 @@ rmSpec = do
     it "rm_f" $ do
       res <- shelly $ do
         writefile b "b"
-        cmd "ln" "-s" b l
+        cmd "ln" "-s" (T.pack b) (T.pack l)
         rm_f l
         test_f b
       assert res
@@ -75,7 +76,7 @@ rmSpec = do
       res <- shelly $ do
         mkdir d
         writefile (d</>b) "b"
-        cmd "ln" "-s" (d</>b) l
+        cmd "ln" "-s" (T.pack $ d</>b) (T.pack l)
         rm_rf l
         test_f (d</>b)
       assert res

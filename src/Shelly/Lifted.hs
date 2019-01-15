@@ -80,7 +80,7 @@ module Shelly.Lifted
          , bracket_sh, catchany, catch_sh, handle_sh, handleany_sh, finally_sh, catches_sh, catchany_sh
 
          -- * convert between Text and FilePath
-         , S.toTextIgnore, toTextWarn, FP.fromText
+         , S.toTextIgnore, toTextWarn, S.fromText
 
          -- * Utility Functions
          , S.whenM, S.unlessM, time, sleep
@@ -105,7 +105,7 @@ import Data.ByteString ( ByteString )
 import Data.Monoid
 import System.IO ( Handle )
 import Data.Tree ( Tree )
-import qualified Filesystem.Path.CurrentOS as FP
+import qualified System.FilePath as FP
 
 import Control.Exception.Lifted
 import Control.Exception.Enclosed
