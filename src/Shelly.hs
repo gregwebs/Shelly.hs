@@ -771,7 +771,7 @@ appendToPath = traceAbsPath ("appendToPath: " <>) >=> \filepath -> do
   setPath $ pe <> T.singleton searchPathSeparator <> tp
 
 -- | prepend the filepath to the PATH env variable
--- similar to `appendToPath` but gives high priority to the filepath instead of low priority.
+-- similar to 'appendToPath' but gives high priority to the filepath instead of low priority.
 prependToPath :: FilePath -> Sh ()
 prependToPath = traceAbsPath ("prependToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
@@ -1206,7 +1206,7 @@ instance Exception e => Show (ReThrownException e) where
 run :: FilePath -> [Text] -> Sh Text
 run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
 
--- | Like `run`, but it invokes the user-requested program with _bash_.
+-- | Like 'run', but it invokes the user-requested program with _bash_.
 bash :: FilePath -> [Text] -> Sh Text
 bash fp args = escaping False $ run "bash" $ bashArgs fp args
 
@@ -1218,13 +1218,13 @@ bashArgs fp args = ["-c", "'" <> sanitise (toTextIgnore fp : args) <> "'"]
   where
     sanitise = T.replace "'" "\'" . T.intercalate " "
 
--- | Use this with `bash` to set _pipefail_
+-- | Use this with 'bash' to set _pipefail_
 --
 -- > bashPipeFail $ bash "echo foo | echo"
 bashPipeFail :: (FilePath -> [Text] -> Sh a) -> FilePath -> [Text] -> Sh a
 bashPipeFail runner fp args = runner "set -o pipefail;" (toTextIgnore fp : args)
 
--- | bind some arguments to run for re-use. Example:
+-- | bind some arguments to 'run' for re-use. Example:
 --
 -- > monit = command "monit" ["-c", "monitrc"]
 -- > monit ["stop", "program"]
@@ -1238,15 +1238,17 @@ command com args more_args = run com (args ++ more_args)
 command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ com args more_args = run_ com (args ++ more_args)
 
--- | bind some arguments to run for re-use, and require 1 argument. Example:
+-- | bind some arguments to 'run' for re-use, and require 1 argument. Example:
 --
--- > git = command1 "git" []; git "pull" ["origin", "master"]
+-- > git = command1 "git" []
+-- > git "pull" ["origin", "master"]
 command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 com args one_arg more_args = run com (args ++ [one_arg] ++ more_args)
 
--- | bind some arguments to run for re-use, and require 1 argument. Example:
+-- | bind some arguments to 'run_' for re-use, and require 1 argument. Example:
 --
--- > git_ = command1_ "git" []; git "pull" ["origin", "master"]
+-- > git_ = command1_ "git" []
+-- > git "pull" ["origin", "master"]
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com (args ++ [one_arg] ++ more_args)
 
