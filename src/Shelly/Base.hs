@@ -44,6 +44,7 @@ import System.IO ( Handle, hFlush, stderr, stdout )
 import Control.Monad (when, (>=>),
          liftM
        )
+import Control.Monad.Fail (MonadFail)
 import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))
@@ -71,7 +72,7 @@ type ShIO a = Sh a
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadIO, MonadReader (IORef State), Functor, Catch.MonadMask)
+  } deriving (Applicative, Monad, MonadFail, MonadIO, MonadReader (IORef State), Functor, Catch.MonadMask)
 
 instance MonadBase IO Sh where
     liftBase = Sh . ReaderT . const

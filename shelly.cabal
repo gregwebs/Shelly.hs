@@ -146,6 +146,9 @@ Test-Suite shelly-testsuite
     enclosed-exceptions,
     exceptions
 
+  if impl(ghc < 8.0)
+    build-depends:       fail >= 4.9 && < 4.10
+
   extensions:
     CPP
 
