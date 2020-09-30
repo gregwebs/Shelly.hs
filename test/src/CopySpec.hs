@@ -14,7 +14,7 @@ import Help
 
 copySpec :: Spec
 copySpec = do
-  let b = "b" 
+  let b = "b"
   let c = "c"
   describe "cp file" $ do
     it "cp to same dir" $

@@ -1,4 +1,4 @@
--- | Suppose we have a directory named "pictures". 
+-- | Suppose we have a directory named "pictures".
 -- We want to copy all files with specified extensions.
 -- So that jpgs go in one directory and pngs in the other.
 {-# LANGUAGE OverloadedStrings #-}
@@ -23,11 +23,9 @@ pictures :: FilePath
 pictures = "pictures"
 
 proc :: Text -> Sh ()
-proc ext = do    
+proc ext = do
     mkdir_p ext'
     findExt ext pictures >>= flip cp ext'
     where ext' = fromText ext
 
 findExt a = findWhen (pure . hasExt a)
-
-

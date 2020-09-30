@@ -11,7 +11,7 @@ whichSpec = describe "which" $ do
     it "recognizes cabal as a path executable" $ do
       res <- shelly $ test_px "find"
       True @?= res
- 
+
     it "cannot find missing exe" $ do
       Nothing <- shelly $ which "alskjdf;ashlva;ousnva;nj"
       assert True

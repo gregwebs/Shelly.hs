@@ -50,6 +50,6 @@ main = do
       echo "immediate2"
       _<- background job $ cmd "sleep" "2"
       echo "blocked by background "
- 
+
     echo "blocked by jobs"
 

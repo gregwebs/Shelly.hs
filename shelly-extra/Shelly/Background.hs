@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings, ScopedTypeVariables, ExistentialQuantification #-}
 -- | A futures implementation that integrates with shelly
--- 
+--
 -- > jobs 5 (\job -> background job (sleep 2) >> background job (sleep 1))
 --
 -- 'jobs' will wait for all concurrent jobs to finish.
