@@ -12,13 +12,11 @@ import Data.Text.Lazy as LT
 default (LT.Text)
 
 main = shs $ do
-    makeLog 
+    makeLog
     appendfile logFile . cons '\n' =<< liftSh sort (lsT ".")
 
 logFile = "log"
 
-makeLog = 
-    unlessM (test_f logFile) 
+makeLog =
+    unlessM (test_f logFile)
         (touchfile logFile)
-        
-

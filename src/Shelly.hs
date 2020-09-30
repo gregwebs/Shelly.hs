@@ -516,7 +516,7 @@ mv from' to' = do
   to_dir <- test_d to
   let to_loc = if not to_dir then to else to FP.</> (FP.takeFileName from)
   liftIO $ createDirectoryIfMissing True (takeDirectory to_loc)
-  if not from_dir 
+  if not from_dir
     then liftIO $ renameFile from to_loc
       `catchany` (\e -> throwIO $
         ReThrownException e (extraMsg to_loc from)
@@ -1186,7 +1186,7 @@ instance Exception e => Show (ReThrownException e) where
 --
 -- 'stdout' and 'stderr' are collected. The 'stdout' is returned as
 -- a result of 'run', and complete stderr output is available after the fact using
--- 'lastStderr'
+-- 'lastStderr'. If the output does not end with a newline, it is automatically added.
 --
 -- All of the stdout output will be loaded into memory.
 -- You can avoid this if you don't need stdout by using 'run_',
@@ -1415,11 +1415,11 @@ cp_r from' to' = do
        when (from == to) $ liftIO $ throwIO $ userError $ show $ "cp_r: " <>
          toTextIgnore from <> " and " <> toTextIgnore to <> " are identical"
 
-       finalTo <- if not toIsDir then do 
-            mkdir to 
-            return to 
+       finalTo <- if not toIsDir then do
+            mkdir to
+            return to
           else do
-            -- this takes the name of the from directory 
+            -- this takes the name of the from directory
             -- because filepath has no builtin function like `dirname`
             let d = to </> (last . splitPath $ takeDirectory (addTrailingPathSeparator from))
             mkdir_p d >> return d

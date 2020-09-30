@@ -177,8 +177,8 @@ eitherRelativeTo relativeFP fp = do
       -> Sh (Either FilePath FilePath)
     stripIt rel toStrip nada =
       let stripped = FP.makeRelative rel toStrip
-      in if stripped == toStrip 
-        then nada 
+      in if stripped == toStrip
+        then nada
         else return $ Right stripped
 
 -- | make the second path relative to the first
@@ -231,7 +231,7 @@ instance Exception EmptyFilePathError
 -- To create a relative path, use 'relPath'.
 absPath :: FilePath -> Sh FilePath
 absPath p | null p = liftIO $ throwIO EmptyFilePathError
-          | isRelative p = do 
+          | isRelative p = do
             cwd <-  gets sDirectory
             return (cwd FP.</> p)
           | otherwise = return p
@@ -321,4 +321,3 @@ traceEcho msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'")
 -- @... `catch` \(e :: SomeException) -> ...@).
 catchany :: IO a -> (SomeException -> IO a) -> IO a
 catchany = catch
-
