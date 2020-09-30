@@ -1186,7 +1186,7 @@ instance Exception e => Show (ReThrownException e) where
 --
 -- 'stdout' and 'stderr' are collected. The 'stdout' is returned as
 -- a result of 'run', and complete stderr output is available after the fact using
--- 'lastStderr'
+-- 'lastStderr'. If the output does not end with a newline, it is automatically added.
 --
 -- All of the stdout output will be loaded into memory.
 -- You can avoid this if you don't need stdout by using 'run_',
