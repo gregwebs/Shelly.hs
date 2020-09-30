@@ -1488,7 +1488,7 @@ appendfile f' bits = do
 readfile :: FilePath -> Sh Text
 readfile = traceAbsPath ("readfile " <>) >=> \fp ->
   readBinary fp >>=
-    return . TE.decodeUtf8With TE.lenientDecode
+    return . T.filter (/='\r') . TE.decodeUtf8With TE.lenientDecode
 
 -- | wraps ByteSting readFile
 readBinary :: FilePath -> Sh ByteString
