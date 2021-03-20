@@ -609,9 +609,9 @@ which fp = either (const Nothing) Just <$> whichEith fp
 whichEith :: FilePath -> Sh (Either String FilePath)
 whichEith originalFp = whichFull
 #if defined(mingw32_HOST_OS)
-    $ case extension originalFp of
-        Nothing -> originalFp <.> "exe"
-        Just _ -> originalFp
+    $ case takeExtension originalFp of
+        "" -> originalFp <.> "exe"
+        _ -> originalFp
 #else
     originalFp
 #endif
