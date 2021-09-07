@@ -8,3 +8,5 @@ tags
 .shelly/
 .cabal-sandbox/
 cabal.sandbox.config
+.ghc.environment.*
+/dist-newstyle/
