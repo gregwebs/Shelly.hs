@@ -61,9 +61,10 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
   * encouraging one to just use the shell instead of cross-platform Haskell code
   * encouraging one to use a convenience function that searches the PATH at compile-time
 * [shell-monad](http://hackage.haskell.org/package/shell-monad) - compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
+* [shh](https://hackage.haskell.org/package/shh) - shell like syntax with native piping. Can be used from GHCi as an interactive shell replacement.
 * [turtle](http://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](http://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
 
-HSH and HsShellScript (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
+HSH, HsShellScript and shh (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
 turtle, like Shelly offers folding as a way to efficiently deal with a stream.
 
 None of the alternatives to Shelly offer command tracing.
