@@ -2,6 +2,7 @@ module FindSpec ( findSpec ) where
 
 import TestInit
 import Data.List (sort)
+import Data.Text (replace, pack, unpack)
 import System.Directory (createDirectoryIfMissing)
 import System.PosixCompat.Files (createSymbolicLink, fileExist)
 import qualified System.FilePath as SF
@@ -18,6 +19,11 @@ createSymlinkForTest = do
   where
     rootDir = "test" SF.</> "data"
     symDir = rootDir SF.</> "dir"
+
+toWindowsStyleIfNecessary :: String -> String
+toWindowsStyleIfNecessary s
+  | isWindows = unpack . replace "/" "\\" . pack $ s
+  | otherwise = s
 
 findSpec :: Spec
 findSpec = do
@@ -43,15 +49,23 @@ findSpec = do
   describe "relative listing" $ do
     it "lists relative files" $ do
       res <- shelly $ cd "test/src" >> ls "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
+      sort res @?= map toWindowsStyleIfNecessary ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
+    it "lists relative files in folder" $ do
+      res <- shelly $ cd "test" >> ls "src"
+      sort res @?=  map toWindowsStyleIfNecessary ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
+                    "src/FindSpec.hs", "src/Help.hs", "src/LiftedSpec.hs", "src/LogWithSpec.hs", "src/MoveSpec.hs",
+                    "src/ReadFileSpec.hs", "src/RmSpec.hs", "src/RunSpec.hs", "src/SshSpec.hs",
+                    "src/TestInit.hs", "src/TestMain.hs",
+                    "src/WhichSpec.hs", "src/WriteSpec.hs", "src/sleep.hs"]
+
     it "finds relative files" $ do
       res <- shelly $ cd "test/src" >> find "."
-      sort res @?= ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
+      sort res @?= map toWindowsStyleIfNecessary ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
                     "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
@@ -68,8 +82,15 @@ findSpec = do
       res @?= []
 
     it "lists relative files" $ do
-      res <- shelly $ find "test/src"
-      sort res @?= ["test/src/CopySpec.hs", "test/src/EnvSpec.hs", "test/src/FailureSpec.hs",
+      res <- shelly $ verbosely $ find "test/src"
+      if isWindows
+        then sort res @?= ["test/src\\CopySpec.hs", "test/src\\EnvSpec.hs", "test/src\\FailureSpec.hs",
+                    "test/src\\FindSpec.hs", "test/src\\Help.hs", "test/src\\LiftedSpec.hs",
+                    "test/src\\LogWithSpec.hs", "test/src\\MoveSpec.hs", "test/src\\ReadFileSpec.hs",
+                    "test/src\\RmSpec.hs", "test/src\\RunSpec.hs", "test/src\\SshSpec.hs",
+                    "test/src\\TestInit.hs", "test/src\\TestMain.hs", "test/src\\WhichSpec.hs", "test/src\\WriteSpec.hs",
+                    "test/src\\sleep.hs"]
+        else sort res @?= ["test/src/CopySpec.hs", "test/src/EnvSpec.hs", "test/src/FailureSpec.hs",
                     "test/src/FindSpec.hs", "test/src/Help.hs", "test/src/LiftedSpec.hs",
                     "test/src/LogWithSpec.hs", "test/src/MoveSpec.hs", "test/src/ReadFileSpec.hs",
                     "test/src/RmSpec.hs", "test/src/RunSpec.hs", "test/src/SshSpec.hs",
@@ -84,7 +105,7 @@ findSpec = do
                     "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
 
-    before createSymlinkForTest $ do
+    unless isWindows $ before createSymlinkForTest $ do
       it "follow symlinks" $
          do res <-
               shelly $
@@ -112,4 +133,3 @@ findSpec = do
               , "dir/symlinked_dir"
               , "symlinked_dir/hoge_file"
               ]
-
