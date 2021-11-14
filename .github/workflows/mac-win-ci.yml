@@ -20,7 +20,9 @@ jobs:
     # 2021-11-14
     # try something like "allow-failure" for windows with GHC-9.2
     # see https://github.com/gregwebs/Shelly.hs/pull/205#issuecomment-967956528
-    continue-on-error: ${{ startsWith(matrix.os, 'windows') && startsWith(matrix.ghc, '9.2') }}
+    # UPDATE: since unix-compat is fixed on hackage, CI succeeds again
+    # So we do not need this:
+    # continue-on-error: ${{ startsWith(matrix.os, 'windows') && startsWith(matrix.ghc, '9.2') }}
 
     steps:
     - uses: actions/checkout@v2
