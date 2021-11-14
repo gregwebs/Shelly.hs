@@ -1,6 +1,7 @@
 # Shelly
 
 [![Build Status](https://github.com/gregwebs/Shelly.hs/actions/workflows/haskell-ci.yml/badge.svg?branch=master)](https://github.com/gregwebs/Shelly.hs/actions/workflows/haskell-ci.yml)
+[![Build Status](https://github.com/gregwebs/Shelly.hs/actions/workflows/mac-win-ci.yml/badge.svg?branch=master)](https://github.com/gregwebs/Shelly.hs/actions/workflows/mac-win-ci.yml)
 [![Hackage](https://img.shields.io/hackage/v/shelly.svg)](https://hackage.haskell.org/package/shelly)
 [![Stackage Nightly](http://stackage.org/package/shelly/badge/nightly)](http://stackage.org/nightly/package/shelly)
 [![Stackage LTS](http://stackage.org/package/shelly/badge/lts)](http://stackage.org/lts/package/shelly)
