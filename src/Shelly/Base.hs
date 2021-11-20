@@ -9,9 +9,7 @@
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE InstanceSigs#-}
--- | I started exposing multiple module (starting with one for finding)
--- Base prevented circular dependencies
--- However, Shelly went back to exposing a single module
+
 module Shelly.Base
   (
     Sh(..), ShIO, runSh, State(..), ReadOnlyState(..), StdHandle(..),
@@ -31,30 +29,24 @@ module Shelly.Base
     , addTrailingSlash
   ) where
 
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding (FilePath, catch)
-#else
-import Prelude hiding (FilePath)
-#endif
-
 import Data.Text (Text)
-import System.Process( ProcessHandle, StdStream(..) )
+import System.Process( StdStream(..) )
 import System.IO ( Handle, hFlush, stderr, stdout )
 
-import Control.Monad (when, (>=>),
-         liftM
-       )
+import Control.Monad ( when, (>=>) )
+#if !MIN_VERSION_base(4,13,0)
 import Control.Monad.Fail (MonadFail)
+import Control.Applicative (Applicative, (<$>))
+import Data.Monoid (mappend)
+#endif
 import Control.Monad.Base
 import Control.Monad.Trans.Control
-import Control.Applicative (Applicative, (<$>))
 import System.Directory( doesDirectoryExist, listDirectory)
 import System.PosixCompat.Files( getSymbolicLinkStatus, isSymbolicLink )
-import System.FilePath  ( FilePath, isRelative)
+import System.FilePath  ( isRelative)
 import qualified System.FilePath as FP
 import qualified System.Directory as FS
 import Data.IORef (readIORef, modifyIORef, IORef)
-import Data.Monoid (mappend)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import Control.Exception (SomeException, catch, throwIO, Exception)

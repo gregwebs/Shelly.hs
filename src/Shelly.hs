@@ -1,6 +1,10 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
-             FlexibleInstances, IncoherentInstances,
-             TypeFamilies, ExistentialQuantification #-}
+{-# LANGUAGE DeriveDataTypeable #-}
+{-# LANGUAGE ExistentialQuantification #-}
+{-# LANGUAGE FlexibleInstances #-}
+{-# LANGUAGE IncoherentInstances #-}
+{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE ScopedTypeVariables #-}
+{-# LANGUAGE TypeFamilies #-}
 
 -- | A module for shell-like programming in Haskell.
 -- Shelly's focus is entirely on ease of use for those coming from shell scripting.
@@ -20,6 +24,7 @@
 -- > import Shelly
 -- > import qualified Data.Text as T
 -- > default (T.Text)
+
 module Shelly
        (
          -- * Entering Sh.
@@ -96,61 +101,57 @@ module Shelly
 import Shelly.Base
 import Shelly.Directory
 import Shelly.Find
+
+import Control.Applicative
+import Control.Concurrent
+import Control.Concurrent.Async (async, wait, Async)
+import Control.Exception
 import Control.Monad ( when, unless, void, forM, filterM, liftM2 )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding ( readFile, FilePath, catch)
-#else
-import Prelude hiding ( readFile, FilePath)
-#endif
-import Data.Char ( isAlphaNum, isSpace, toLower )
-import Data.Typeable
-import Data.IORef
-import Data.Sequence (Seq, (|>))
-import Data.Foldable (toList)
-import Data.Maybe
-import System.IO ( hClose, stderr, stdout, openTempFile)
-import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
-import System.Exit
-import System.Environment
-import Control.Applicative
-import Control.Exception
-import Control.Concurrent
-import Control.Concurrent.Async (async, wait, Async)
-import Data.Time.Clock( getCurrentTime, diffUTCTime  )
 
+import Data.ByteString ( ByteString )
+import Data.Char       ( isAlphaNum, isDigit, isSpace )
+#if defined(mingw32_HOST_OS)
+import Data.Char       ( toLower )
+#endif
+import Data.Foldable   ( toList )
+import Data.IORef
+import Data.Maybe
+#if !MIN_VERSION_base(4,11,0)
+import Data.Semigroup  ( (<>) )
+#endif
+import Data.Sequence   ( Seq, (|>) )
+import Data.Set        ( Set )
+import Data.Time.Clock ( getCurrentTime, diffUTCTime  )
+import Data.Tree       ( Tree(..) )
+import Data.Typeable
+
+import qualified Data.ByteString as BS
+import qualified Data.List as List
+import qualified Data.Set as Set
+import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
 import qualified Data.Text.Encoding.Error as TE
-import System.Process( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..), createProcess, waitForProcess, terminateProcess, ProcessHandle, StdStream(..) )
 
-import qualified Data.Text as T
-import qualified Data.ByteString as BS
-import Data.ByteString (ByteString)
-
-import Data.Monoid (Monoid, mempty, mappend)
-#if __GLASGOW_HASKELL__ < 704
-infixr 5 <>
-(<>) :: Monoid m => m -> m -> m
-(<>) = mappend
-#else
-import Data.Monoid ((<>))
-#endif
-
+import System.Directory
+  ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink
+  , copyFile, removeFile, doesFileExist, doesDirectoryExist, listDirectory
+  , renameFile, renameDirectory, removeDirectoryRecursive, createDirectoryIfMissing
+  , getCurrentDirectory
+  )
+import System.Environment
+import System.Exit
 import System.FilePath hiding ((</>), (<.>))
 import qualified System.FilePath as FP
-
-import System.Directory ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink
-                        , copyFile, removeFile, doesFileExist, doesDirectoryExist, listDirectory
-                        , renameFile, renameDirectory, removeDirectoryRecursive, createDirectoryIfMissing
-                        , getCurrentDirectory )
-import System.IO (Handle)
-import Data.Char (isDigit)
-
-import Data.Tree(Tree(..))
-import qualified Data.Set as S
-import qualified Data.List as L
+import System.IO ( Handle, hClose, stderr, stdout, openTempFile)
+import System.IO.Error (isPermissionError, catchIOError, isEOFError, isIllegalOperation)
+import System.Process
+  ( CmdSpec(..), StdStream(CreatePipe, UseHandle), CreateProcess(..)
+  , createProcess, waitForProcess, terminateProcess
+  , ProcessHandle, StdStream(..)
+  )
 
 {- GHC won't default to Text with this, even with extensions!
  - see: http://hackage.haskell.org/trac/ghc/ticket/6030
@@ -320,7 +321,7 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
   where
     findExe :: FilePath -> Sh FilePath
     findExe
-#if defined(mingw32_HOST_OS) || (defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 708)
+#if defined(mingw32_HOST_OS)
       fp
 #else
       _fp
@@ -335,14 +336,14 @@ runCommand handles st exe args = findExe exe >>= \fullExe ->
           -- non-Windows < 7.8 has a bug for read-only file systems
           -- https://github.com/yesodweb/Shelly.hs/issues/56
           -- it would be better to specifically detect that bug
-#if defined(mingw32_HOST_OS) || (defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 708)
+#if defined(mingw32_HOST_OS)
           Left _ -> return fp
 #else
           Left err -> liftIO $ throwIO $ userError err
 #endif
 
 
-
+-- process >= 1.4 is used
 
 shellyProcess :: [StdHandle] -> State -> CmdSpec -> IO (Handle, Handle, Handle, ProcessHandle)
 shellyProcess reusedHandles st cmdSpec =  do
@@ -354,21 +355,13 @@ shellyProcess reusedHandles st cmdSpec =  do
         , std_out = createUnless mOutH
         , std_err = createUnless mErrorH
         , close_fds = False
-#if MIN_VERSION_process(1,1,0)
         , create_group = False
-#endif
-#if MIN_VERSION_process(1,2,0)
         , delegate_ctlc = False
-#endif
-#if MIN_VERSION_process(1,3,0)
         , detach_console = False
         , create_new_console = False
         , new_session = False
-#endif
-#if MIN_VERSION_process(1,4,0)
         , child_group = Nothing
         , child_user = Nothing
-#endif
 #if MIN_VERSION_process(1,5,0)
         , use_process_jobs = False
 #endif
@@ -386,6 +379,7 @@ shellyProcess reusedHandles st cmdSpec =  do
     toHandle (Just (UseHandle h)) = Just h
     toHandle (Just CreatePipe)    = error "shelly process creation failure CreatePipe"
     toHandle (Just Inherit)       = error "cannot access an inherited pipe"
+    toHandle (Just NoStream)      = error "shelly process creation failure NoStream"
     toHandle Nothing              = error "error in shelly creating process"
 
     createUnless Nothing = CreatePipe
@@ -655,12 +649,12 @@ whichEith originalFp = whichFull
         lookupCache = do
             pathExecutables <- cachedPathExecutables
             return $ fmap (flip (</>) fp . fst) $
-                L.find (S.member fp . snd) pathExecutables
+                List.find (Set.member fp . snd) pathExecutables
 
 
         pathDirs = mapM absPath =<< ((map T.unpack . filter (not . T.null) . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
 
-        cachedPathExecutables :: Sh [(FilePath, S.Set FilePath)]
+        cachedPathExecutables :: Sh [(FilePath, Set FilePath)]
         cachedPathExecutables = do
           mPathExecutables <- gets sPathExecutables
           case mPathExecutables of
@@ -671,7 +665,7 @@ whichEith originalFp = whichFull
                     files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
                     exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
                       map (\f -> (f, takeFileName f)) files
-                    return $ S.fromList exes
+                    return $ Set.fromList exes
                   )
                 let cachedExecutables = zip dirs executables
                 modify $ \x -> x { sPathExecutables = Just cachedExecutables }
@@ -786,25 +780,14 @@ get_environment = gets sEnvironment
 get_env_all :: Sh [(String, String)]
 get_env_all = gets sEnvironment
 
+normalizeEnvVarNameText :: Text -> Text
+#if defined(mingw32_HOST_OS)
 -- On Windows, normalize all environment variable names (to lowercase)
 -- to account for case insensitivity.
-#if defined(mingw32_HOST_OS)
-
-normalizeEnvVarNameText :: Text -> Text
 normalizeEnvVarNameText = T.toLower
-
-normalizeEnvVarNameString :: String -> String
-normalizeEnvVarNameString = fmap toLower
-
--- On other systems, keep the variable names as-is.
 #else
-
-normalizeEnvVarNameText :: Text -> Text
+-- On other systems, keep the variable names as-is.
 normalizeEnvVarNameText = id
-
-normalizeEnvVarNameString :: String -> String
-normalizeEnvVarNameString = id
-
 #endif
 
 -- | Fetch the current value of an environment variable.
@@ -985,7 +968,7 @@ getNormalizedEnvironment =
 #if defined(mingw32_HOST_OS)
   -- On Windows, normalize all environment variable names (to lowercase)
   -- to account for case insensitivity.
-  fmap (\(a, b) -> (normalizeEnvVarNameString a, b)) <$> getEnvironment
+  fmap (\(a, b) -> (map toLower a, b)) <$> getEnvironment
 #else
   -- On other systems, keep the environment as-is.
   getEnvironment

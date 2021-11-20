@@ -2,7 +2,6 @@
 module Shelly.Directory where
 
 import System.IO.Error (modifyIOError, ioeSetLocation, ioeGetLocation)
-import qualified System.Directory as FP
 
 import qualified System.PosixCompat as Posix
 

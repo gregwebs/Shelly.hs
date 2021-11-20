@@ -3,11 +3,6 @@ module CopySpec ( copySpec ) where
 
 import TestInit
 
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding ( FilePath, catch)
-#else
-import Prelude hiding ( FilePath)
-#endif
 import Control.Monad (forM_)
 import System.IO.Error
 import Help

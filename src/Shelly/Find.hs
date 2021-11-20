@@ -1,8 +1,10 @@
 {-# LANGUAGE OverloadedStrings #-}
+
 -- | File finding utiliites for Shelly
 -- The basic 'find' takes a dir and gives back a list of files.
 -- If you don't just want a list, use the folding variants like 'findFold'.
 -- If you want to avoid traversing certain directories, use the directory filtering variants like 'findDirFilter'
+
 module Shelly.Find
   ( find
   , findWhen
@@ -13,10 +15,11 @@ module Shelly.Find
   )
 where
 
-import           Prelude                 hiding ( FilePath )
 import           Shelly.Base
 import           Control.Monad                  ( foldM )
+#if !MIN_VERSION_base(4,13,0)
 import           Data.Monoid                    ( mappend )
+#endif
 import           System.PosixCompat.Files       ( getSymbolicLinkStatus
                                                 , isSymbolicLink
                                                 )
@@ -66,16 +69,15 @@ findFoldDirFilter
 findFoldDirFilter folder startValue dirFilter dir = do
   absDir <- absPath dir
   trace ("find " `mappend` toTextIgnore absDir)
-  files <- ls absDir
   filt <- dirFilter absDir
   if not filt
     then return startValue
     -- use possible relative path, not absolute so that listing will remain relative
     else do
       (rPaths, aPaths) <- lsRelAbs dir
-      foldM traverse startValue (zip rPaths aPaths)
+      foldM traverse' startValue (zip rPaths aPaths)
  where
-  traverse acc (relativePath, absolutePath) = do
+  traverse' acc (relativePath, absolutePath) = do
     -- optimization: don't use Shelly API since our path is already good
     isDir  <- liftIO $ doesDirectoryExist absolutePath
     sym    <- liftIO $ fmap isSymbolicLink $ getSymbolicLinkStatus absolutePath

@@ -96,16 +96,14 @@ module Shelly.Lifted
          , followSymlink
          ) where
 
-import qualified Shelly as S
-import Shelly.Base (Sh(..), ShIO, Text, (>=>), FilePath)
+import qualified Shelly      as S
 import qualified Shelly.Base as S
-import Control.Monad ( liftM )
-import Prelude hiding ( FilePath )
+import Shelly.Base     ( Sh(..), ShIO, Text, (>=>) )
+
+import Control.Monad   ( liftM )
 import Data.ByteString ( ByteString )
-import Data.Monoid
-import System.IO ( Handle )
-import Data.Tree ( Tree )
-import qualified System.FilePath as FP
+import Data.Tree       ( Tree )
+import System.IO       ( Handle )
 
 import Control.Exception.Lifted
 import Control.Exception.Enclosed
@@ -115,7 +113,7 @@ import Control.Monad.Trans.Identity
 import Control.Monad.Trans.List
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Cont
-import Control.Monad.Trans.Error
+import Control.Monad.Trans.Except
 import Control.Monad.Trans.Reader
 import Control.Monad.Trans.State
 import qualified Control.Monad.Trans.State.Strict as Strict
@@ -132,40 +130,51 @@ instance MonadSh Sh where
 
 instance MonadSh m => MonadSh (IdentityT m) where
     liftSh = IdentityT . liftSh
+
 instance MonadSh m => MonadSh (ListT m) where
     liftSh m = ListT $ do
         a <- liftSh m
         return [a]
+
 instance MonadSh m => MonadSh (MaybeT m) where
     liftSh = MaybeT . liftM Just . liftSh
+
 instance MonadSh m => MonadSh (ContT r m) where
     liftSh m = ContT (liftSh m >>=)
-instance (Error e, MonadSh m) => MonadSh (ErrorT e m) where
-    liftSh m = ErrorT $ do
+
+instance (MonadSh m) => MonadSh (ExceptT e m) where
+    liftSh m = ExceptT $ do
         a <- liftSh m
         return (Right a)
+
 instance MonadSh m => MonadSh (ReaderT r m) where
     liftSh = ReaderT . const . liftSh
+
 instance MonadSh m => MonadSh (StateT s m) where
     liftSh m = StateT $ \s -> do
         a <- liftSh m
         return (a, s)
+
 instance MonadSh m => MonadSh (Strict.StateT s m) where
     liftSh m = Strict.StateT $ \s -> do
         a <- liftSh m
         return (a, s)
+
 instance (Monoid w, MonadSh m) => MonadSh (WriterT w m) where
     liftSh m = WriterT $ do
         a <- liftSh m
         return (a, mempty :: w)
+
 instance (Monoid w, MonadSh m) => MonadSh (Strict.WriterT w m) where
     liftSh m = Strict.WriterT $ do
         a <- liftSh m
         return (a, mempty :: w)
+
 instance (Monoid w, MonadSh m) => MonadSh (RWS.RWST r w s m) where
     liftSh m = RWS.RWST $ \_ s -> do
         a <- liftSh m
         return (a, s, mempty :: w)
+
 instance (Monoid w, MonadSh m) => MonadSh (Strict.RWST r w s m) where
     liftSh m = Strict.RWST $ \_ s -> do
         a <- liftSh m
@@ -181,7 +190,7 @@ instance MonadSh m => S.ShellCmd (m ()) where
     cmdAll = (liftSh .) . S.run_
 
 class Monad m => MonadShControl m where
-    data ShM m a :: *
+    data ShM m a
     liftShWith :: ((forall x. m x -> Sh (ShM m x)) -> Sh a) -> m a
     restoreSh :: ShM m a -> m a
 
@@ -240,13 +249,12 @@ instance (MonadShControl m, Monoid w)
     {-# INLINE liftShWith #-}
     {-# INLINE restoreSh #-}
 
-instance (MonadShControl m, Error e)
-         => MonadShControl (ErrorT e m) where
-    newtype ShM (ErrorT e m) a = ErrorTShM (ShM m (Either e a))
+instance MonadShControl m => MonadShControl (ExceptT e m) where
+    newtype ShM (ExceptT e m) a = ExceptTShM (ShM m (Either e a))
     liftShWith f =
-        ErrorT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
-            liftM ErrorTShM $ runInSh $ runErrorT k
-    restoreSh (ErrorTShM m) = ErrorT . restoreSh $ m
+        ExceptT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
+            liftM ExceptTShM $ runInSh $ runExceptT k
+    restoreSh (ExceptTShM m) = ExceptT . restoreSh $ m
     {-# INLINE liftShWith #-}
     {-# INLINE restoreSh #-}
 
@@ -375,11 +383,11 @@ get = liftSh S.get
 put :: MonadSh m => S.State -> m ()
 put = liftSh . S.put
 
-catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
+catch_sh :: Exception e => Sh a -> (e -> Sh a) -> Sh a
 catch_sh = Control.Exception.Lifted.catch
 {-# DEPRECATED catch_sh "use Control.Exception.Lifted.catch instead" #-}
 
-handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
+handle_sh :: Exception e => (e -> Sh a) -> Sh a -> Sh a
 handle_sh = handle
 {-# DEPRECATED handle_sh "use Control.Exception.Lifted.handle instead" #-}
 

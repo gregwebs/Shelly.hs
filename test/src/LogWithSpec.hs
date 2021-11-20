@@ -2,7 +2,6 @@
 module LogWithSpec ( logWithSpec ) where
 
 import TestInit
-import Prelude hiding (FilePath)
 
 import Control.Concurrent (newEmptyMVar, takeMVar, putMVar)
 import Data.Text (Text)

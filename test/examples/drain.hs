@@ -1,5 +1,5 @@
 {-# Language OverloadedStrings, ExtendedDefaultRules #-}
-import Prelude hiding (FilePath)
+
 import Shelly
 import Control.Monad (void)
 import Data.Text (Text)

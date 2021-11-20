@@ -9,5 +9,5 @@ import Shelly as Export
 #endif
 import Test.Hspec.Contrib.HUnit ()
 import System.Info(os)
-isWindows :: Bool 
+isWindows :: Bool
 isWindows = os == "mingw32"
