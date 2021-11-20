@@ -8,31 +8,26 @@
 
 Shelly provides a single module for convenient systems programming in Haskell.
 
-* is aimed at convenience and getting things done rather than being a demonstration of elegance.
-* has detailed and useful error messages
-* maintains its own environment, making it thread-safe
-* is modern, using Text and system-filepath/system-fileio
-* has low memory usage
-  * `run_` and other underscore variants that don't return stdout
-  * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory
-  * `runHandle` and `runHandles` for complete control over handles
-
-Looking to put your Haskell learning to immediate practical use? You don't have to create artifical intelligence, try just automating some of your boring tasks.
+* Shelly is aimed at convenience and getting things done rather than being a demonstration of elegance.
+* It has detailed and useful error messages.
+* It maintains its own environment, making it thread-safe.
+* It has low memory usage:  It has
+  * `run_` and other underscore variants that don't return stdout,
+  * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory,
+  * `runHandle` and `runHandles` for complete control over handles.
 
 The focus of this library on convenience combined with good error messages should make shelly approachable for newer users of Haskell.
-I have published [an introductory article to scripting with shelly, targeted towards those not familiar with Haskell](http://www.linux-magazin.de/Online-Artikel/Shell-scripting-with-type-safety-using-Haskell/). There is a paid version in German from Linux Magazin.
-That article uses the version `shelly < 1.0` which uses lazy text. `shelly > 1.0` uses strict text.
 
 
 
 ## More shelly packages
 
-The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has some additional functionality that requires additional dependencies, currently including a convenient concurrency/futures implementation. If you are following along the above article you need to install it.
+The [shelly-extra](https://hackage.haskell.org/package/shelly-extra) package has some additional functionality that requires additional dependencies, currently including a convenient concurrency/futures implementation.
 
 
 ## Examples
 
-* [A small deployment script](http://www.alfredodinapoli.com/posts/2015-11-03-how-i-deploy-haskell-code.html)
+* [A small deployment script](https://adinapoli.github.io/alfredodinapoli.com/posts/2015-11-03-how-i-deploy-haskell-code.html)
 * [Yesod development installer](https://github.com/yesodweb/scripts/blob/master/install.hs)
 * [cabal-meta, a haskell install tool](https://github.com/yesodweb/cabal-meta/blob/master/main.hs)
 * [antigen-hs, a zsh plugin manager](https://github.com/Tarrasch/antigen-hs)
@@ -40,12 +35,12 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 
 ### Blog Posts
 
-* [Shelly automation with Literate Haskell](http://www.scholarslab.org/dh-developer/shell-programming-in-haskell-converting-s5-slides-to-pdf/)
+* [Shelly automation with Literate Haskell](https://scholarslab.lib.virginia.edu/blog/shell-programming-in-haskell-converting-s5-slides-to-pdf/)
 
 
 ### Testimonials
 
-* [a beginning Haskeller does automation](http://www.reddit.com/r/haskell/comments/w86gu/my_current_job_task_is_boring_so_i_wrote_a_simple/)
+* [A beginning Haskeller does automation](https://www.reddit.com/r/haskell/comments/w86gu/my_current_job_task_is_boring_so_i_wrote_a_simple/)
 
 ### Help
 
@@ -56,14 +51,14 @@ The [shelly-extra](http://hackage.haskell.org/package/shelly-extra) package has 
 ### Haskell shell scripting libraries
 
 
-* [HSH](http://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
-* [HsShellScript](http://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
-* [shell-conduit](http://hackage.haskell.org/package/shell-conduit) - efficient streaming via conduits. Makes some portability sacrifices by
+* [HSH](https://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
+* [HsShellScript](https://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
+* [shell-conduit](https://hackage.haskell.org/package/shell-conduit) - efficient streaming via conduits. Makes some portability sacrifices by
   * encouraging one to just use the shell instead of cross-platform Haskell code
   * encouraging one to use a convenience function that searches the PATH at compile-time
-* [shell-monad](http://hackage.haskell.org/package/shell-monad) - compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
+* [shell-monad](https://hackage.haskell.org/package/shell-monad) - compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
 * [shh](https://hackage.haskell.org/package/shh) - shell like syntax with native piping. Can be used from GHCi as an interactive shell replacement.
-* [turtle](http://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](http://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
+* [turtle](https://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](https://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
 
 HSH, HsShellScript and shh (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
 turtle, like Shelly offers folding as a way to efficiently deal with a stream.
@@ -74,8 +69,8 @@ For some this is an absolutely critical feature, particularly given that Haskell
 
 ### Haskell file-finding supplements
 
-* [find-conduit](http://hackage.haskell.org/package/find-conduit) - uses conduits, similar speed to GNU find
-* [FileManip](hackage.haskell.org/package/FileManip) - uses Lazy IO
+* [find-conduit](https://hackage.haskell.org/package/find-conduit) - uses conduits, similar speed to GNU find
+* [FileManip](https://hackage.haskell.org/package/FileManip) - uses Lazy IO
 
 Shelly's finders load all files into memory. This is simpler to use if you control the filesystem structure and know the system is bounded in size. However, if the filesystem structure is unbounded it consumes unbounded memory.
 
@@ -85,7 +80,7 @@ Shelly's finders load all files into memory. This is simpler to use if you contr
 Shelly does not change the nature of shell scripting (text in, text out).
 If you want something more revolutionary you might try these:
 
-* PowerShell is probably the best known.
+* [PowerShell](https://github.com/PowerShell/PowerShell) is probably the best known.
 * [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
 * [RecordStream](https://github.com/benbernard/RecordStream) untyped JSON]
 
@@ -105,19 +100,22 @@ Of course, the development machine may need to be exactly the same OS as the ser
 I recommend using the boilerplate at the top of this example in your projects.
 This includes setting line buffering if you are dealing with text and not binary data.
 
-~~~~~ {.haskell}
+```haskell
     {-# LANGUAGE OverloadedStrings #-}
     {-# LANGUAGE ExtendedDefaultRules #-}
     {-# OPTIONS_GHC -fno-warn-type-defaults #-}
+
     import Shelly
+    import System.IO
     import Data.Text as T
     default (T.Text)
 
+    main :: IO ()
     main =  do
       hSetBuffering stdout LineBuffering
       shelly $ verbosely $ do
         host <- run "uname" ["-n"]
-        if T.stripEnd host === "local-machine"
+        if T.stripEnd host == "local-machine"
           then do d <- cmd "date"
                   c <- escaping False $ cmd "git" "log -1 | head -1 | awk '{print $2}'"
                   appendfile "log/deploy.log" $ T.intercalate " - " [T.stripEnd d, c]
@@ -131,8 +129,9 @@ This includes setting line buffering if you are dealing with text and not binary
     uploads :: Text -> [Text] -> Sh ()
     uploads remote locals = rsync $ ["--relative"] ++ locals ++ [remote]
 
+    rsync :: [Text] -> Sh ()
     rsync args = run_ "rsync" $ ["--delete", "-avz", "--no-g"] ++ args
-~~~~~
+```
 
 ### Variadic arguments to cmd
 
@@ -140,26 +139,27 @@ Yes, as seen above you can write variadic functions in Haskell quite easily, you
 I find `cmd` to be more convenient, but I often use `run` and `command` variants when I am building up abstractions.
 Building up abstractions with cmd will require type signatures.
 
+```haskell
     -- easy signature, but only allows one argument
     let cabal = cmd "cabal" :: Text -> Sh Text
 
     -- more complex signature that allows partial application of cmd
     let cabal = cmd "cabal" :: Shelly.ShellCmd result => result
-
+```
 
 
 ### Escaping
 
 By default, all commands are shell escaped.
-If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...`
+If you want the shell to interpret special characters such as `*`, just use `escaping False $ do ...`.
 
 ### Using Text and FilePath together
 
-Shelly's usage of system-filepath means you may need to convert between Text and FilePath sometimes.
-This should be infrequent though because
+Shelly's usage of `Text` means you may need to convert between `Text` and `FilePath` sometimes.
+This should be infrequent though because:
 
-* `cmd` will convert FilePath to Text
-* The `</>` and `<.>` combinators convert String/Text into a FilePath automatically
+* `cmd` will convert `FilePath` to `Text`.
+* The `</>` and `<.>` combinators convert `Text` into a `FilePath` automatically.
 
 Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 
@@ -182,8 +182,3 @@ Shelly's own error messages are detailed and in some cases it will catch Haskell
 
 If you make your own primitive functions that don't use the existing Shelly API, you can create a wrapper in the Sh monad that use `trace` or `tag` to log what they are doing.
 You can turn tracing off (not generally recommended) by setting `tracing False`.
-
-
-## Future plans
-
-* Don't use the filepath library
