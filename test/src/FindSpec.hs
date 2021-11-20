@@ -6,7 +6,6 @@ import Data.Text (replace, pack, unpack)
 import System.Directory (createDirectoryIfMissing)
 import System.PosixCompat.Files (createSymbolicLink, fileExist)
 import qualified System.FilePath as SF
-import Shelly
 
 createSymlinkForTest :: IO ()
 createSymlinkForTest = do
@@ -105,7 +104,7 @@ findSpec = do
                     "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs", "SshSpec.hs",
                     "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
-    
+
     unless isWindows $ before createSymlinkForTest $ do
       it "follow symlinks" $
          do res <-
@@ -134,4 +133,3 @@ findSpec = do
               , "symlinked_dir/hoge_file"
               , "zshrc"
               ]
-

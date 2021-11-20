@@ -1,5 +1,6 @@
 {-# LANGUAGE FlexibleInstances, TypeSynonymInstances,
              TypeFamilies, ExistentialQuantification #-}
+
 -- | This module is a wrapper for the module "Shelly".
 -- The only difference is a main type 'Sh'. In this module
 -- 'Sh' contains a list of results. Actual definition of the type 'Sh' is:
@@ -33,6 +34,7 @@
 -- > import Shelly
 -- > import Data.Text as T
 -- > default (T.Text)
+
 module Shelly.Pipe
        (
          -- * Entering Sh.
@@ -95,47 +97,43 @@ module Shelly.Pipe
          , followSymlink
          ) where
 
-import Prelude hiding (FilePath)
+import qualified Shelly as S
+
+import Shelly
+    ( (</>), (<.>), hasExt
+    , whenM, unlessM, toTextIgnore
+    , catchany
+    , FoldCallback
+    )
+import Shelly.Base (State)
 
 import Control.Applicative
 import Control.Monad
 import Control.Monad.Trans
-import Control.Exception hiding (handle)
+import Control.Exception
 
-import System.FilePath(FilePath)
-
-import qualified Shelly as S
-
-import Shelly(
-      (</>), (<.>), hasExt
-    , whenM, unlessM, toTextIgnore
-    , catchany
-    , FoldCallback)
-
-import Data.Maybe(fromMaybe)
-import Shelly.Base(State)
-import Data.ByteString (ByteString)
-
-import Data.Tree(Tree)
-
+import Data.Maybe      ( fromMaybe )
+import Data.ByteString ( ByteString )
+import Data.Tree       ( Tree )
 import Data.Text as T hiding (concat, all, find, cons)
-
 
 -- | This type is a simple wrapper for a type @Shelly.Sh@.
 -- 'Sh' contains a list of results.
+
 newtype Sh a = Sh { unSh :: S.Sh [a] }
 
 instance Functor Sh where
     fmap f = Sh . fmap (fmap f) . unSh
 
-instance Monad Sh where
-    return  = Sh . return . return
-    a >>= f = Sh $ fmap concat $ mapM (unSh . f) =<< unSh a
-    a >> b  = Sh $ unSh a >> unSh b
-
 instance Applicative Sh where
-    pure = return
+    pure  = Sh . pure . pure
     (<*>) = ap
+    a *> b  = Sh $ unSh a *> unSh b
+
+instance Monad Sh where
+    return  = pure
+    a >>= f = Sh $ fmap concat $ mapM (unSh . f) =<< unSh a
+    (>>)    = (*>)
 
 instance Alternative Sh where
     empty = mzero

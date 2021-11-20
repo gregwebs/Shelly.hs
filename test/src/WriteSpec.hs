@@ -1,7 +1,6 @@
 module WriteSpec ( writeSpec ) where
 
 import TestInit
-import Prelude hiding (FilePath)
 
 import Data.Text (Text)
 default (Text)

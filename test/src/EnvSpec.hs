@@ -2,11 +2,6 @@
 module EnvSpec ( envSpec ) where
 
 import TestInit
-#if defined(__GLASGOW_HASKELL__) && __GLASGOW_HASKELL__ < 706
-import Prelude hiding ( FilePath, catch)
-#else
-import Prelude hiding ( FilePath)
-#endif
 import Data.Maybe
 
 envSpec :: Spec
