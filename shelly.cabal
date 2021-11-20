@@ -7,13 +7,11 @@ Description: Shelly provides convenient systems programming in Haskell,
              similar in spirit to POSIX shells. Shelly:
              .
                * is aimed at convenience and getting things done rather than
-                 being a demonstration of elegance.
+                 being a demonstration of elegance,
              .
-               * has detailed and useful error messages
+               * has detailed and useful error messages,
              .
                * maintains its own environment, making it thread-safe.
-             .
-               * is modern, using Text filepath/directory
              .
              Shelly is originally forked from the Shellish package.
              .
