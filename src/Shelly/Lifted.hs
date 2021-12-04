@@ -110,7 +110,6 @@ import Control.Exception.Enclosed
 import Control.Monad.IO.Class
 import Control.Monad.Trans.Control
 import Control.Monad.Trans.Identity
-import Control.Monad.Trans.List
 import Control.Monad.Trans.Maybe
 import Control.Monad.Trans.Cont
 import Control.Monad.Trans.Except
@@ -130,11 +129,6 @@ instance MonadSh Sh where
 
 instance MonadSh m => MonadSh (IdentityT m) where
     liftSh = IdentityT . liftSh
-
-instance MonadSh m => MonadSh (ListT m) where
-    liftSh m = ListT $ do
-        a <- liftSh m
-        return [a]
 
 instance MonadSh m => MonadSh (MaybeT m) where
     liftSh = MaybeT . liftM Just . liftSh
@@ -200,15 +194,6 @@ instance MonadShControl Sh where
      restoreSh (ShSh x) = return x
      {-# INLINE liftShWith #-}
      {-# INLINE restoreSh #-}
-
-instance MonadShControl m => MonadShControl (ListT m) where
-    newtype ShM (ListT m) a = ListTShM (ShM m [a])
-    liftShWith f =
-        ListT $ liftM return $ liftShWith $ \runInSh -> f $ \k ->
-            liftM ListTShM $ runInSh $ runListT k
-    restoreSh (ListTShM m) = ListT . restoreSh $ m
-    {-# INLINE liftShWith #-}
-    {-# INLINE restoreSh #-}
 
 instance MonadShControl m => MonadShControl (MaybeT m) where
     newtype ShM (MaybeT m) a = MaybeTShM (ShM m (Maybe a))
