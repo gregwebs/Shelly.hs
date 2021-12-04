@@ -57,7 +57,7 @@ rmSpec = do
     it "rm" $ do
       res <- shelly $ do
         writefile b "b"
-        cmd "ln" "-s" (T.pack b) (T.pack l)
+        _ <- cmd "ln" "-s" (T.pack b) (T.pack l)
         rm l
         test_f b
       assert res
@@ -66,7 +66,7 @@ rmSpec = do
     it "rm_f" $ do
       res <- shelly $ do
         writefile b "b"
-        cmd "ln" "-s" (T.pack b) (T.pack l)
+        _ <- cmd "ln" "-s" (T.pack b) (T.pack l)
         rm_f l
         test_f b
       assert res
@@ -76,7 +76,7 @@ rmSpec = do
       res <- shelly $ do
         mkdir d
         writefile (d</>b) "b"
-        cmd "ln" "-s" (T.pack $ d</>b) (T.pack l)
+        _ <- cmd "ln" "-s" (T.pack $ d</>b) (T.pack l)
         rm_rf l
         test_f (d</>b)
       assert res
