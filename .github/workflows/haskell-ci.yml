@@ -8,9 +8,9 @@
 #
 # For more information, see https://github.com/haskell-CI/haskell-ci
 #
-# version: 0.13.20211030
+# version: 0.14
 #
-# REGENDATA ("0.13.20211030",["github","shelly.cabal"])
+# REGENDATA ("0.14",["github","shelly.cabal"])
 #
 name: Haskell-CI
 on:
@@ -20,6 +20,8 @@ jobs:
   linux:
     name: Haskell-CI - Linux - ${{ matrix.compiler }}
     runs-on: ubuntu-18.04
+    timeout-minutes:
+      60
     container:
       image: buildpack-deps:bionic
     continue-on-error: ${{ matrix.allow-failure }}
@@ -31,10 +33,10 @@ jobs:
             compilerVersion: 9.2.1
             setup-method: ghcup
             allow-failure: false
-          - compiler: ghc-9.0.1
+          - compiler: ghc-9.0.2
             compilerKind: ghc
-            compilerVersion: 9.0.1
-            setup-method: hvr-ppa
+            compilerVersion: 9.0.2
+            setup-method: ghcup
             allow-failure: false
           - compiler: ghc-8.10.7
             compilerKind: ghc
@@ -144,6 +146,10 @@ jobs:
             prefix: $CABAL_DIR
           repository hackage.haskell.org
             url: http://hackage.haskell.org/
+          EOF
+          cat >> $CABAL_CONFIG <<EOF
+          program-default-options
+            ghc-options: $GHCJOBS +RTS -M3G -RTS
           EOF
           cat $CABAL_CONFIG
       - name: versions
