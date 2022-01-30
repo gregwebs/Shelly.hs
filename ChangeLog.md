@@ -1,3 +1,15 @@
+# 1.10.0
+
+Andreas Abel, 2022-01-30
+* Allow `transformers-0.6`:
+  - Replace `ErrorT` by `ExceptT`.
+  - Remove `MonadSh` and `MonadShControl` instance for `ListT`.
+    [#211](https://github.com/gregwebs/Shelly.hs/pull/211)
+* Bump lower bounds of dependencies, keeping all versions that build with GHC >= 8.0.
+* Remove unused `unix` dependency.
+* Allow `time-1.12`.
+* Builds warning-free with GHC 8.0 - 9.2.1.
+
 # 1.9.0
 
 Greg Weber, 2019-08-29
