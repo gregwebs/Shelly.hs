@@ -287,8 +287,9 @@ toTextIgnore = T.pack
 -- | 'print' lifted into 'Sh'.
 inspect :: Show s => s -> Sh ()
 inspect x = do
-  (trace . T.pack . show) x
-  liftIO $ print x
+  trace $ T.pack s
+  liftIO $ putStrLn s
+  where s = show x
 
 -- | A 'print' lifted into 'Sh' using stderr.
 inspect_err :: Show s => s -> Sh ()
