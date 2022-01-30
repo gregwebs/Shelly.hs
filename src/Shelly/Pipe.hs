@@ -33,18 +33,18 @@
 
 module Shelly.Pipe
        (
-         -- * Entering Sh.
+         -- * Entering Sh
          Sh, shs, shelly, shellyFailDir, shsFailDir, sub, silently, verbosely, escaping, print_stdout, print_commands, tracing, errExit, log_stdout_with, log_stderr_with
          -- * List functions
          , roll, unroll, liftSh
-         -- * Running external commands.
+         -- * Running external commands
          , FoldCallback
          , run, run_, runFoldLines, cmd
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
          , sshPairs, sshPairs_
 
-         -- * Modifying and querying environment.
+         -- * Modifying and querying environment
          , setenv, get_env, get_env_text, get_env_def, appendToPath, prependToPath
 
          -- * Environment directory
@@ -54,14 +54,14 @@ module Shelly.Pipe
          , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
          , tag, trace, show_command
 
-         -- * Querying filesystem.
+         -- * Querying filesystem
          , ls, lsT, test_e, test_f, test_d, test_s, which
 
          -- * Filename helpers
          , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo
          , hasExt
 
-         -- * Manipulating filesystem.
+         -- * Manipulating filesystem
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
@@ -78,7 +78,7 @@ module Shelly.Pipe
          -- * convert between Text and FilePath
          , toTextIgnore, toTextWarn, S.fromText
 
-         -- * Utilities.
+         -- * Utilities
          , (<$>), whenM, unlessM, time
 
          -- * Re-exported for your convenience

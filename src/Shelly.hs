@@ -27,14 +27,14 @@
 
 module Shelly
        (
-         -- * Entering Sh.
+         -- * Entering Sh
          Sh, ShIO, shelly, shellyNoDir, shellyFailDir, asyncSh, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , onCommandHandles
          , tracing, errExit
          , log_stdout_with, log_stderr_with
 
-         -- * Running external commands.
+         -- * Running external commands
          , run, run_, runFoldLines, cmd, FoldCallback
          , bash, bash_, bashPipeFail
          , (-|-), lastStderr, setStdin, lastExitCode
@@ -50,7 +50,7 @@ module Shelly
          -- * Handle manipulation
          , HandleInitializer, StdInit(..), initOutputHandles, initAllHandles
 
-         -- * Modifying and querying environment.
+         -- * Modifying and querying environment
          , setenv, get_env, get_env_text, getenv, get_env_def, get_env_all, get_environment, appendToPath, prependToPath
 
          -- * Environment directory
@@ -60,14 +60,14 @@ module Shelly
          , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
          , tag, trace, show_command
 
-         -- * Querying filesystem.
+         -- * Querying filesystem
          , ls, lsT, test_e, test_f, test_d, test_s, test_px, which
 
          -- * Filename helpers
          , absPath, (</>), (<.>), canonic, canonicalize, relPath, relativeTo, path
          , hasExt
 
-         -- * Manipulating filesystem.
+         -- * Manipulating filesystem
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
@@ -177,14 +177,14 @@ cmd fp args = run fp $ toTextArgs args
 -}
 
 -- | Argument converter for the variadic argument version of 'run' called 'cmd'.
--- Useful for a type signature of a function that uses 'cmd'
+-- Useful for a type signature of a function that uses 'cmd'.
 class CmdArg a where toTextArg :: a -> Text
 instance CmdArg Text     where toTextArg = id
 instance CmdArg String   where toTextArg = T.pack
 
--- | For the variadic function 'cmd'
+-- | For the variadic function 'cmd'.
 --
--- partially applied variadic functions require type signatures
+-- Partially applied variadic functions require type signatures.
 class ShellCmd t where
     cmdAll :: FilePath -> [Text] -> t
 
@@ -206,12 +206,13 @@ instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
 
 
 
--- | variadic argument version of 'run'.
+-- | Variadic argument version of 'run'.
 -- Please see the documenation for 'run'.
 --
--- The syntax is more convenient, but more importantly it also allows the use of a FilePath as a command argument.
--- So an argument can be a Text or a FilePath without manual conversions.
--- a FilePath is automatically converted to Text with 'toTextIgnore'.
+-- The syntax is more convenient, but more importantly
+-- it also allows the use of a 'FilePath' as a command argument.
+-- So an argument can be a 'Text' or a 'FilePath' without manual conversions.
+-- a 'FilePath' is automatically converted to 'Text' with 'toTextIgnore'.
 --
 -- Convenient usage of 'cmd' requires the following:
 --
@@ -225,7 +226,7 @@ instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
 cmd :: (ShellCmd result) => FilePath -> result
 cmd fp = cmdAll fp []
 
--- | Convert Text to a FilePath-
+-- | Convert 'Text' to a 'FilePath'.
 fromText :: Text -> FilePath
 fromText = T.unpack
 
@@ -237,11 +238,11 @@ instance ToFilePath FilePath where toFilePath = id
 instance ToFilePath Text     where toFilePath = T.unpack
 
 
--- | uses System.FilePath, but can automatically convert a Text
+-- | Uses "System.FilePath", but can automatically convert a 'Text'.
 (</>) :: (ToFilePath filepath1, ToFilePath filepath2) => filepath1 -> filepath2 -> FilePath
 x </> y = toFilePath x FP.</> toFilePath y
 
--- | uses System.FilePath, but can automatically convert a Text
+-- | Uses "System.FilePath", but can automatically convert a 'Text'.
 (<.>) :: (ToFilePath filepath) => filepath -> Text -> FilePath
 x <.> y = toFilePath x FP.<.> T.unpack y
 
@@ -255,7 +256,7 @@ toTextWarn efile = do
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
--- does not close the write handle.
+-- Does not close the write handle.
 --
 -- Also, return the complete contents being streamed line by line.
 transferLinesAndCombine :: Handle -> (Text -> IO ()) -> IO Text
@@ -271,9 +272,9 @@ type FoldCallback a = (a -> Text -> a)
 
 -- | Transfer from one handle to another
 -- For example, send contents of a process output to stdout.
--- does not close the write handle.
+-- Does not close the write handle.
 --
--- Also, fold over the contents being streamed line by line
+-- Also, fold over the contents being streamed line by line.
 transferFoldHandleLines :: a -> FoldCallback a -> Handle -> (Text -> IO ()) -> IO a
 transferFoldHandleLines start foldLine readHandle putWrite = go start
   where
@@ -299,7 +300,7 @@ foldHandleLines start foldLine readHandle = go start
         Nothing -> return acc
         Just line -> go $ foldLine acc line
 
--- | same as 'trace', but use it combinator style
+-- | Same as 'trace', but for use in combinator style: @action `tag` message@.
 tag :: Sh a -> Text -> Sh a
 tag action msg = do
   trace msg
@@ -452,16 +453,16 @@ catches_sh action handlers = do
     toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
     toHandler runner (ShellyHandler handler) = Handler (\e -> runner (handler e))
 
--- | Catch any exception in the Sh monad.
+-- | Catch any exception in the 'Sh' monad.
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a
 catchany_sh = catch_sh
 
--- | Handle any exception in the Sh monad.
+-- | Handle any exception in the 'Sh' monad.
 handleany_sh :: (SomeException -> Sh a) -> Sh a -> Sh a
 handleany_sh = handle_sh
 
--- | Change current working directory of Sh. This does *not* change the
--- working directory of the process we are running it. Instead, Sh keeps
+-- | Change current working directory of 'Sh'. This does /not/ change the
+-- working directory of the process we are running it. Instead, 'Sh' keeps
 -- track of its own working directory and builds absolute paths internally
 -- instead of passing down relative paths.
 cd :: FilePath -> Sh ()
@@ -473,27 +474,18 @@ cd = traceCanonicPath ("cd " <>) >=> cd'
       where
         tdir = toTextIgnore dir
 
--- | 'cd', execute a Sh action in the new directory and then pop back to the original directory
+-- | 'cd', execute a 'Sh' action in the new directory
+-- and then pop back to the original directory.
 chdir :: FilePath -> Sh a -> Sh a
 chdir dir action = do
   d <- gets sDirectory
   cd dir
   action `finally_sh` cd d
 
--- | 'chdir', but first create the directory if it does not exit
+-- | 'chdir', but first create the directory if it does not exit.
 chdir_p :: FilePath -> Sh a -> Sh a
 chdir_p d action = mkdir_p d >> chdir d action
 
-
--- | apply a String IO operations to a Text FilePath
-{-
-liftStringIO :: (String -> IO String) -> FilePath -> Sh FilePath
-liftStringIO f = liftIO . f . unpack >=> return . pack
-
--- | @asString f = pack . f . unpack@
-asString :: (String -> String) -> FilePath -> FilePath
-asString f = pack . f . unpack
--}
 
 pack :: String -> FilePath
 pack = id
@@ -523,29 +515,29 @@ mv from' to' = do
     extraMsg :: String -> String -> String
     extraMsg t f = "during copy from: " ++ f ++ " to: " ++ t
 
--- | Get back [Text] instead of [FilePath]
+-- | Get back @[Text]@ instead of @[FilePath]@.
 lsT :: FilePath -> Sh [Text]
 lsT = ls >=> mapM toTextWarn
 
--- | Obtain the current (Sh) working directory.
+-- | Obtain the current 'Sh' working directory.
 pwd :: Sh FilePath
 pwd = gets sDirectory `tag` "pwd"
 
--- | exit 0 means no errors, all other codes are error conditions
+-- | @'exit' 0@ means no errors, all other codes are error conditions.
 exit :: Int -> Sh a
 exit 0 = liftIO exitSuccess `tag` "exit 0"
 exit n = liftIO (exitWith (ExitFailure n)) `tag` ("exit " <> T.pack (show n))
 
--- | echo a message and exit with status 1
+-- | Echo a message and 'exit' with status 1.
 errorExit :: Text -> Sh a
 errorExit msg = echo msg >> exit 1
 
--- | for exiting with status > 0 without printing debug information
+-- | For exiting with status > 0 without printing debug information.
 quietExit :: Int -> Sh a
 quietExit 0 = exit 0
 quietExit n = throw $ QuietExit n
 
--- | fail that takes a Text
+-- | 'fail' that takes a 'Text'.
 terror :: Text -> Sh a
 terror = fail . T.unpack
 
@@ -757,15 +749,15 @@ setPath newPath = do
 path_env :: Text
 path_env = normalizeEnvVarNameText "PATH"
 
--- | add the filepath onto the PATH env variable
+-- | Add the filepath onto the PATH env variable.
 appendToPath :: FilePath -> Sh ()
 appendToPath = traceAbsPath ("appendToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
   pe <- get_env_text path_env
   setPath $ pe <> T.singleton searchPathSeparator <> tp
 
--- | prepend the filepath to the PATH env variable
--- similar to 'appendToPath' but gives high priority to the filepath instead of low priority.
+-- | Prepend the filepath to the PATH env variable.
+-- Similar to 'appendToPath' but gives high priority to the filepath instead of low priority.
 prependToPath :: FilePath -> Sh ()
 prependToPath = traceAbsPath ("prependToPath: " <>) >=> \filepath -> do
   tp <- toTextWarn filepath
@@ -776,7 +768,7 @@ get_environment :: Sh [(String, String)]
 get_environment = gets sEnvironment
 {-# DEPRECATED get_environment "use get_env_all" #-}
 
--- | get the full environment
+-- | Get the full environment.
 get_env_all :: Sh [(String, String)]
 get_env_all = gets sEnvironment
 
@@ -791,7 +783,7 @@ normalizeEnvVarNameText = id
 #endif
 
 -- | Fetch the current value of an environment variable.
--- if non-existant or empty text, will be Nothing
+-- If non-existant or empty text, will be 'Nothing'.
 get_env :: Text -> Sh (Maybe Text)
 get_env k = do
   mval <- return
@@ -804,7 +796,6 @@ get_env k = do
   where
   normK = normalizeEnvVarNameText k
 
--- | deprecated
 getenv :: Text -> Sh Text
 getenv k = get_env_def k ""
 {-# DEPRECATED getenv "use get_env or get_env_text" #-}
@@ -815,16 +806,16 @@ get_env_text :: Text -> Sh Text
 get_env_text = get_env_def ""
 
 -- | Fetch the current value of an environment variable. Both empty and
--- non-existent variables give the default Text value as a result
+-- non-existent variables give the default 'Text' value as a result.
 get_env_def :: Text -> Text -> Sh Text
 get_env_def d = get_env >=> return . fromMaybe d
 {-# DEPRECATED get_env_def "use fromMaybe DEFAULT get_env" #-}
 
--- | Apply a single initializer to the two output process handles (stdout and stderr)
+-- | Apply a single initializer to the two output process handles (stdout and stderr).
 initOutputHandles :: HandleInitializer -> StdInit
 initOutputHandles f = StdInit (const $ return ()) f f
 
--- | Apply a single initializer to all three standard process handles (stdin, stdout and stderr)
+-- | Apply a single initializer to all three standard process handles (stdin, stdout and stderr).
 initAllHandles :: HandleInitializer -> StdInit
 initAllHandles f = StdInit f f f
 
@@ -912,8 +903,8 @@ sub a = do
        }
 
 -- | Create a sub-Sh where commands are not traced
--- Defaults to True.
--- You should only set to False temporarily for very specific reasons
+-- Defaults to @True@.
+-- You should only set to @False@ temporarily for very specific reasons.
 tracing :: Bool -> Sh a -> Sh a
 tracing shouldTrace action = sub $ do
   modify $ \st -> st { sTracing = shouldTrace }
@@ -1089,19 +1080,18 @@ surround c t = T.cons c $ T.snoc t c
 
 data SshMode = ParSsh | SeqSsh
 
--- | same as 'sshPairs', but returns ()
+-- | Same as 'sshPairs', but returns @()@.
 sshPairs_ :: Text -> [(FilePath, [Text])] -> Sh ()
 sshPairs_ _ [] = return ()
 sshPairs_ server cmds = sshPairs' run_ server cmds
 
--- | same as 'sshPairsP', but returns ()
-
+-- | Same as 'sshPairsPar', but returns @()@.
 sshPairsPar_ :: Text -> [(FilePath, [Text])] -> Sh ()
 sshPairsPar_ _ [] = return ()
 sshPairsPar_ server cmds = sshPairsPar' run_ server cmds
 
--- | run commands over SSH.
--- An ssh executable is expected in your path.
+-- | Run commands over SSH.
+-- An @ssh@ executable is expected in your path.
 -- Commands are in the same form as 'run', but given as pairs
 --
 -- > sshPairs "server-name" [("cd", "dir"), ("rm",["-r","dir2"])]
@@ -1115,12 +1105,13 @@ sshPairsPar_ server cmds = sshPairsPar' run_ server cmds
 -- if there are a single or double quotes in your arguments, they need not
 -- to be quoted manually.
 --
--- Internally the list of commands are combined with the string @&&@ before given to ssh.
+-- Internally the list of commands are combined with the string @&&@ before given to @ssh@.
 sshPairs :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairs _ [] = return ""
 sshPairs server cmds = sshPairsWithOptions' run server [] cmds SeqSsh
 
--- | Same as sshPairs, but combines commands with the string @&@, so they will be started in parallell.
+-- | Same as 'sshPairs', but combines commands with the string @&@,
+-- so they will be started in parallel.
 sshPairsPar :: Text -> [(FilePath, [Text])] -> Sh Text
 sshPairsPar _ [] = return ""
 sshPairsPar server cmds = sshPairsWithOptions' run server [] cmds ParSsh
@@ -1131,9 +1122,9 @@ sshPairsPar' run' server actions = sshPairsWithOptions' run' server [] actions P
 sshPairs' :: (FilePath -> [Text] -> Sh a) -> Text -> [(FilePath, [Text])] -> Sh a
 sshPairs' run' server actions = sshPairsWithOptions' run' server [] actions SeqSsh
 
--- | Like 'sshPairs', but allows for arguments to the call to ssh.
+-- | Like 'sshPairs', but allows for arguments to the call to @ssh@.
 sshPairsWithOptions :: Text                  -- ^ Server name.
-                    -> [Text]                -- ^ Arguments to ssh (e.g. ["-p","22"]).
+                    -> [Text]                -- ^ Arguments to @ssh@ (e.g. @["-p","22"]@).
                     -> [(FilePath, [Text])]  -- ^ Pairs of commands to run on the remote.
                     -> Sh Text               -- ^ Returns the standard output.
 sshPairsWithOptions _ _ [] = return ""
@@ -1184,12 +1175,12 @@ instance Exception e => Show (ReThrownException e) where
 -- given, Shelly cannot look in the @PATH@ for it.
 -- a @PATH@ modified by setenv is not taken into account when finding the exe name.
 -- Instead the original Haskell program @PATH@ is used.
--- On a Posix system the @env@ command can be used to make the 'setenv' PATH used when 'escaping' is set to False. @env echo hello@ instead of @echo hello@
+-- On a Posix system the @env@ command can be used to make the 'setenv' PATH used when 'escaping' is set to False. @env echo hello@ instead of @echo hello@.
 --
 run :: FilePath -> [Text] -> Sh Text
 run fp args = return . lineSeqToText =<< runFoldLines mempty (|>) fp args
 
--- | Like 'run', but it invokes the user-requested program with _bash_.
+-- | Like 'run', but it invokes the user-requested program with @bash@.
 bash :: FilePath -> [Text] -> Sh Text
 bash fp args = escaping False $ run "bash" $ bashArgs fp args
 
@@ -1201,42 +1192,42 @@ bashArgs fp args = ["-c", "'" <> sanitise (toTextIgnore fp : args) <> "'"]
   where
     sanitise = T.replace "'" "\'" . T.intercalate " "
 
--- | Use this with 'bash' to set _pipefail_
+-- | Use this with 'bash' to set @pipefail@.
 --
 -- > bashPipeFail $ bash "echo foo | echo"
 bashPipeFail :: (FilePath -> [Text] -> Sh a) -> FilePath -> [Text] -> Sh a
 bashPipeFail runner fp args = runner "set -o pipefail;" (toTextIgnore fp : args)
 
--- | bind some arguments to 'run' for re-use. Example:
+-- | Bind some arguments to 'run' for re-use. Example:
 --
 -- > monit = command "monit" ["-c", "monitrc"]
 -- > monit ["stop", "program"]
 command :: FilePath -> [Text] -> [Text] -> Sh Text
 command com args more_args = run com (args ++ more_args)
 
--- | bind some arguments to 'run_' for re-use. Example:
+-- | Bind some arguments to 'run_' for re-use. Example:
 --
 -- > monit_ = command_ "monit" ["-c", "monitrc"]
 -- > monit_ ["stop", "program"]
 command_ :: FilePath -> [Text] -> [Text] -> Sh ()
 command_ com args more_args = run_ com (args ++ more_args)
 
--- | bind some arguments to 'run' for re-use, and require 1 argument. Example:
+-- | Bind some arguments to 'run' for re-use, and require 1 argument. Example:
 --
 -- > git = command1 "git" []
 -- > git "pull" ["origin", "master"]
 command1 :: FilePath -> [Text] -> Text -> [Text] -> Sh Text
 command1 com args one_arg more_args = run com (args ++ [one_arg] ++ more_args)
 
--- | bind some arguments to 'run_' for re-use, and require 1 argument. Example:
+-- | Bind some arguments to 'run_' for re-use, and require 1 argument. Example:
 --
 -- > git_ = command1_ "git" []
 -- > git "pull" ["origin", "master"]
 command1_ :: FilePath -> [Text] -> Text -> [Text] -> Sh ()
 command1_ com args one_arg more_args = run_ com (args ++ [one_arg] ++ more_args)
 
--- | the same as 'run', but return @()@ instead of the stdout content
--- stdout will be read and discarded line-by-line
+-- | The same as 'run', but return @()@ instead of the stdout content.
+-- The stdout will be read and discarded line-by-line.
 run_ :: FilePath -> [Text] -> Sh ()
 run_ exe args = do
     state <- get
@@ -1261,9 +1252,9 @@ liftIO_ = void . liftIO
 
 -- | Similar to 'run' but gives the raw stdout handle in a callback.
 -- If you want even more control, use 'runHandles'.
-runHandle :: FilePath -- ^ command
-          -> [Text] -- ^ arguments
-          -> (Handle -> Sh a) -- ^ stdout handle
+runHandle :: FilePath         -- ^ Command.
+          -> [Text]           -- ^ Arguments.
+          -> (Handle -> Sh a) -- ^ 'stdout' handle.
           -> Sh a
 runHandle exe args withHandle = runHandles exe args [] $ \_ outH errH -> do
     state <- get
@@ -1277,13 +1268,14 @@ runHandle exe args withHandle = runHandles exe args [] $ \_ outH errH -> do
 -- | Similar to 'run' but gives direct access to all input and output handles.
 --
 -- Be careful when using the optional input handles.
--- If you specify Inherit for a handle then attempting to access the handle in your
--- callback is an error
-runHandles :: FilePath -- ^ command
-           -> [Text] -- ^ arguments
-           -> [StdHandle] -- ^ optionally connect process i/o handles to existing handles
-           -> (Handle -> Handle -> Handle -> Sh a) -- ^ stdin, stdout and stderr
-           -> Sh a
+-- If you specify 'Inherit' for a handle then attempting to access the handle in your
+-- callback is an error.
+runHandles
+  :: FilePath                             -- ^ Command.
+  -> [Text]                               -- ^ Arguments.
+  -> [StdHandle]                          -- ^ Optionally connect process i/o handles to existing handles.
+  -> (Handle -> Handle -> Handle -> Sh a) -- ^ 'stdin', 'stdout' and 'stderr'.
+  -> Sh a
 runHandles exe args reusedHandles withHandles = do
     -- clear stdin before beginning command execution
     origstate <- get
@@ -1335,8 +1327,8 @@ runHandles exe args reusedHandles withHandles = do
       )
 
 
--- | used by 'run'. fold over stdout line-by-line as it is read to avoid keeping it in memory
--- stderr is still being placed in memory under the assumption it is always relatively small
+-- | Used by 'run'. Folds over 'stdout' line-by-line as it is read to avoid keeping it in memory.
+-- 'stderr' is still being placed in memory under the assumption it is always relatively small.
 runFoldLines :: a -> FoldCallback a -> FilePath -> [Text] -> Sh a
 runFoldLines start cb exe args =
   runHandles exe args [] $ \inH outH errH -> do
@@ -1351,11 +1343,12 @@ runFoldLines start cb exe args =
     liftIO $ wait outVar
 
 
-putHandleIntoMVar :: a -> FoldCallback a
-                  -> Handle -- ^ out handle
-                  -> (Text -> IO ()) -- ^ in handle
-                  -> Bool  -- ^ should it be printed while transfered?
-                  -> IO (Async a)
+putHandleIntoMVar
+  :: a -> FoldCallback a
+  -> Handle           -- ^ Out handle.
+  -> (Text -> IO ())  -- ^ In handle.
+  -> Bool             -- ^ Should it be printed while transfered?
+  -> IO (Async a)
 putHandleIntoMVar start cb outH putWrite shouldPrint = liftIO $ async $ do
   if shouldPrint
     then transferFoldHandleLines start cb outH putWrite
@@ -1371,11 +1364,11 @@ lastStderr = gets sStderr
 lastExitCode :: Sh Int
 lastExitCode = gets sCode
 
--- | set the stdin to be used and cleared by the next 'run'.
+-- | Set the 'stdin' to be used and cleared by the next 'run'.
 setStdin :: Text -> Sh ()
 setStdin input = modify $ \st -> st { sStdin = Just input }
 
--- | Pipe operator. set the stdout the first command as the stdin of the second.
+-- | Pipe operator. Set the 'stdout' the first command as the 'stdin' of the second.
 -- This does not create a shell-level pipe, but hopefully it will in the future.
 -- To create a shell level pipe you can set @escaping False@ and use a pipe @|@ character in a command.
 (-|-) :: Sh Text -> Sh b -> Sh b
@@ -1385,7 +1378,7 @@ one -|- two = do
   two
 
 -- | Copy a file, or a directory recursively.
--- uses 'cp'
+-- Uses 'cp'.
 cp_r :: FilePath -> FilePath -> Sh ()
 cp_r from' to' = do
     from <- absPath from'
@@ -1433,7 +1426,7 @@ cp_should_follow_symlinks shouldFollowSymlinks from' to' = do
           ReThrownException e (extraMsg to from)
         )
 
--- | Create a temporary directory and pass it as a parameter to a Sh
+-- | Create a temporary directory and pass it as a parameter to a 'Sh'
 -- computation. The directory is nuked afterwards.
 withTmpDir :: (FilePath -> Sh a) -> Sh a
 withTmpDir act = do
@@ -1447,7 +1440,7 @@ withTmpDir act = do
   mkdir p
   act p `finally_sh` rm_rf p
 
--- | Write a Text to a file.
+-- | Write a 'Text' to a file.
 writefile :: FilePath -> Text -> Sh ()
 writefile f' bits = do
   f <- traceAbsPath ("writefile " <>) f'
@@ -1462,7 +1455,7 @@ writeBinary f' bytes = do
 touchfile :: FilePath -> Sh ()
 touchfile = traceAbsPath ("touch " <>) >=> flip appendfile ""
 
--- | Append a Text to a file.
+-- | Append a 'Text' to a file.
 appendfile :: FilePath -> Text -> Sh ()
 appendfile f' bits = do
   f <- traceAbsPath ("appendfile " <>) f'
@@ -1473,17 +1466,17 @@ readfile = traceAbsPath ("readfile " <>) >=> \fp ->
   readBinary fp >>=
     return . TE.decodeUtf8With TE.lenientDecode
 
--- | wraps ByteSting readFile
+-- | Wraps 'BS.readFile'.
 readBinary :: FilePath -> Sh ByteString
 readBinary = traceAbsPath ("readBinary " <>)
          >=> liftIO . BS.readFile
 
--- | flipped hasExtension for Text
+-- | Flipped 'hasExtension' for 'Text'.
 hasExt :: Text -> FilePath -> Bool
 hasExt ext fp = T.pack (FP.takeExtension fp) == ext
 
--- | Run a Sh computation and collect timing information.
---   The value returned is the amount of _real_ time spent running the computation
+-- | Run a 'Sh' computation and collect timing information.
+--   The value returned is the amount of *real* time spent running the computation
 --   in seconds, as measured by the system clock.
 --   The precision is determined by the resolution of `getCurrentTime`.
 time :: Sh a -> Sh (Double, a)
@@ -1494,11 +1487,11 @@ time what = sub $ do
   t' <- liftIO getCurrentTime
   return (realToFrac $ diffUTCTime t' t, res)
 
--- | threadDelay wrapper that uses seconds
+-- | 'threadDelay' wrapper that uses seconds.
 sleep :: Int -> Sh ()
 sleep = liftIO . threadDelay . (1000 * 1000 *)
 
--- | spawn an asynchronous action with a copy of the current state
+-- | Spawn an asynchronous action with a copy of the current state.
 asyncSh :: Sh a -> Sh (Async a)
 asyncSh proc = do
   state <- get

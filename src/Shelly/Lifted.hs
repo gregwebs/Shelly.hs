@@ -32,13 +32,13 @@ module Shelly.Lifted
          -- please make the same updates here and implements the corresponding
          -- lifted functions.
 
-         -- * Entering Sh.
+         -- * Entering Sh
          Sh, ShIO, S.shelly, S.shellyNoDir, S.shellyFailDir, sub
          , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
          , tracing, errExit
          , log_stdout_with, log_stderr_with
 
-         -- * Running external commands.
+         -- * Running external commands
          , run, run_, runFoldLines, S.cmd, S.FoldCallback
          , (-|-), lastStderr, setStdin, lastExitCode
          , command, command_, command1, command1_
@@ -50,7 +50,7 @@ module Shelly.Lifted
          , S.StdHandle(..), S.StdStream(..)
 
 
-         -- * Modifying and querying environment.
+         -- * Modifying and querying environment
          , setenv, get_env, get_env_text, get_env_all, appendToPath, prependToPath
 
          -- * Environment directory
@@ -60,14 +60,14 @@ module Shelly.Lifted
          , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
          , tag, trace, S.show_command
 
-         -- * Querying filesystem.
+         -- * Querying filesystem
          , ls, lsT, test_e, test_f, test_d, test_s, test_px, which
 
          -- * Filename helpers
          , absPath, (S.</>), (S.<.>), canonic, canonicalize, relPath, relativeTo
          , S.hasExt
 
-         -- * Manipulating filesystem.
+         -- * Manipulating filesystem
          , mv, rm, rm_f, rm_rf, cp, cp_r, mkdir, mkdir_p, mkdirTree
 
          -- * reading/writing Files
@@ -566,7 +566,7 @@ canonic :: MonadSh m => FilePath -> m FilePath
 canonic = liftSh . canonic
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
--- "canonicalizePath" in system-fileio.
+-- "canonicalizePath".
 canonicalize :: MonadSh m => FilePath -> m FilePath
 canonicalize = liftSh . S.canonicalize
 

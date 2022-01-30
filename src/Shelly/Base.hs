@@ -122,10 +122,10 @@ data StdHandle = InHandle StdStream
                | OutHandle StdStream
                | ErrorHandle StdStream
 
--- | Initialize a handle before using it
+-- | Initialize a handle before using it.
 type HandleInitializer = Handle -> IO ()
 
--- | A collection of initializers for the three standard process handles
+-- | A collection of initializers for the three standard process handles.
 data StdInit =
     StdInit {
       inInit :: HandleInitializer,
@@ -133,13 +133,13 @@ data StdInit =
       errInit :: HandleInitializer
     }
 
--- | A monadic-conditional version of the "when" guard.
+-- | A monadic-conditional version of the 'when' guard.
 whenM :: Monad m => m Bool -> m () -> m ()
 whenM c a = c >>= \res -> when res a
 
--- | Makes a relative path relative to the current Sh working directory.
+-- | Makes a relative path relative to the current 'Sh' working directory.
 -- An absolute path is returned as is.
--- To create an absolute path, use 'absPath'
+-- To create an absolute path, use 'absPath'.
 relPath :: FilePath -> Sh FilePath
 relPath fp = do
   wd  <- gets sDirectory
@@ -148,9 +148,10 @@ relPath fp = do
     Right p -> p
     Left  p -> p
 
-eitherRelativeTo :: FilePath -- ^ anchor path, the prefix
-                 -> FilePath -- ^ make this relative to anchor path
-                 -> Sh (Either FilePath FilePath) -- ^ Left is canonic of second path
+eitherRelativeTo
+  :: FilePath                       -- ^ Anchor path, the prefix.
+  -> FilePath                       -- ^ Make this relative to anchor path.
+  -> Sh (Either FilePath FilePath)  -- ^ 'Left' is canonic of second path.
 eitherRelativeTo relativeFP fp = do
   let fullFp = relativeFP FP.</> fp
   let relDir = addTrailingSlash relativeFP
@@ -173,16 +174,16 @@ eitherRelativeTo relativeFP fp = do
         then nada
         else return $ Right stripped
 
--- | make the second path relative to the first
--- Uses 'Filesystem.stripPrefix', but will canonicalize the paths if necessary
-relativeTo :: FilePath -- ^ anchor path, the prefix
-           -> FilePath -- ^ make this relative to anchor path
+-- | Make the second path relative to the first.
+-- Will canonicalize the paths if necessary.
+relativeTo :: FilePath -- ^ Anchor path, the prefix.
+           -> FilePath -- ^ Make this relative to anchor path.
            -> Sh FilePath
 relativeTo relativeFP fp =
   fmap (fromMaybe fp) $ maybeRelativeTo relativeFP fp
 
-maybeRelativeTo :: FilePath -- ^ anchor path, the prefix
-                 -> FilePath -- ^ make this relative to anchor path
+maybeRelativeTo :: FilePath  -- ^ Anchor path, the prefix.
+                 -> FilePath -- ^ Make this relative to anchor path.
                  -> Sh (Maybe FilePath)
 maybeRelativeTo relativeFP fp = do
   epath <- eitherRelativeTo relativeFP fp
@@ -191,23 +192,23 @@ maybeRelativeTo relativeFP fp = do
              Left _ -> Nothing
 
 
--- | add a trailing slash to ensure the path indicates a directory
+-- | Add a trailing slash to ensure the path indicates a directory.
 addTrailingSlash :: FilePath -> FilePath
 addTrailingSlash = FP.addTrailingPathSeparator
 
--- | makes an absolute path.
--- Like 'canonicalize', but on an exception returns 'absPath'
+-- | Make an absolute path.
+-- Like 'canonicalize', but on an exception returns 'absPath'.
 canonic :: FilePath -> Sh FilePath
 canonic fp = do
   p <- absPath fp
   liftIO $ canonicalizePath p `catchany` \_ -> return p
 
 -- | Obtain a (reasonably) canonic file path to a filesystem object. Based on
--- "canonicalizePath" in system-fileio.
+-- 'canonicalizePath'.
 canonicalize :: FilePath -> Sh FilePath
 canonicalize = absPath >=> liftIO . canonicalizePath
 
--- | bugfix older version of canonicalizePath (system-fileio <= 0.3.7) loses trailing slash
+-- | Version of 'FS.canonicalizePath' that keeps a trailing slash.
 canonicalizePath :: FilePath -> IO FilePath
 canonicalizePath p = let was_dir = null (FP.takeFileName p) in
    if not was_dir then FS.canonicalizePath p
@@ -228,7 +229,6 @@ absPath p | null p = liftIO $ throwIO EmptyFilePathError
             return (cwd FP.</> p)
           | otherwise = return p
 
--- | deprecated
 path :: FilePath -> Sh FilePath
 path = absPath
 {-# DEPRECATED path "use absPath, canonic, or relPath instead" #-}
@@ -259,14 +259,14 @@ modify f = do
   state <- ask
   liftIO (modifyIORef state f)
 
--- | internally log what occurred.
+-- | Internally log what occurred.
 -- Log will be re-played on failure.
 trace :: Text -> Sh ()
 trace msg =
   whenM (gets sTracing) $ modify $
     \st -> st { sTrace = sTrace st `mappend` msg `mappend` "\n" }
 
--- | List directory contents. Does *not* include \".\" and \"..\", but it does
+-- | List directory contents. Does /not/ include @.@ and @..@, but it does
 -- include (other) hidden files.
 ls :: FilePath -> Sh [FilePath]
 -- it is important to use path and not absPath so that the listing can remain relative
@@ -281,24 +281,23 @@ lsRelAbs f = absPath f >>= \fp -> do
   let relativized = map (\p -> FP.joinPath [f, p]) files
   return (relativized, absolute)
 
--- | silently uses the Right or Left value of "Filesystem.Path.CurrentOS.toText"
 toTextIgnore :: FilePath -> Text
 toTextIgnore = T.pack
 
--- | a print lifted into 'Sh'
-inspect :: (Show s) => s -> Sh ()
+-- | 'print' lifted into 'Sh'.
+inspect :: Show s => s -> Sh ()
 inspect x = do
   (trace . T.pack . show) x
   liftIO $ print x
 
--- | a print lifted into 'Sh' using stderr
-inspect_err :: (Show s) => s -> Sh ()
+-- | A 'print' lifted into 'Sh' using stderr.
+inspect_err :: Show s => s -> Sh ()
 inspect_err x = do
   let shown = T.pack $ show x
   trace shown
   echo_err shown
 
--- | Echo text to standard (error, when using _err variants) output. The _n
+-- | Echo text to standard (error, when using @_err@ variants) output. The @_n@
 -- variants do not print a final newline.
 echo, echo_n, echo_err, echo_n_err :: Text -> Sh ()
 echo       msg = traceEcho msg >> liftIO (TIO.putStrLn msg >> hFlush stdout)

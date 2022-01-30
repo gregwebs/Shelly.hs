@@ -12,7 +12,7 @@ Shelly provides a single module for convenient systems programming in Haskell.
 * It has detailed and useful error messages.
 * It maintains its own environment, making it thread-safe.
 * It has low memory usage:  It has
-  * `run_` and other underscore variants that don't return stdout,
+  * `run_` and other underscore variants that do not return stdout,
   * `runFoldLines` to run a fold operation over each line rather than loading all of stdout into memory,
   * `runHandle` and `runHandles` for complete control over handles.
 
@@ -51,14 +51,14 @@ The [shelly-extra](https://hackage.haskell.org/package/shelly-extra) package has
 ### Haskell shell scripting libraries
 
 
-* [HSH](https://hackage.haskell.org/package/HSH) - A good alternative if you want to mixup usage of String and ByteString rather than just use Text.
-* [HsShellScript](https://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html) - Has extensive low-level shell capabilities.
-* [shell-conduit](https://hackage.haskell.org/package/shell-conduit) - efficient streaming via conduits. Makes some portability sacrifices by
-  * encouraging one to just use the shell instead of cross-platform Haskell code
-  * encouraging one to use a convenience function that searches the PATH at compile-time
-* [shell-monad](https://hackage.haskell.org/package/shell-monad) - compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
-* [shh](https://hackage.haskell.org/package/shh) - shell like syntax with native piping. Can be used from GHCi as an interactive shell replacement.
-* [turtle](https://hackage.haskell.org/package/turtle) - In some sense a [redesign of Shelly designed for beginner-friendliness](https://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9)
+* [HSH](https://hackage.haskell.org/package/HSH): A good alternative if you want to mixup usage of `String` and `ByteString` rather than just use `Text`.
+* [HsShellScript](https://hackage.haskell.org/packages/archive/hsshellscript/3.1.0/doc/html/HsShellScript.html): Has extensive low-level shell capabilities.
+* [shell-conduit](https://hackage.haskell.org/package/shell-conduit): Efficient streaming via conduits. Makes some portability sacrifices by
+  * encouraging one to just use the shell instead of cross-platform Haskell code, and
+  * encouraging one to use a convenience function that searches the `PATH` at compile-time.
+* [shell-monad](https://hackage.haskell.org/package/shell-monad): Compile Haskell code down to shell script. This is a different approach from all the rest of the libraries. Writing your script is not as user-friendly as the other Haskell libraries, but it nicely solves the deployment issue.
+* [shh](https://hackage.haskell.org/package/shh): Shell-like syntax with native piping. Can be used from GHCi as an interactive shell replacement.
+* [turtle](https://hackage.haskell.org/package/turtle): In some sense a [redesign of Shelly designed for beginner-friendliness](https://www.reddit.com/r/haskell/comments/2u6b8m/use_haskell_for_shell_scripting/co5ucq9).
 
 HSH, HsShellScript and shh (unlike Shelly currently) implement very efficient mechanisms for piping/redirecting in the system.
 turtle, like Shelly offers folding as a way to efficiently deal with a stream.
@@ -69,8 +69,8 @@ For some this is an absolutely critical feature, particularly given that Haskell
 
 ### Haskell file-finding supplements
 
-* [find-conduit](https://hackage.haskell.org/package/find-conduit) - uses conduits, similar speed to GNU find
-* [FileManip](https://hackage.haskell.org/package/FileManip) - uses Lazy IO
+* [find-conduit](https://hackage.haskell.org/package/find-conduit): Uses conduits, similar speed to GNU find.
+* [FileManip](https://hackage.haskell.org/package/FileManip): Uses Lazy IO.
 
 Shelly's finders load all files into memory. This is simpler to use if you control the filesystem structure and know the system is bounded in size. However, if the filesystem structure is unbounded it consumes unbounded memory.
 
@@ -81,8 +81,8 @@ Shelly does not change the nature of shell scripting (text in, text out).
 If you want something more revolutionary you might try these:
 
 * [PowerShell](https://github.com/PowerShell/PowerShell) is probably the best known.
-* [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON
-* [RecordStream](https://github.com/benbernard/RecordStream) untyped JSON]
+* A [Haskell project](https://github.com/pkamenarsky/ytools) using typed JSON.
+* [RecordStream](https://github.com/benbernard/RecordStream) using untyped JSON.
 
 
 ## Usage
@@ -91,10 +91,10 @@ Shelly's main goal is ease of use.
 There should be a primitive for every shell operation you need so you can easily build abstractions, so there are many of the usual file and environment operations.
 
 There are 2 main entry points for running arbitrary commands: `run` and `cmd`.
-They take a FilePath as their first argument. `run` takes a [Text] as its second argument.
-`cmd` takes a variadic number of arguments, and they can be either Text or FilePath.
+They take a FilePath as their first argument. `run` takes a `[Text]` as its second argument.
+`cmd` takes a variadic number of arguments, and they can be either `Text` or `FilePath`.
 
-Fun Example: shows an infectious script: it uploads itself to a server and runs itself over ssh.
+Fun Example: shows an infectious script: it uploads itself to a server and runs itself over `ssh`.
 Of course, the development machine may need to be exactly the same OS as the server.
 
 I recommend using the boilerplate at the top of this example in your projects.
@@ -166,7 +166,8 @@ Manual conversion is done through `toTextIgnore` or `toTextWarn`.
 
 ### Thread-safe working directory and relative paths
 
-`cd` does not change the process working directory (essentially a global variable), but instead changes the shelly state (which is thread safe).
+Command `cd` does not change the process working directory (essentially a global variable),
+but instead changes the shelly state (which is thread safe).
 All of the Shelly API takes this into account, internally shelly converts all paths to absolute paths. You can turn a relative path into an absolute with `absPath` or `canonic` or you can make a path relative to the Shelly working directory with `relPath`.
 
 
@@ -175,10 +176,10 @@ All of the Shelly API takes this into account, internally shelly converts all pa
 Haskell's #1 weakness for IO code is a lack of stack traces.
 Shelly gives you something different: detailed logging.
 In most cases this should be more useful than a stack trace.
-Shelly keeps a log of API usage and saves it to a .shelly directory on failure.
-If you use `shellyNoDir`, the log will instead be printed to stderr.
+Shelly keeps a log of API usage and saves it to a `.shelly` directory on failure.
+If you use `shellyNoDir`, the log will instead be printed to `stderr`.
 This is in addition to the `verbosely` settings that will print out commands and their output as the program is running.
 Shelly's own error messages are detailed and in some cases it will catch Haskell exceptions and re-throw them with better messages.
 
-If you make your own primitive functions that don't use the existing Shelly API, you can create a wrapper in the Sh monad that use `trace` or `tag` to log what they are doing.
+If you make your own primitive functions that do not use the existing Shelly API, you can create a wrapper in the Sh monad that use `trace` or `tag` to log what they are doing.
 You can turn tracing off (not generally recommended) by setting `tracing False`.

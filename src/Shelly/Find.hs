@@ -43,14 +43,14 @@ findFold :: (a -> FilePath -> Sh a) -> a -> FilePath -> Sh a
 findFold folder startValue =
   findFoldDirFilter folder startValue (const $ return True)
 
--- | 'find' that filters out directories as it finds
+-- | 'find' that filters out directories as it finds.
 -- Filtering out directories can make a find much more efficient by avoiding entire trees of files.
 findDirFilter :: (FilePath -> Sh Bool) -> FilePath -> Sh [FilePath]
 findDirFilter filt = findDirFilterWhen filt (const $ return True)
 
--- | similar 'findWhen', but also filter out directories
--- Alternatively, similar to 'findDirFilter', but also filter out files
--- Filtering out directories makes the find much more efficient
+-- | Similar to 'findWhen', but also filter out directories.
+-- Alternatively, similar to 'findDirFilter', but also filter out files.
+-- Filtering out directories makes the find much more efficient.
 findDirFilterWhen
   :: (FilePath -> Sh Bool) -- ^ directory filter
   -> (FilePath -> Sh Bool) -- ^ file filter
@@ -62,8 +62,8 @@ findDirFilterWhen dirFilt fileFilter = findFoldDirFilter filterIt [] dirFilt
     yes <- fileFilter fp
     return $ if yes then paths ++ [fp] else paths
 
--- | like 'findDirFilterWhen' but use a folding function rather than a filter
--- The most general finder: you likely want a more specific one
+-- | Like 'findDirFilterWhen' but use a folding function rather than a filter.
+-- The most general finder: you likely want a more specific one.
 findFoldDirFilter
   :: (a -> FilePath -> Sh a) -> a -> (FilePath -> Sh Bool) -> FilePath -> Sh a
 findFoldDirFilter folder startValue dirFilter dir = do

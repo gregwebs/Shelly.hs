@@ -1,6 +1,6 @@
 {-# LANGUAGE OverloadedStrings #-}
 
--- | commands that only work on Unix
+-- | Commands that only work on Unix.
 module Shelly.Unix
   ( kill
   ) where
