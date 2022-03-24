@@ -42,6 +42,7 @@ import Control.Monad (when, (>=>),
          liftM
        )
 import Control.Monad.Fail (MonadFail)
+import qualified Control.Monad.Fail as Fail
 import Control.Monad.Base
 import Control.Monad.Trans.Control
 import Control.Applicative (Applicative, (<$>))
@@ -59,7 +60,6 @@ import Data.Maybe (fromMaybe)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader.Class (MonadReader, ask)
-import Control.Monad.Reader ()
 import Control.Monad.Trans.Reader (runReaderT, ReaderT(..))
 import qualified Data.Set as S
 import Data.Typeable (Typeable)
@@ -70,7 +70,13 @@ type ShIO a = Sh a
 
 newtype Sh a = Sh {
       unSh :: ReaderT (IORef State) IO a
-  } deriving (Applicative, Monad, MonadFail, MonadIO, MonadReader (IORef State), Functor, Catch.MonadMask)
+  } deriving (Functor, Applicative, Monad, MonadIO, MonadReader (IORef State), Catch.MonadMask) --, MonadFail)
+
+-- Andreas Abel, 2022-03-24
+-- For reasons unclear to me, GHC 7.10 does not derive the MonadFail instance
+-- from the instances for IO and ReaderT.  Starts working with GHC 8.0.
+instance MonadFail Sh where
+    fail = Sh . ReaderT . const . Fail.fail
 
 instance MonadBase IO Sh where
     liftBase = Sh . ReaderT . const

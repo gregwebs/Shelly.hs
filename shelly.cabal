@@ -71,6 +71,9 @@ Library
     build-depends:
       base >= 4 && < 5
 
+  if impl(ghc < 8.0)
+    build-depends:       fail >= 4.9 && < 4.10
+
   ghc-options: -Wall
 
   if impl(ghc >= 7.6.1)
