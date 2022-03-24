@@ -8,10 +8,7 @@
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
 {-# LANGUAGE DeriveDataTypeable #-}
-{-# LANGUAGE InstanceSigs#-}
--- | I started exposing multiple module (starting with one for finding)
--- Base prevented circular dependencies
--- However, Shelly went back to exposing a single module
+
 module Shelly.Base
   (
     Sh(..), ShIO, runSh, State(..), ReadOnlyState(..), StdHandle(..),
