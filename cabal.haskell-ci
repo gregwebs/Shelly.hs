@@ -1,0 +1,7 @@
+-- Andreas Abel, 2022-03-24:
+-- Loosen "installed" constraint on libraries shipped with GHC
+-- but appearing as "G" in `cabal-plan fingerprint`.
+
+installed: +all -directory -exceptions -mtl -process -stm -text
+
+tests: >= 7.6
