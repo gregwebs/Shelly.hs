@@ -62,6 +62,7 @@ import Data.Maybe (fromMaybe)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader.Class (MonadReader, ask)
+import Control.Monad.Reader ()
 import Control.Monad.Trans.Reader (runReaderT, ReaderT(..))
 import qualified Data.Set as S
 import Data.Typeable (Typeable)
@@ -322,4 +323,3 @@ traceEcho msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'")
 -- @... `catch` \(e :: SomeException) -> ...@).
 catchany :: IO a -> (SomeException -> IO a) -> IO a
 catchany = catch
-
