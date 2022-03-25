@@ -19,14 +19,14 @@ Description: Shelly provides convenient systems programming in Haskell,
              .
              See the shelly-extra package for additional functionality.
              .
-             An overview is available in the README: <https://github.com/yesodweb/Shelly.hs/blob/master/README.md>
+             An overview is available in the README: <https://github.com/gregwebs/Shelly.hs/blob/master/README.md>
 
 
-Homepage:            https://github.com/yesodweb/Shelly.hs
+Homepage:            https://github.com/gregwebs/Shelly.hs
 License:             BSD3
 License-file:        LICENSE
 Author:              Greg Weber, Petr Rockai
-Maintainer:          Greg Weber <greg@gregweber.info>
+Maintainer:          Andreas Abel
 Category:            Development
 Build-type:          Simple
 Cabal-version:       >=1.10
@@ -93,7 +93,7 @@ Library
 
 source-repository head
   type:     git
-  location: https://github.com/yesodweb/Shelly.hs
+  location: https://github.com/gregwebs/Shelly.hs
 
 Flag lifted
    Description: run the tests against Shelly.Lifted
