@@ -28,6 +28,9 @@ runSpec = do
       if isWindows
         then res @?= "Selbstverst\228ndlich \252berraschend\r\n"
         else res @?= "Selbstverst\228ndlich \252berraschend\n"
+    it "script at $PWD" $ do
+      res <- shelly $ run "./test/data/hello.sh" []
+      res @?= "Hello!"
 
   -- Bash-related commands
   describe "bash" $ do
