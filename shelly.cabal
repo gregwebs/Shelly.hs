@@ -48,6 +48,7 @@ extra-source-files:
   test/data/zshrc
   test/data/nonascii.txt
   test/data/symlinked_dir/hoge_file
+  test/data/hello.sh
   test/testall
   README.md
   ChangeLog.md

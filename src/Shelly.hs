@@ -605,14 +605,34 @@ whichEith originalFp = whichFull
     whichFull fp = do
       (trace . mappend "which " . toTextIgnore) fp >> whichUntraced
       where
-        whichUntraced | isAbsolute fp          = checkFile
-                      | dotSlash splitOnDirs   = checkFile
-                      | length splitOnDirs > 0 = lookupPath  >>= leftPathError
-                      | otherwise              = lookupCache >>= leftPathError
+        whichUntraced | isAbsolute fp             = checkFile
+                      | startsWithDot splitOnDirs = checkFile
+                      | length splitOnDirs > 0    = lookupPath  >>= leftPathError
+                      | otherwise                 = lookupCache >>= leftPathError
 
         splitOnDirs = splitDirectories fp
-        dotSlash ("./":_) = True
-        dotSlash _ = False
+
+        -- 'startsWithDot' receives as input the result of 'splitDirectories',
+        -- which will include the dot (\".\") as its first element only if this
+        -- is a path of the form \"./foo/bar/baz.sh\". Check for example:
+        --
+        -- > import System.FilePath as FP
+        -- > FP.splitDirectories "./test/data/hello.sh"
+        -- [".","test","data","hello.sh"]
+        -- > FP.splitDirectories ".hello.sh"
+        -- [".hello.sh"]
+        -- > FP.splitDirectories ".test/hello.sh"
+        -- [".test","hello.sh"]
+        -- > FP.splitDirectories ".foo"
+        -- [".foo"]
+        --
+        -- Note that earlier versions of Shelly used
+        -- \"system-filepath\" which also has a 'splitDirectories'
+        -- function, but it returns \"./\" as its first argument,
+        -- so we pattern match on both for backward-compatibility.
+        startsWithDot (".":_)  = True
+        startsWithDot ("./":_) = True
+        startsWithDot _ = False
 
         checkFile :: Sh (Either String FilePath)
         checkFile = do
