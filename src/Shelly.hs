@@ -106,7 +106,7 @@ import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.Async (async, wait, Async)
 import Control.Exception
-import Control.Monad ( when, unless, void, forM, filterM, liftM2 )
+import Control.Monad ( when, unless, void, liftM2 )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
 
@@ -122,14 +122,11 @@ import Data.Maybe
 import Data.Semigroup  ( (<>) )
 #endif
 import Data.Sequence   ( Seq, (|>) )
-import Data.Set        ( Set )
 import Data.Time.Clock ( getCurrentTime, diffUTCTime  )
 import Data.Tree       ( Tree(..) )
 import Data.Typeable
 
 import qualified Data.ByteString as BS
-import qualified Data.List as List
-import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
@@ -137,7 +134,7 @@ import qualified Data.Text.Encoding.Error as TE
 
 import System.Directory
   ( setPermissions, getPermissions, Permissions(..), getTemporaryDirectory, pathIsSymbolicLink
-  , copyFile, removeFile, doesFileExist, doesDirectoryExist, listDirectory
+  , copyFile, removeFile, doesFileExist, doesDirectoryExist
   , renameFile, renameDirectory, removeDirectoryRecursive, createDirectoryIfMissing
   , getCurrentDirectory
   )
@@ -607,8 +604,7 @@ whichEith originalFp = whichFull
       where
         whichUntraced | isAbsolute fp             = checkFile
                       | startsWithDot splitOnDirs = checkFile
-                      | length splitOnDirs > 0    = lookupPath  >>= leftPathError
-                      | otherwise                 = lookupCache >>= leftPathError
+                      | otherwise                 = lookupPath  >>= leftPathError
 
         splitOnDirs = splitDirectories fp
 
@@ -631,7 +627,6 @@ whichEith originalFp = whichFull
         -- function, but it returns \"./\" as its first argument,
         -- so we pattern match on both for backward-compatibility.
         startsWithDot (".":_)  = True
-        startsWithDot ("./":_) = True
         startsWithDot _ = False
 
         checkFile :: Sh (Either String FilePath)
@@ -657,32 +652,7 @@ whichEith originalFp = whichFull
             res <- liftIO $ isExecutable fullFp
             return $ if res then Just fullFp else Nothing
 
-        lookupCache :: Sh (Maybe FilePath)
-        lookupCache = do
-            pathExecutables <- cachedPathExecutables
-            return $ fmap (flip (</>) fp . fst) $
-                List.find (Set.member fp . snd) pathExecutables
-
-
         pathDirs = mapM absPath =<< ((map T.unpack . filter (not . T.null) . T.split (== searchPathSeparator)) `fmap` get_env_text "PATH")
-
-        cachedPathExecutables :: Sh [(FilePath, Set FilePath)]
-        cachedPathExecutables = do
-          mPathExecutables <- gets sPathExecutables
-          case mPathExecutables of
-              Just pExecutables -> return pExecutables
-              Nothing -> do
-                dirs <- pathDirs
-                executables <- forM dirs (\dir -> do
-                    files <- (liftIO . listDirectory) dir `catch_sh` (\(_ :: IOError) -> return [])
-                    exes <- fmap (map snd) $ liftIO $ filterM (isExecutable . fst) $
-                      map (\f -> (f, takeFileName f)) files
-                    return $ Set.fromList exes
-                  )
-                let cachedExecutables = zip dirs executables
-                modify $ \x -> x { sPathExecutables = Just cachedExecutables }
-                return $ cachedExecutables
-
 
 -- | A monadic findMap, taken from MissingM package
 findMapM :: Monad m => (a -> m (Maybe b)) -> [a] -> m (Maybe b)
