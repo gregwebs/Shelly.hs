@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.10.0
+Version:     2.0.0
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -31,6 +31,7 @@ Cabal-version:       >=1.10
 
 tested-with:
   GHC == 9.4.1
+  GHC == 9.2.5
   GHC == 9.2.3
   GHC == 9.0.2
   GHC == 8.10.7
