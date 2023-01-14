@@ -18,7 +18,8 @@ jobs:
           - 8.8.4
           - 8.10.7
           - 9.0.2
-          - 9.2.2
+          - 9.2.5
+          - 9.4.4
       fail-fast: false
 
     # 2021-11-14
@@ -29,9 +30,9 @@ jobs:
     # continue-on-error: ${{ startsWith(matrix.os, 'windows') && startsWith(matrix.ghc, '9.2') }}
 
     steps:
-    - uses: actions/checkout@v2
+    - uses: actions/checkout@v3
 
-    - uses: haskell/actions/setup@v1
+    - uses: haskell/actions/setup@v2
       id: setup-haskell-cabal
       name: Setup Haskell
       with:
@@ -41,7 +42,7 @@ jobs:
       run: |
         cabal freeze
 
-    - uses: actions/cache@v2
+    - uses: actions/cache@v3
       name: Cache ~/.cabal/store
       with:
         path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
