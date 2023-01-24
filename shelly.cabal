@@ -1,6 +1,6 @@
 Name:       shelly
 
-Version:     1.10.0
+Version:     1.10.0.1
 Synopsis:    shell-like (systems) programming in Haskell
 
 Description: Shelly provides convenient systems programming in Haskell,
@@ -17,14 +17,14 @@ Description: Shelly provides convenient systems programming in Haskell,
              .
              See the shelly-extra package for additional functionality.
              .
-             An overview is available in the README: <https://github.com/yesodweb/Shelly.hs/blob/master/README.md>
+             An overview is available in the README: <https://github.com/gregwebs/Shelly.hs/blob/master/README.md>
 
 
-Homepage:            https://github.com/yesodweb/Shelly.hs
+Homepage:            https://github.com/gregwebs/Shelly.hs
 License:             BSD3
 License-file:        LICENSE
 Author:              Greg Weber, Petr Rockai
-Maintainer:          Greg Weber <greg@gregweber.info>, Andreas Abel
+Maintainer:          Andreas Abel
 Category:            Development
 Build-type:          Simple
 Cabal-version:       >=1.10
@@ -76,7 +76,7 @@ Library
     , async
     , bytestring                >= 0.10.6.0
     , containers                >= 0.5.7.0
-    , directory                 >= 1.3.0.0   && < 1.4.0.0
+    , directory                 >= 1.3.0.0   && < 1.4
     , enclosed-exceptions
     , exceptions                >= 0.8.2.1
     , filepath
@@ -105,7 +105,7 @@ Library
 
 source-repository head
   type:     git
-  location: https://github.com/yesodweb/Shelly.hs
+  location: https://github.com/gregwebs/Shelly.hs
 
 Flag lifted
    Description: run the tests against Shelly.Lifted
