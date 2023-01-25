@@ -1,3 +1,18 @@
+# 1.11.0
+
+Andreas Abel, 2023-01-24
+* Restore running of local scripts, e.g. `cmd "./foo.sh"`:
+  Issue [#107](https://github.com/gregwebs/Shelly.hs/issues/107)
+  fixed by Alfredo di Napoli in PR
+  [#216](https://github.com/gregwebs/Shelly.hs/pull/216).
+* Builds with GHC 8.0 - 9.4.
+
+# 1.10.0.1
+
+Andreas Abel, 2023-01-24
+* Allow `unix-compat-0.6`.
+* Builds `-Wall` warning-free with GHC 8.0 - 9.4.
+
 # 1.10.0
 
 Andreas Abel, 2022-01-30

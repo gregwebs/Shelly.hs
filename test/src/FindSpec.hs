@@ -115,6 +115,7 @@ findSpec = do
               [ "dir"
               , "dir/symlinked_dir"
               , "dir/symlinked_dir/hoge_file"
+              , "hello.sh"
               , "nonascii.txt"
               , "symlinked_dir"
               , "symlinked_dir/hoge_file"
@@ -128,6 +129,7 @@ findSpec = do
             sort res @?=
               [ "dir"
               , "dir/symlinked_dir"
+              , "hello.sh"
               , "nonascii.txt"
               , "symlinked_dir"
               , "symlinked_dir/hoge_file"

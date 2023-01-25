@@ -29,6 +29,12 @@ runSpec = do
       if isWindows
         then res @?= "Selbstverst\228ndlich \252berraschend\r\n"
         else res @?= "Selbstverst\228ndlich \252berraschend\n"
+    unless isWindows $ do
+      it "script at $PWD" $ do
+        res <- shelly $ do
+          run_ "chmod" ["+x", "test/data/hello.sh"]
+          run "./test/data/hello.sh" []
+        res @?= "Hello!\n"
 
   describe "cmd" $ do
     let shouldBeTxt res t = res @?= (t :: Text)
