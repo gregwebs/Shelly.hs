@@ -13,6 +13,7 @@ import CopySpec
 import LiftedSpec
 import RunSpec
 import SshSpec
+import PipeSpec
 
 import Test.Hspec
 
@@ -30,3 +31,4 @@ main = hspec $ do
     liftedSpec
     runSpec
     sshSpec
+    pipeSpec

@@ -121,12 +121,12 @@ runSpec = do
       res <- shelly $ cmd "echo" "wibble" "wobble"
       res @?= ()
 
-    it "defaults to Unit" $ do
+    it "works with underscore" $ do
       _ <- shelly $ cmd "echo" "wibble" "wobble"
       True `shouldBe` True
 
     -- This should now compile without a warning since ghc should infer Sh () instead of Sh Text.
-    it "defaults to Unit without underscore" $ do
+    it "defaults to Unit" $ do
       shelly $ cmd "echo" "wibble" "wobble"
       True `shouldBe` True
 

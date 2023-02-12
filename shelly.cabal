@@ -123,6 +123,7 @@ Test-Suite shelly-testsuite
     Help
     LiftedSpec
     MoveSpec
+    PipeSpec
     ReadFileSpec
     RmSpec
     RunSpec

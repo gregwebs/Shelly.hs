@@ -610,27 +610,23 @@ put = sh1 S.put
 -- polyvariadic vodoo
 
 -- | Converter for the variadic argument version of 'run' called 'cmd'.
-class ShellArg a where toTextArg :: a -> Text
-instance ShellArg Text     where toTextArg = id
-instance ShellArg FilePath where toTextArg = toTextIgnore
+class ShellArg a where toTextArgs :: a -> [Text]
+instance ShellArg Text where toTextArgs = (: []) . id
+instance ShellArg String where toTextArgs = (: []) . T.pack
+instance {-# OVERLAPPABLE #-} ShellArg a => ShellArg [a] where
+  toTextArgs = Prelude.concatMap toTextArgs
 
-
--- Voodoo to create the variadic function 'cmd'
 class ShellCommand t where
     cmdAll :: FilePath -> [Text] -> t
 
+instance {-# INCOHERENT #-} s ~ () => ShellCommand (Sh s) where
+    cmdAll = run_
+
 instance ShellCommand (Sh Text) where
-    cmdAll fp args = run fp args
-
-instance (s ~ Text, Show s) => ShellCommand (Sh s) where
-    cmdAll fp args = run fp args
-
--- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
-instance ShellCommand (Sh ()) where
-    cmdAll fp args = run_ fp args
+    cmdAll = run
 
 instance (ShellArg arg, ShellCommand result) => ShellCommand (arg -> result) where
-    cmdAll fp acc = \x -> cmdAll fp (acc ++ [toTextArg x])
+    cmdAll fp acc x = cmdAll fp (acc ++ toTextArgs x)
 
 -- | see 'S.cmd'
 cmd :: (ShellCommand result) => FilePath -> result
