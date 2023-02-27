@@ -1,14 +1,28 @@
 # 1.12.0
 
-Cunning Defenstrator, 2023-02-12
-* Rework ShellCmd and ShellCommand instances to support String arguments.
-* Add some tests.
-* Remove the IncoherentInstances pragma as it's deprecated.
-* Bump the major version as CmdArg and ShellArg have changed.  Users must
-  migrate existing instances by replacing `toTextArg` with `toTextArgs` and
-  wrapping the old return value in a list.
-* Bump the resolver to lts-20.04.
-* Bump haskell-ci to 0.15.20230128.
+Andreas Abel, 2023-02-27
+* Rework `ShellCmd` and `ShellCommand` instances to support `String` arguments:
+  Issue [#143](https://github.com/gregwebs/Shelly.hs/issues/143)
+  fixed by Cunning Defenstrator in
+  PR [#221](https://github.com/gregwebs/Shelly.hs/pull/221).
+
+  This involves a **breaking change** in classes `CmdArg` and `ShellArg`:
+  Method `toTextArg` has been replaced by `toTextArgs`.
+
+  Sample migration:
+  ```haskell
+  #if MIN_VERSION_shelly(1,12,0)
+  -- new
+  import Shelly (toTextArgs)
+  snoc opts arg = opts ++ toTextArgs arg
+  #else
+  -- old
+  import Shelly (toTextArg)
+  snoc opts arg = opts ++ [ toTextArg arg ]
+  #endif
+  ```
+* Dropped GHC 8.0 to get rid of deprecated `LANGUAGE IncoherentInstances`.
+* Builds with GHC 8.2 - 9.6.
 
 # 1.11.0
 
