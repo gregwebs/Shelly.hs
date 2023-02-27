@@ -8,7 +8,7 @@ default (Text)
 
 main :: IO ()
 main = do
-  let exDir = "./examples"
+  let exDir = "./test/examples"
   void $ shelly $ do
     let strs = ["a", "b"] :: [String]
     let texts = ["a", "b"] :: [Text]

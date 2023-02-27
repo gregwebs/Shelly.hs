@@ -8,5 +8,5 @@ import Data.Text (Text)
 default (Text)
 
 main = shelly $ do
-  void $ liftIO $ rawSystem "ls" ["--color=auto", "../dist"]
-  run_ "ls" ["--color=auto", "../dist"]
+  void $ liftIO $ rawSystem "ls" ["--color=auto", "test"]
+  run_ "ls" ["--color=auto", "test"]
