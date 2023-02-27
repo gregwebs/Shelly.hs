@@ -1,3 +1,15 @@
+# 1.12.0
+
+Cunning Defenstrator, 2023-02-12
+* Rework ShellCmd and ShellCommand instances to support String arguments.
+* Add some tests.
+* Remove the IncoherentInstances pragma as it's deprecated.
+* Bump the major version as CmdArg and ShellArg have changed.  Users must
+  migrate existing instances by replacing `toTextArg` with `toTextArgs` and
+  wrapping the old return value in a list.
+* Bump the resolver to lts-20.04.
+* Bump haskell-ci to 0.15.20230128.
+
 # 1.11.0
 
 Andreas Abel, 2023-01-24

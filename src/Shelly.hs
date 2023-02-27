@@ -1,7 +1,6 @@
 {-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
-{-# LANGUAGE IncoherentInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
 {-# LANGUAGE ScopedTypeVariables #-}
 {-# LANGUAGE TypeFamilies #-}
@@ -175,9 +174,16 @@ cmd fp args = run fp $ toTextArgs args
 
 -- | Argument converter for the variadic argument version of 'run' called 'cmd'.
 -- Useful for a type signature of a function that uses 'cmd'.
-class CmdArg a where toTextArg :: a -> Text
-instance CmdArg Text     where toTextArg = id
-instance CmdArg String   where toTextArg = T.pack
+class CmdArg a where toTextArgs :: a -> [Text]
+
+instance CmdArg Text   where
+  toTextArgs = (: []) . id
+
+instance CmdArg String where
+  toTextArgs = (: []) . T.pack
+
+instance {-# OVERLAPPABLE #-} CmdArg a => CmdArg [a] where
+  toTextArgs = concatMap toTextArgs
 
 -- | For the variadic function 'cmd'.
 --
@@ -185,23 +191,17 @@ instance CmdArg String   where toTextArg = T.pack
 class ShellCmd t where
     cmdAll :: FilePath -> [Text] -> t
 
+-- This is the only candidate for `_ <- cmd path x y z` so marking it incoherent will return it and
+-- terminate the search immediately.  This also removes the warning for do { cmd path x y z ; .. }
+-- as GHC will infer `Sh ()` instead of `Sh Text` as before.
+instance {-# INCOHERENT #-} s ~ () => ShellCmd (Sh s) where
+    cmdAll = run_
+
 instance ShellCmd (Sh Text) where
     cmdAll = run
 
-instance (s ~ Text, Show s) => ShellCmd (Sh s) where
-    cmdAll = run
-
--- note that Sh () actually doesn't work for its case (_<- cmd) when there is no type signature
-instance ShellCmd (Sh ()) where
-    cmdAll = run_
-
 instance (CmdArg arg, ShellCmd result) => ShellCmd (arg -> result) where
-    cmdAll fp acc x = cmdAll fp (acc ++ [toTextArg x])
-
-instance (CmdArg arg, ShellCmd result) => ShellCmd ([arg] -> result) where
-    cmdAll fp acc x = cmdAll fp (acc ++ map toTextArg x)
-
-
+    cmdAll fp acc x = cmdAll fp (acc ++ toTextArgs x)
 
 -- | Variadic argument version of 'run'.
 -- Please see the documenation for 'run'.
