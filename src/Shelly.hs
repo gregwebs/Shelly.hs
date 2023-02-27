@@ -149,35 +149,14 @@ import System.Process
   , ProcessHandle, StdStream(..)
   )
 
-{- GHC won't default to Text with this, even with extensions!
- - see: http://hackage.haskell.org/trac/ghc/ticket/6030
-class CmdArgs a where
-  toTextArgs :: a -> [Text]
-
-instance CmdArgs Text       where toTextArgs t = [t]
-instance CmdArgs FilePath   where toTextArgs t = [toTextIgnore t]
-instance CmdArgs [Text]     where toTextArgs = id
-instance CmdArgs [FilePath] where toTextArgs = map toTextIgnore
-
-instance CmdArgs (Text, Text) where
-  toTextArgs (t1,t2) = [t1, t2]
-instance CmdArgs (FilePath, FilePath) where
-  toTextArgs (fp1,fp2) = [toTextIgnore fp1, toTextIgnore fp2]
-instance CmdArgs (Text, FilePath) where
-  toTextArgs (t1, fp1) = [t1, toTextIgnore fp1]
-instance CmdArgs (FilePath, Text) where
-  toTextArgs (fp1,t1) = [toTextIgnore fp1, t1]
-
-cmd :: (CmdArgs args) => FilePath -> args -> Sh Text
-cmd fp args = run fp $ toTextArgs args
--}
-
 -- | Argument converter for the variadic argument version of 'run' called 'cmd'.
 -- Useful for a type signature of a function that uses 'cmd'.
-class CmdArg a where toTextArgs :: a -> [Text]
+class CmdArg a where
+  -- | @since 1.12.0
+  toTextArgs :: a -> [Text]
 
 instance CmdArg Text   where
-  toTextArgs = (: []) . id
+  toTextArgs = (: [])
 
 instance CmdArg String where
   toTextArgs = (: []) . T.pack

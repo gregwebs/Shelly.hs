@@ -610,9 +610,16 @@ put = sh1 S.put
 -- polyvariadic vodoo
 
 -- | Converter for the variadic argument version of 'run' called 'cmd'.
-class ShellArg a where toTextArgs :: a -> [Text]
-instance ShellArg Text where toTextArgs = (: []) . id
-instance ShellArg String where toTextArgs = (: []) . T.pack
+class ShellArg a where
+  -- | @since 1.12.0
+  toTextArgs :: a -> [Text]
+
+instance ShellArg Text where
+  toTextArgs = (: [])
+
+instance ShellArg String where
+  toTextArgs = (: []) . T.pack
+
 instance {-# OVERLAPPABLE #-} ShellArg a => ShellArg [a] where
   toTextArgs = Prelude.concatMap toTextArgs
 
