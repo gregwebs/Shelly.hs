@@ -20,7 +20,7 @@ module Shelly.Base
     unpack, gets, get, modify, trace,
     ls, lsRelAbs,
     toTextIgnore,
-    echo, echo_n, echo_err, echo_n_err, inspect, inspect_err,
+    echo, echo_n, echo_err, echo_n_err, echoWith, inspect, inspect_err,
     catchany,
     liftIO, (>=>),
     eitherRelativeTo, relativeTo, maybeRelativeTo,
@@ -105,6 +105,7 @@ data State = State
    , sPutStderr :: Text -> IO ()   -- ^ by default, hPutStrLn stderr
    , sPrintStderr :: Bool   -- ^ print stderr of command that is executed
    , sPrintCommands :: Bool -- ^ print command that is executed
+   , sPrintCommandsFn :: Text -> IO () -- ^ how to print commands, default is hputStrLn stdout
    , sInitCommandHandles :: StdInit -- ^ initializers for the standard process handles
                                     -- when running a command
    , sCommandEscaping :: Bool -- ^ when running a command, escape shell characters such as '*' rather
@@ -305,6 +306,10 @@ echo       msg = traceEcho msg >> liftIO (TIO.putStrLn msg >> hFlush stdout)
 echo_n     msg = traceEcho msg >> liftIO (TIO.putStr msg >> hFlush stdout)
 echo_err   msg = traceEcho msg >> liftIO (TIO.hPutStrLn stderr msg >> hFlush stdout)
 echo_n_err msg = traceEcho msg >> liftIO (TIO.hPutStr stderr msg >> hFlush stderr)
+
+-- | @since 1.12.1
+echoWith :: (Text -> IO ()) -> Text -> Sh ()
+echoWith f msg = traceEcho msg >> liftIO (f msg >> hFlush stdout)
 
 traceEcho :: Text -> Sh ()
 traceEcho msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'")

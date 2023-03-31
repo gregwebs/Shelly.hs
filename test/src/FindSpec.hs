@@ -51,7 +51,7 @@ findSpec = do
       res <- shelly $ cd "test/src" >> ls "."
       sort res @?= map toWindowsStyleIfNecessary ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
-                    "./PipeSpec.hs", "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./ShowCommandSpec.hs", "./SshSpec.hs",
+                    "./PipeSpec.hs", "./PrintCommandsFnSpec.hs", "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./ShowCommandSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
@@ -59,7 +59,7 @@ findSpec = do
       res <- shelly $ cd "test" >> ls "src"
       sort res @?=  map toWindowsStyleIfNecessary ["src/CopySpec.hs", "src/EnvSpec.hs", "src/FailureSpec.hs",
                     "src/FindSpec.hs", "src/Help.hs", "src/LiftedSpec.hs", "src/LogWithSpec.hs", "src/MoveSpec.hs",
-                    "src/PipeSpec.hs", "src/ReadFileSpec.hs", "src/RmSpec.hs", "src/RunSpec.hs", "src/ShowCommandSpec.hs", "src/SshSpec.hs",
+                    "src/PipeSpec.hs", "src/PrintCommandsFnSpec.hs", "src/ReadFileSpec.hs", "src/RmSpec.hs", "src/RunSpec.hs", "src/ShowCommandSpec.hs", "src/SshSpec.hs",
                     "src/TestInit.hs", "src/TestMain.hs",
                     "src/WhichSpec.hs", "src/WriteSpec.hs", "src/sleep.hs"]
 
@@ -67,7 +67,7 @@ findSpec = do
       res <- shelly $ cd "test/src" >> find "."
       sort res @?= map toWindowsStyleIfNecessary ["./CopySpec.hs", "./EnvSpec.hs", "./FailureSpec.hs",
                     "./FindSpec.hs", "./Help.hs", "./LiftedSpec.hs", "./LogWithSpec.hs", "./MoveSpec.hs",
-                    "./PipeSpec.hs", "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./ShowCommandSpec.hs", "./SshSpec.hs",
+                    "./PipeSpec.hs", "./PrintCommandsFnSpec.hs", "./ReadFileSpec.hs", "./RmSpec.hs", "./RunSpec.hs", "./ShowCommandSpec.hs", "./SshSpec.hs",
                     "./TestInit.hs", "./TestMain.hs",
                     "./WhichSpec.hs", "./WriteSpec.hs", "./sleep.hs"]
 
@@ -86,13 +86,13 @@ findSpec = do
       if isWindows
         then sort res @?= ["test/src\\CopySpec.hs", "test/src\\EnvSpec.hs", "test/src\\FailureSpec.hs",
                     "test/src\\FindSpec.hs", "test/src\\Help.hs", "test/src\\LiftedSpec.hs",
-                    "test/src\\LogWithSpec.hs", "test/src\\MoveSpec.hs", "test/src\\PipeSpec.hs", "test/src\\ReadFileSpec.hs",
+                    "test/src\\LogWithSpec.hs", "test/src\\MoveSpec.hs", "test/src\\PipeSpec.hs", "test/src\\PrintCommandsFnSpec.hs", "test/src\\ReadFileSpec.hs",
                     "test/src\\RmSpec.hs", "test/src\\RunSpec.hs", "test/src\\ShowCommandSpec.hs", "test/src\\SshSpec.hs",
                     "test/src\\TestInit.hs", "test/src\\TestMain.hs", "test/src\\WhichSpec.hs", "test/src\\WriteSpec.hs",
                     "test/src\\sleep.hs"]
         else sort res @?= ["test/src/CopySpec.hs", "test/src/EnvSpec.hs", "test/src/FailureSpec.hs",
                     "test/src/FindSpec.hs", "test/src/Help.hs", "test/src/LiftedSpec.hs",
-                    "test/src/LogWithSpec.hs", "test/src/MoveSpec.hs", "test/src/PipeSpec.hs", "test/src/ReadFileSpec.hs",
+                    "test/src/LogWithSpec.hs", "test/src/MoveSpec.hs", "test/src/PipeSpec.hs", "test/src/PrintCommandsFnSpec.hs", "test/src/ReadFileSpec.hs",
                     "test/src/RmSpec.hs", "test/src/RunSpec.hs", "test/src/ShowCommandSpec.hs", "test/src/SshSpec.hs",
                     "test/src/TestInit.hs", "test/src/TestMain.hs", "test/src/WhichSpec.hs", "test/src/WriteSpec.hs",
                     "test/src/sleep.hs"]
@@ -101,7 +101,7 @@ findSpec = do
       res <- shelly $ relPath "test/src" >>= find >>= mapM (relativeTo "test/src")
       sort res @?= ["CopySpec.hs", "EnvSpec.hs", "FailureSpec.hs", "FindSpec.hs",
                     "Help.hs", "LiftedSpec.hs", "LogWithSpec.hs", "MoveSpec.hs",
-                    "PipeSpec.hs", "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs",
+                    "PipeSpec.hs", "PrintCommandsFnSpec.hs", "ReadFileSpec.hs", "RmSpec.hs", "RunSpec.hs",
                     "ShowCommandSpec.hs", "SshSpec.hs", "TestInit.hs", "TestMain.hs",
                     "WhichSpec.hs", "WriteSpec.hs", "sleep.hs"]
 

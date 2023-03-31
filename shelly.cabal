@@ -131,6 +131,7 @@ Test-Suite shelly-testsuite
     LiftedSpec
     MoveSpec
     PipeSpec
+    PrintCommandsFnSpec
     ReadFileSpec
     RmSpec
     RunSpec

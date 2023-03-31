@@ -34,7 +34,7 @@ module Shelly.Lifted
 
          -- * Entering Sh
          Sh, ShIO, S.shelly, S.shellyNoDir, S.shellyFailDir, sub
-         , silently, verbosely, escaping, print_stdout, print_stderr, print_commands
+         , silently, verbosely, escaping, print_stdout, print_stderr, print_commands, print_commands_with
          , tracing, errExit
          , log_stdout_with, log_stderr_with
 
@@ -57,7 +57,7 @@ module Shelly.Lifted
          , cd, chdir, chdir_p, pwd
 
          -- * Printing
-         , echo, echo_n, echo_err, echo_n_err, inspect, inspect_err
+         , echo, echo_n, echo_err, echo_n_err, echoWith, inspect, inspect_err
          , tag, trace, S.show_command
 
          -- * Querying filesystem
@@ -324,6 +324,10 @@ print_stderr shouldPrint a = controlSh $ \runInSh -> S.print_stderr shouldPrint 
 print_commands :: MonadShControl m => Bool -> m a -> m a
 print_commands shouldPrint a = controlSh $ \runInSh -> S.print_commands shouldPrint (runInSh a)
 
+-- | @since 1.12.1
+print_commands_with :: MonadShControl m => (Text -> IO ()) -> m a -> m a
+print_commands_with fn a = controlSh $ \runInSh -> S.print_commands_with fn (runInSh a)
+
 sub :: MonadShControl m => m a -> m a
 sub a = controlSh $ \runInSh -> S.sub (runInSh a)
 
@@ -553,6 +557,10 @@ echo       = liftSh . S.echo
 echo_n     = liftSh . S.echo_n
 echo_err   = liftSh . S.echo_err
 echo_n_err = liftSh . S.echo_n_err
+
+-- | @since 1.12.1
+echoWith :: MonadSh m => (Text -> IO ()) -> Text -> m ()
+echoWith f msg = liftSh $ S.echoWith f msg
 
 relPath :: MonadSh m => FilePath -> m FilePath
 relPath = liftSh . S.relPath

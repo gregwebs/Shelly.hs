@@ -7,6 +7,7 @@ import WriteSpec
 import MoveSpec
 import RmSpec
 import FindSpec
+import PrintCommandsFnSpec
 import EnvSpec
 import FailureSpec
 import CopySpec
@@ -26,6 +27,7 @@ main = hspec $ do
     moveSpec
     rmSpec
     findSpec
+    printCommandsFnSpec
     envSpec
     failureSpec
     copySpec
