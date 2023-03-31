@@ -110,7 +110,7 @@ import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
 
 import Data.ByteString ( ByteString )
-import Data.Char       ( isAlphaNum, isDigit, isSpace )
+import Data.Char       ( isAlphaNum, isDigit, isSpace, isPrint )
 #if defined(mingw32_HOST_OS)
 import Data.Char       ( toLower )
 #endif
@@ -126,6 +126,7 @@ import Data.Tree       ( Tree(..) )
 import Data.Typeable
 
 import qualified Data.ByteString as BS
+import qualified Data.Set as Set
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
 import qualified Data.Text.Encoding as TE
@@ -1025,11 +1026,23 @@ instance Exception RunFailed
 
 show_command :: FilePath -> [Text] -> Text
 show_command exe args =
-    T.intercalate " " $ map quote (toTextIgnore exe : args)
-  where
-    quote t | T.any (== '\'') t = t
-    quote t | T.any isSpace t = surround '\'' t
-    quote t | otherwise = t
+  let escape char | char `Set.member` specialsInQuotes = T.pack ['\\', char]
+      escape char = T.singleton char
+      quote arg = surround '"' $ T.concatMap escape arg
+      isSafe c = all ($ c) [isPrint, not . isSpace, (`Set.notMember` specials)]
+      showArg "" = surround '"' ""
+      showArg arg | T.all isSafe arg = arg
+      showArg arg = quote arg
+  in T.intercalate " " $ map showArg (toTextIgnore exe : args)
+
+-- | Characters that need to be escaped or quoted to retain their literal value.
+specials :: Set.Set Char
+specials = Set.fromList "\\'\"`$&|;(){}<>"
+
+-- | When inside quotes, characters that need to be escaped to retain their
+-- literal value.
+specialsInQuotes :: Set.Set Char
+specialsInQuotes = Set.fromList "\\\"`$"
 
 -- quote one argument
 quoteOne :: Text -> Text

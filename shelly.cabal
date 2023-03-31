@@ -133,6 +133,7 @@ Test-Suite shelly-testsuite
     ReadFileSpec
     RmSpec
     RunSpec
+    ShowCommandSpec
     SshSpec
     TestInit
     WhichSpec

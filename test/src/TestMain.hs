@@ -12,6 +12,7 @@ import FailureSpec
 import CopySpec
 import LiftedSpec
 import RunSpec
+import ShowCommandSpec
 import SshSpec
 import PipeSpec
 
@@ -30,5 +31,6 @@ main = hspec $ do
     copySpec
     liftedSpec
     runSpec
+    showCommandSpec
     sshSpec
     pipeSpec
