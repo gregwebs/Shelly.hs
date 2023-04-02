@@ -1,3 +1,11 @@
+# 1.12.0.1
+
+Andreas Abel, 2023-04-02
+* Make `show_command` more robust to special characters
+  and only quote when necessary.
+  (Chris Wendt, PR [#229](https://github.com/gregwebs/Shelly.hs/pull/229).)
+* Tested with GHC 8.2 - 9.6 (cabal) and GHC 8.10 - 9.6 (stack).
+
 # 1.12.0
 
 Andreas Abel, 2023-02-27
