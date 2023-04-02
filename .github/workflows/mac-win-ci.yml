@@ -15,11 +15,11 @@ jobs:
       matrix:
         os: [macOS-latest, windows-latest]
         ghc:
-          - 8.8.4
           - 8.10.7
           - 9.0.2
           - 9.2.5
           - 9.4.4
+          - 9.6.1
       fail-fast: false
 
     # 2021-11-14
