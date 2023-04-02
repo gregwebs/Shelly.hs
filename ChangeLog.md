@@ -1,3 +1,11 @@
+# 1.12.1
+
+Andreas Abel, 2023-04-03
+* Add `print_commands_with` and `echoWith` which can be used to override
+  the default printing functions (e.g. to add color).
+  (Chris Wendt, PR [#228](https://github.com/gregwebs/Shelly.hs/pull/228).)
+* Tested with GHC 8.2 - 9.6 (cabal) and GHC 8.10 - 9.6 (stack).
+
 # 1.12.0.1
 
 Andreas Abel, 2023-04-02
