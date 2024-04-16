@@ -15,11 +15,12 @@ jobs:
       matrix:
         os: [macOS-latest, windows-latest]
         ghc:
-          - 8.10.7
-          - 9.0.2
-          - 9.2.5
-          - 9.4.4
-          - 9.6.1
+          - '8.10'
+          - '9.0'
+          - '9.2'
+          - '9.4'
+          - '9.6'
+          - '9.8'
       fail-fast: false
 
     # 2021-11-14
@@ -30,29 +31,41 @@ jobs:
     # continue-on-error: ${{ startsWith(matrix.os, 'windows') && startsWith(matrix.ghc, '9.2') }}
 
     steps:
-    - uses: actions/checkout@v3
+    - uses: actions/checkout@v4
 
-    - uses: haskell/actions/setup@v2
-      id: setup-haskell-cabal
-      name: Setup Haskell
+    - name: Setup Haskell
+      uses: haskell-actions/setup@v2
+      id: setup
       with:
         ghc-version: ${{ matrix.ghc }}
-
-    - name: Freeze
-      run: |
-        cabal freeze
-
-    - uses: actions/cache@v3
-      name: Cache ~/.cabal/store
-      with:
-        path: ${{ steps.setup-haskell-cabal.outputs.cabal-store }}
-        key: ${{ runner.os }}-${{ matrix.ghc }}-${{ hashFiles('cabal.project.freeze') }}
+        cabal-update: true
 
     - name: Build
       run: |
         cabal configure --enable-tests --enable-benchmarks --test-show-details=direct
+        cabal build all --dry-run
+
+    - name: Restore cache
+      uses: actions/cache/restore@v4
+      id: cache
+      env:
+        key: ${{ runner.os }}-ghc-${{ steps.setup.outputs.ghc-version }}
+      with:
+        path: ${{ steps.setup.outputs.cabal-store }}
+        key: ${{ env.key }}-${{ hashFiles('dist-newstyle/cache/plan.json') }}
+        restore-keys: ${{ env.key }}
+
+    - name: Build
+      run: |
         cabal build all
 
     - name: Test
       run: |
         cabal test all
+
+    - name: Cache dependencies
+      uses: actions/cache/save@v4
+      if: always() && steps.cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.setup.outputs.cabal-store }}
+        key:  ${{ steps.cache.outputs.cache-primary-key }}
