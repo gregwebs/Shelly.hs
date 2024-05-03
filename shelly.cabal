@@ -33,7 +33,7 @@ Build-type:    Simple
 tested-with:
   GHC == 9.10.0
   GHC == 9.8.2
-  GHC == 9.6.4
+  GHC == 9.6.5
   GHC == 9.4.8
   GHC == 9.2.8
   GHC == 9.0.2

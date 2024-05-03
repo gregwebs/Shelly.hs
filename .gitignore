@@ -10,3 +10,4 @@ tags
 cabal.sandbox.config
 .ghc.environment.*
 /dist-newstyle/
+/stack*.yaml.lock
