@@ -9,7 +9,7 @@ on:
 jobs:
 
   cabal:
-    name: Haskell-CI - ${{ matrix.os }} - GHC ${{ matrix.ghc }}
+    name: ${{ matrix.os }} - GHC ${{ matrix.ghc }}
     runs-on: ${{ matrix.os }}
     strategy:
       matrix:
@@ -19,6 +19,7 @@ jobs:
           - '9.4'
           - '9.6'
           - '9.8'
+          - '9.10'
       fail-fast: false
 
     # 2021-11-14
