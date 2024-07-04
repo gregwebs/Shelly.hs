@@ -1,0 +1,87 @@
+name: Stack build
+
+on:
+  push:
+    branches:
+      - master
+  pull_request:
+    branches:
+      - master
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  stack:
+    name: ${{ matrix.os }} Stack ${{ matrix.plan.resolver }} / ${{ matrix.plan.ghc }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest]
+        plan:
+          - ghc: '9.8.2'
+            resolver: 'nightly-2024-07-02'
+          - ghc: '9.6.5'
+            resolver: 'lts-22.27'
+          - ghc: '9.4.8'
+            resolver: 'lts-21.25'
+          - ghc: '9.2.8'
+            resolver: 'lts-20.26'
+          - ghc: '9.0.2'
+            resolver: 'lts-19.33'
+          - ghc: '8.10.7'
+            resolver: 'lts-18.28'
+          # LTS 16.31 (GHC 8.8) and below do not have recent enough async
+
+        include:
+          - os: windows-latest
+            plan:
+              ghc: '9.8.2'
+              resolver: 'nightly-2024-07-02'
+
+          - os: macos-latest
+            plan:
+              ghc: '9.8.2'
+              resolver: 'nightly-2024-07-02'
+
+    runs-on: ${{ matrix.os }}
+    env:
+      STACK: stack --system-ghc --no-terminal --resolver ${{ matrix.plan.resolver }}
+
+    steps:
+    - uses: actions/checkout@v4
+
+    - uses: haskell-actions/setup@latest
+      id: setup
+      with:
+        ghc-version: ${{ matrix.plan.ghc }}
+        enable-stack: true
+        cabal-update: false
+
+    - uses: actions/cache/restore@v4
+      id: cache
+      env:
+        key: ${{ runner.os }}-stack-${{ steps.setup.outputs.stack-version }}-ghc-${{ steps.setup.outputs.ghc-version }}
+      with:
+        path: ${{ steps.setup.outputs.stack-root }}
+        key:  ${{ env.key }}-${{ github.sha }}
+        restore-keys: ${{ env.key }}-
+
+    - name: Configure
+      run: $STACK init --force
+
+    - name: Install dependencies
+      run: $STACK test --only-dependencies
+
+    - name: Build
+      run: $STACK test --haddock --no-haddock-deps --no-run-tests
+
+    - name: Test
+      run: $STACK -j 1 test --haddock --no-haddock-deps
+
+    - uses: actions/cache/save@v4
+      if: always() && steps.cache.outputs.cache-hit != 'true'
+      with:
+        path: ${{ steps.setup.outputs.stack-root }}
+        key:  ${{ steps.cache.outputs.cache-primary-key }}

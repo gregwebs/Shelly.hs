@@ -1,6 +1,5 @@
-flags: {}
+resolver: lts-21.25
+
 packages:
 - '.'
 - shelly-extra/
-resolver: lts-20.04
-extra-deps: []
