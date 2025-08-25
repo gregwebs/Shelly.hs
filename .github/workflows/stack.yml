@@ -20,10 +20,12 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         plan:
+          - ghc: '9.12.2'
+            resolver: 'nightly-2025-08-23'
           - ghc: '9.10.2'
-            resolver: 'nightly-2025-05-11'
+            resolver: 'lts-24.6'
           - ghc: '9.8.4'
-            resolver: 'lts-23.21'
+            resolver: 'lts-23.28'
           - ghc: '9.6.7'
             resolver: 'lts-22.44'
           - ghc: '9.4.8'
@@ -39,20 +41,20 @@ jobs:
         include:
           - os: windows-latest
             plan:
-              ghc: '9.10.2'
-              resolver: 'nightly-2025-05-11'
+              ghc: '9.12.2'
+              resolver: 'nightly-2025-08-23'
 
           - os: macos-latest
             plan:
-              ghc: '9.10.2'
-              resolver: 'nightly-2025-05-11'
+              ghc: '9.12.2'
+              resolver: 'nightly-2025-08-23'
 
     runs-on: ${{ matrix.os }}
     env:
       STACK: stack --system-ghc --no-terminal --resolver ${{ matrix.plan.resolver }}
 
     steps:
-    - uses: actions/checkout@v4
+    - uses: actions/checkout@v5
 
     - uses: haskell-actions/setup@latest
       id: setup

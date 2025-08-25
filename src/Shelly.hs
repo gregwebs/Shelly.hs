@@ -1,4 +1,3 @@
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE ExistentialQuantification #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE OverloadedStrings #-}
@@ -123,7 +122,6 @@ import Data.Semigroup  ( (<>) )
 import Data.Sequence   ( Seq, (|>) )
 import Data.Time.Clock ( getCurrentTime, diffUTCTime  )
 import Data.Tree       ( Tree(..) )
-import Data.Typeable
 
 import qualified Data.ByteString as BS
 import qualified Data.Set as Set
@@ -1020,7 +1018,7 @@ readDef def = fromMaybe def . readMay
                   [x] -> Just x
                   _ -> Nothing
 
-data RunFailed = RunFailed FilePath [Text] Int Text deriving (Typeable)
+data RunFailed = RunFailed FilePath [Text] Int Text
 
 instance Show RunFailed where
   show (RunFailed exe args code errs) =
@@ -1132,11 +1130,11 @@ sshCommandText actions mode =
         SeqSsh -> memo <> " && " <> next
         ParSsh -> memo <> " & " <> next
 
-data QuietExit = QuietExit Int deriving (Show, Typeable)
+data QuietExit = QuietExit Int deriving (Show)
 instance Exception QuietExit
 
 -- | Shelly's wrapper around exceptions thrown in its monad
-data ReThrownException e = ReThrownException e String deriving (Typeable)
+data ReThrownException e = ReThrownException e String
 instance Exception e => Exception (ReThrownException e)
 instance Exception e => Show (ReThrownException e) where
   show (ReThrownException ex msg) = "\n" ++

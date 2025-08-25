@@ -7,7 +7,6 @@
 {-# LANGUAGE FlexibleContexts #-}
 {-# LANGUAGE FlexibleInstances #-}
 {-# LANGUAGE UndecidableInstances #-}
-{-# LANGUAGE DeriveDataTypeable #-}
 {-# LANGUAGE InstanceSigs#-}
 
 module Shelly.Base
@@ -56,7 +55,6 @@ import Control.Monad.Trans ( MonadIO, liftIO )
 import Control.Monad.Reader.Class (MonadReader, ask)
 import Control.Monad.Trans.Reader (runReaderT, ReaderT(..))
 import qualified Data.Set as S
-import Data.Typeable (Typeable)
 
 -- | ShIO is Deprecated in favor of 'Sh', which is easier to type.
 type ShIO a = Sh a
@@ -215,7 +213,7 @@ canonicalizePath p = let was_dir = null (FP.takeFileName p) in
    if not was_dir then FS.canonicalizePath p
      else addTrailingSlash `fmap` FS.canonicalizePath p
 
-data EmptyFilePathError = EmptyFilePathError deriving Typeable
+data EmptyFilePathError = EmptyFilePathError
 instance Show EmptyFilePathError where
     show _ = "Empty filepath"
 instance Exception EmptyFilePathError

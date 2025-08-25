@@ -1,4 +1,4 @@
-{-# LANGUAGE ScopedTypeVariables, DeriveDataTypeable, OverloadedStrings,
+{-# LANGUAGE ScopedTypeVariables, OverloadedStrings,
              FlexibleInstances, FlexibleContexts, IncoherentInstances,
              TypeFamilies, ExistentialQuantification, RankNTypes,
              ImpredicativeTypes #-}

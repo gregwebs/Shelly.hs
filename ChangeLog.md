@@ -1,3 +1,9 @@
+# 1.12.1.1
+
+Andreas Abel, 2025-08-25
+* Drop obsolete `deriving Typeable` everywhere.
+* Tested with GHC 8.2 - 9.14 alpha1 (cabal) and GHC 8.10 - 9.12 (stack).
+
 # 1.12.1
 
 Andreas Abel, 2023-04-03
