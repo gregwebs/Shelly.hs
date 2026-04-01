@@ -104,6 +104,7 @@ import Control.Applicative
 import Control.Concurrent
 import Control.Concurrent.Async (async, wait, Async)
 import Control.Exception
+import qualified Control.Exception.Safe as Safe
 import Control.Monad ( when, unless, void, liftM2 )
 import Control.Monad.Trans ( MonadIO )
 import Control.Monad.Reader (ask)
@@ -391,7 +392,7 @@ run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh action handler = do
     ref <- ask
-    liftIO $ catch (runSh action ref) (\e -> runSh (handler e) ref)
+    liftIO $ Safe.catch (runSh action ref) (\e -> runSh (handler e) ref)
 
 -- | Same as a normal 'handle' but specialized for the Sh monad.
 handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
@@ -423,10 +424,10 @@ catches_sh :: Sh a -> [ShellyHandler a] -> Sh a
 catches_sh action handlers = do
     ref <- ask
     let runner a = runSh a ref
-    liftIO $ catches (runner action) $ map (toHandler runner) handlers
+    liftIO $ Safe.catches (runner action) $ map (toHandler runner) handlers
   where
-    toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Handler a
-    toHandler runner (ShellyHandler handler) = Handler (\e -> runner (handler e))
+    toHandler :: (Sh a -> IO a) -> ShellyHandler a -> Safe.Handler IO a
+    toHandler runner (ShellyHandler handler) = Safe.Handler (\e -> runner (handler e))
 
 -- | Catch any exception in the 'Sh' monad.
 catchany_sh :: Sh a -> (SomeException -> Sh a) -> Sh a

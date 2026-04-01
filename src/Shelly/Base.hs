@@ -48,7 +48,8 @@ import qualified System.Directory as FS
 import Data.IORef (readIORef, modifyIORef, IORef)
 import qualified Data.Text as T
 import qualified Data.Text.IO as TIO
-import Control.Exception (SomeException, catch, throwIO, Exception)
+import Control.Exception (SomeException, throwIO, Exception)
+import qualified Control.Exception.Safe as Safe
 import Data.Maybe (fromMaybe)
 import qualified Control.Monad.Catch as Catch
 import Control.Monad.Trans ( MonadIO, liftIO )
@@ -87,7 +88,7 @@ instance Catch.MonadThrow Sh where
 
 instance Catch.MonadCatch Sh where
   catch (Sh (ReaderT m)) c =
-      Sh $ ReaderT $ \r -> m r `Catch.catch` \e -> runSh (c e) r
+      Sh $ ReaderT $ \r -> m r `Safe.catch` \e -> runSh (c e) r
 
 runSh :: Sh a -> IORef State -> IO a
 runSh = runReaderT . unSh
@@ -315,4 +316,4 @@ traceEcho msg = trace ("echo " `mappend` "'" `mappend` msg `mappend` "'")
 -- | A helper to catch any exception (same as
 -- @... `catch` \(e :: SomeException) -> ...@).
 catchany :: IO a -> (SomeException -> IO a) -> IO a
-catchany = catch
+catchany = Safe.catch
