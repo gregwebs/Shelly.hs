@@ -20,10 +20,10 @@ jobs:
       matrix:
         os: [ubuntu-latest]
         plan:
-          - ghc: '9.12.2'
-            resolver: 'nightly-2025-08-23'
-          - ghc: '9.10.2'
-            resolver: 'lts-24.6'
+          - ghc: '9.12.4'
+            resolver: 'nightly-2026-04-01'
+          - ghc: '9.10.3'
+            resolver: 'lts-24.35'
           - ghc: '9.8.4'
             resolver: 'lts-23.28'
           - ghc: '9.6.7'
@@ -41,20 +41,20 @@ jobs:
         include:
           - os: windows-latest
             plan:
-              ghc: '9.12.2'
-              resolver: 'nightly-2025-08-23'
+              ghc: '9.12.4'
+              resolver: 'nightly-2026-04-01'
 
           - os: macos-latest
             plan:
-              ghc: '9.12.2'
-              resolver: 'nightly-2025-08-23'
+              ghc: '9.12.4'
+              resolver: 'nightly-2026-04-01'
 
     runs-on: ${{ matrix.os }}
     env:
       STACK: stack --system-ghc --no-terminal --resolver ${{ matrix.plan.resolver }}
 
     steps:
-    - uses: actions/checkout@v5
+    - uses: actions/checkout@v6
 
     - uses: haskell-actions/setup@latest
       id: setup
@@ -63,7 +63,7 @@ jobs:
         enable-stack: true
         cabal-update: false
 
-    - uses: actions/cache/restore@v4
+    - uses: actions/cache/restore@v5
       id: cache
       env:
         key: ${{ runner.os }}-stack-${{ steps.setup.outputs.stack-version }}-ghc-${{ steps.setup.outputs.ghc-version }}
@@ -84,7 +84,7 @@ jobs:
     - name: Test
       run: $STACK -j 1 test --haddock --no-haddock-deps
 
-    - uses: actions/cache/save@v4
+    - uses: actions/cache/save@v5
       if: always() && steps.cache.outputs.cache-hit != 'true'
       with:
         path: ${{ steps.setup.outputs.stack-root }}
