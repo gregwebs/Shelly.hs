@@ -392,7 +392,7 @@ run_sudo cmd args = Sudo $ run "/usr/bin/sudo" (cmd:args)
 catch_sh :: (Exception e) => Sh a -> (e -> Sh a) -> Sh a
 catch_sh action handler = do
     ref <- ask
-    liftIO $ catch (runSh action ref) (\e -> runSh (handler e) ref)
+    liftIO $ Safe.catch (runSh action ref) (\e -> runSh (handler e) ref)
 
 -- | Same as a normal 'handle' but specialized for the Sh monad.
 handle_sh :: (Exception e) => (e -> Sh a) -> Sh a -> Sh a
